@@ -1,0 +1,60 @@
+<project>
+  <capital_costs>
+    <direct_capital_costs>
+      <capital_expense name="POD">
+        <uninstalled_cost>10000.0</uninstalled_cost>
+        <installation_factor>1.5</installation_factor>
+      </capital_expense>
+    </direct_capital_costs>
+    <indirect_capital_costs>
+      <up-front_permitting_costs depreciable="True">0</up-front_permitting_costs>
+      <Land depreciable="True">10000.0</Land>
+      <one-time_licensing_fees depreciable="True">0</one-time_licensing_fees>
+      <project_contingency depreciable="True">0</project_contingency>
+      <other depreciable="True">0</other>
+      <process_contingency depreciable="True">0</process_contingency>
+      <site_prep depreciable="True">0</site_prep>
+      <engineering_and_design depreciable="True">0</engineering_and_design>
+      <Land depreciable="False">0.0</Land>
+    </indirect_capital_costs>
+  </capital_costs>
+  <variable_costs>
+    <variable_expense name="Electricity">
+      <unit_cost units="kW/hr">0.062</unit_cost>
+      <prod_req units="kJ/kg">0.5</prod_req>
+    </variable_expense>
+  </variable_costs>
+  <fixed_costs>
+    <prop_tax_and_insurance>0.0</prop_tax_and_insurance>
+    <licensing_permits_fees>0.0</licensing_permits_fees>
+    <other_fixed_op_and_maint>0.0</other_fixed_op_and_maint>
+    <other_fees>0.0</other_fees>
+    <mat_cost_maint_repair>0.0</mat_cost_maint_repair>
+    <project_staff>1000.0</project_staff>
+    <rent_or_lease>50.0</rent_or_lease>
+    <g_and_a>0.0</g_and_a>
+  </fixed_costs>
+  <debt_portfolio/>
+  <financial_parameters>
+    <Capital_expense_breakdown type="simple">
+      <item index="0">1.0</item>
+    </Capital_expense_breakdown>
+    <Target_IRR>0.15</Target_IRR>
+    <Startup_fixed_cost_breakdown>1.0</Startup_fixed_cost_breakdown>
+    <Decommissioning_cost>10000.0</Decommissioning_cost>
+    <Design_cap units="kg">100.0</Design_cap>
+    <Cap_factor>0.95</Cap_factor>
+    <Depreciation_length>20</Depreciation_length>
+    <Startup_variable_cost_breakdown>0.75</Startup_variable_cost_breakdown>
+    <Salvage_value>10000.0</Salvage_value>
+    <Inflation_rate>0.02</Inflation_rate>
+    <Startup_year>None</Startup_year>
+    <Federal_tax_rate>0.35</Federal_tax_rate>
+    <State_tax_rate>0.06</State_tax_rate>
+    <Startup_revenue_breakdown>0.5</Startup_revenue_breakdown>
+    <Initial_year>2010</Initial_year>
+    <Analysis_period>20</Analysis_period>
+    <Plant_life>20</Plant_life>
+    <Depreciation_type>straight-line</Depreciation_type>
+  </financial_parameters>
+</project>

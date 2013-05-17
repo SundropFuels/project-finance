@@ -1,0 +1,29 @@
+<project>
+  <capital_costs>
+    <direct_capital_costs/>
+    <indirect_capital_costs/>
+  </capital_costs>
+  <variable_costs/>
+  <fixed_costs/>
+  <debt_portfolio/>
+  <financial_parameters>
+    <Capital_expense_breakdown>None</Capital_expense_breakdown>
+    <Target_IRR>0.25</Target_IRR>
+    <Startup_fixed_cost_breakdown>None</Startup_fixed_cost_breakdown>
+    <Decommissioning_cost>None</Decommissioning_cost>
+    <Design_cap units="None">None</Design_cap>
+    <Cap_factor>None</Cap_factor>
+    <Depreciation_length>None</Depreciation_length>
+    <Startup_variable_cost_breakdown>None</Startup_variable_cost_breakdown>
+    <Salvage_value>None</Salvage_value>
+    <Inflation_rate>0.015</Inflation_rate>
+    <Startup_year>None</Startup_year>
+    <Federal_tax_rate>None</Federal_tax_rate>
+    <State_tax_rate>None</State_tax_rate>
+    <Startup_revenue_breakdown>None</Startup_revenue_breakdown>
+    <Initial_year>2012</Initial_year>
+    <Analysis_period>None</Analysis_period>
+    <Plant_life>None</Plant_life>
+    <Depreciation_type>None</Depreciation_type>
+  </financial_parameters>
+</project>

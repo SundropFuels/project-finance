@@ -1,0 +1,14 @@
+*.pyc
+*.csv
+*~
+*goutputstream*
+ProjectFinance1
+ProjectFinance_beta.py
+ProjectFinance_monthly.py
+ProjectFinance_prime.py
+blah.xml
+dataFrame.py
+dataFrame_rows.py
+unitConversion_testbeta.py
+
+

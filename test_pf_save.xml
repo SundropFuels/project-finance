@@ -1,0 +1,82 @@
+<?xml version="1.0"?>
+<project>
+	<capital_costs>
+		<direct_capital_costs>
+                <capital_expense name="feeder">
+			<uninstalled_cost>25000</uninstalled_cost>
+			<installation_factor>1.6</installation_factor>
+		</capital_expense>
+		<capital_expense name="POD">
+			<uninstalled_cost>160000</uninstalled_cost>
+			<installation_factor>2.5</installation_factor>
+			<comment>Pulled from file</comment>
+			<comment>No big deal</comment>
+		</capital_expense>
+		</direct_capital_costs>
+		<indirect_capital_costs>
+			<site_prep depreciable="True">100000</site_prep>
+			<engineering_and_design depreciable = "False">12</engineering_and_design>
+		</indirect_capital_costs>
+	</capital_costs>
+	<variable_costs>
+		<variable_expense name="Water">
+			<unit_cost units="gal">1.00</unit_cost>
+			<prod_req unit_var="L" unit_prod="kg">0.005</prod_req>
+		</variable_expense>
+		<variable_expense name="TMA">
+			<unit_cost units="g">200</unit_cost>
+			<prod_req unit_var="kg" unit_prod="kg">1E-6</prod_req>
+		</variable_expense>
+	</variable_costs>
+	<fixed_costs>
+		<project_staff>1000</project_staff>
+		<g_and_a>1000</g_and_a>
+		<prop_tax_and_insurance>500</prop_tax_and_insurance>
+		<rent_or_lease>999</rent_or_lease>
+		<licensing_permits_fees>1500</licensing_permits_fees>
+		<mat_cost_maint_repair>1600</mat_cost_maint_repair>
+		<other_fees>1900</other_fees>
+		<other_fixed_op_and_maint>2200</other_fixed_op_and_maint>
+	</fixed_costs>
+	<debt_portfolio>
+		<loan name="loan1">
+			<principal>100000</principal>
+			<term>20</term>
+			<rate>0.085</rate>
+			<pmt_freq>2</pmt_freq>
+			<strt_yr>2012</strt_yr>
+		</loan>
+		<loan name="loan2">
+			<principal>200000</principal>
+			<term>30</term>
+			<rate>0.095</rate>
+			<pmt_freq>1</pmt_freq>
+			<strt_yr>2013</strt_yr>
+		</loan>
+	</debt_portfolio>
+	<financial_parameters>
+		<initial_year>2012</initial_year>
+		<target_IRR>0.10</target_IRR>
+		<Depreciation_type>straight-line</Depreciation_type>
+		<Depreciation_length>20</Depreciation_length>
+		<Analysis_period>25</Analysis_period>
+		<Plant_life>20</Plant_life>
+		<Inflation_rate>0.015</Inflation_rate>
+		<State_tax_rate>0.042</State_tax_rate>
+		<Federal_tax_rate>0.35</Federal_tax_rate>
+		<Design_cap  units="kg">1000000</Design_cap>
+		<Cap_factor>0.95</Cap_factor>
+		<Capital_expense_breakdown type="simple">
+			<item index="0">0.25</item>
+			<item index="1">0.5</item>
+			<item index="2">0.25</item>
+		</Capital_expense_breakdown>
+		<Startup_revenue_breakdown>0.5</Startup_revenue_breakdown>
+		<Startup_fixed_cost_breakdown>1.0</Startup_fixed_cost_breakdown>
+		<Startup_variable_cost_breakdown>0.75</Startup_variable_cost_breakdown>
+		<Salvage_value>100</Salvage_value>
+		<Decommissioning_cost>99</Decommissioning_cost>
+	</financial_parameters>
+</project>
+			
+

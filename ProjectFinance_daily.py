@@ -1,5 +1,4 @@
 import numpy as np
-import dataFrame_v2 as df
 import unitConversion as uc
 from cp_tools import *
 import scipy.optimize as spo
@@ -9,6 +8,7 @@ from lxml import etree
 import UnitValues as uv
 import company_tools as ct
 import copy
+import pandas as pd
 
 class ProjFinError(Exception):
     def __init__(self,value):
@@ -70,7 +70,7 @@ class CapitalProject:
         end_period = ct.FinDate(ip.year() + self.fin_param['Analysis_period'], ip.month(), ip.day())
         rows = self.fin_param['Initial_period'].forward_range(end_period)
         count = {'Period':np.arange(len(rows))}
-        self.cf_sheet = df.Dataframe(array_dict = count, rows_list = rows)
+        self.cf_sheet = pd.DataFrame(data = count, index = rows)
 
     def assembleFinancials(self, price):
         """Put together the financials for a given selling price of the product"""
@@ -93,7 +93,7 @@ class CapitalProject:
         start = self.fin_param['Initial_period']
         iterator = ct.FinDate(start.year(), start.month(), start.day())
         ending_period = ct.FinDate(start.year() + self.fin_param['Analysis_period'], start.month(), start.day())
-        self.monthly_cash_sheet = df.Dataframe()
+        self.monthly_cash_sheet = pd.DataFrame()
         i = 0
 
         while iterator < ending_period:
@@ -121,7 +121,7 @@ class CapitalProject:
         start = self.fin_param['Initial_period']
         iterator = ct.FinDate(start.year(), start.month(), start.day())
         ending_period = ct.FinDate(start.year() + self.fin_param['Analysis_period'], start.month(), start.day())
-        self.annual_cash_sheet = df.Dataframe()
+        self.annual_cash_sheet = pd.DataFrame()
         i = 0
     
         while iterator < ending_period:
@@ -430,7 +430,7 @@ class FinancialParameters:
         if not is_numeric(value) and key not in ['Capital_expense_breakdown','Design_cap','Depreciation_type', 'Initial_period', 'Startup_period'] and value is not None:
             raise ProjFinError, "The specific value (%s) is not numeric" % value
 
-        if key == 'Capital_expense_breakdown' and not (isinstance(value,list) or isinstance(value,dict) or isinstance(value,df.Dataframe)) and value is not None:
+        if key == 'Capital_expense_breakdown' and not (isinstance(value,list) or isinstance(value,dict) or isinstance(value,pd.DataFrame)) and value is not None:
             raise ProjFinError, "The capital expense breakdown is not a recognized type"
 
         elif key == 'Design_cap' and value is not None:
@@ -607,7 +607,7 @@ class CapitalCosts:
         elif isinstance(expense_breakdown, dict):
             mode = "categorical"
 
-        elif isinstance(expense_breakdown, df.Dataframe):
+        elif isinstance(expense_breakdown, pd.DataFrame):
             mode = "full"
 
         else:
@@ -627,7 +627,7 @@ class CapitalCosts:
             rows = period.forward_range(end_period)
             
             capcosts = np.ones(len(rows)) * self.c_total_capital()
-            self.capex_schedule = df.Dataframe(array_dict = {'capex':capcosts}, rows_list = rows)
+            self.capex_schedule = pd.DataFrame(data = {'capex':capcosts}, index = rows)
             for y in range(0,len(expense_breakdown)):
                 capital_factor = expense_breakdown[y]/len(period.forward_range(ct.FinDate(period.year() + 1, period.month(), period.day())))
                 day = period.day()
@@ -660,7 +660,7 @@ class CapitalCosts:
             
             rows = period.forward_range(end_period)
             d = {'depreciation':np.ones(len(rows))}
-            self.depreciation_schedule = df.Dataframe(array_dict = d, rows_list = rows)
+            self.depreciation_schedule = pd.DataFrame(data = d, index = rows)
             
             deprec_value_daily = self.c_deprec_capital()/len(rows)
             self.depreciation_schedule['depreciation'] *= deprec_value_daily
@@ -669,7 +669,7 @@ class CapitalCosts:
             end_period.increment_year()
             rows = period.forward_range(end_period)
             d = {'depreciation': np.ones(len(rows))}
-            self.depreciation_schedule = df.Dataframe(array_dict = d, rows_list = rows)
+            self.depreciation_schedule = pd.DataFrame(data = d, index = rows)
             for y in range(0,length+1):
                 day = period.day()
                 year = period.year()
@@ -941,7 +941,7 @@ class Loan:
         """Generates the loan schedule from appropriate information"""
         #Should add the ability to do extra payments if desired -- just place on a separate line of the schedule, and add these in when calculating
 
-        self.schedule = df.Dataframe()
+        self.schedule = pd.DataFrame()
         self.pmt = self.principal*(self.rate/self.pmt_freq)*np.power(1+self.rate/self.pmt_freq,self.term*self.pmt_freq)/(np.power(1+self.rate/self.pmt_freq,self.term*self.pmt_freq)-1)
 
         for item in [self.principal, self.term, self.rate, self.pmt_freq, self.strt_period]:

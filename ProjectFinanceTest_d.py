@@ -12,13 +12,14 @@ import dataFrame_v2 as df
 import copy
 import UnitValues as uv
 import company_tools as ct
-
+import pandas as pd
+import datetime as dt
 
 class CapitalProjectTests(unittest.TestCase):
     """Tests for whether the implementation of a capital project is working correctly"""
     fp = pf.FinancialParameters()
     
-    fp['Initial_period'] = ct.FinDate(2012,1,1)
+    fp['Initial_period'] = dt.datetime(2012,1,1)
     fp['Startup_period']= None
     fp['Target_IRR'] = 0.15
     fp['Depreciation_type'] = 'straight-line'
@@ -42,11 +43,11 @@ class CapitalProjectTests(unittest.TestCase):
         fp1 = copy.deepcopy(CapitalProjectTests.fp)
         cap_proj = pf.CapitalProject()
         cap_proj.setFinancialParameters(fp1)
-        self.assertTrue(isinstance(cap_proj.cf_sheet,df.Dataframe))
+        self.assertTrue(isinstance(cap_proj.cf_sheet,pd.DataFrame))
         count = np.arange(0,9132)
         for i in range(len(count)):
             self.assertEqual(cap_proj.cf_sheet['Period'][i], count[i])
-        self.assertEqual(cap_proj.cf_sheet.get_row('2015-01-01'),{'Period':1096}) 
+        self.assertEqual(cap_proj.cf_sheet.loc['2015-01-01']['Period'],1096) 
 
     def testFailOnFinParamNotSet(self):
         """Test whether the aggregator fails if financial parameters not set"""
@@ -78,7 +79,7 @@ class CapitalProjectTests(unittest.TestCase):
         fc['other_fees'] = 5600.23
         cap_proj.setFixedCosts(fc)
         
-        loan = pf.Loan("loan1", principal = 10000000, term = 20, rate = 0.080, pmt_freq = 1, strt_period = ct.FinDate(2012,1,1))
+        loan = pf.Loan("loan1", principal = 10000000, term = 20, rate = 0.080, pmt_freq = 1, strt_period = dt.datetime(2012,1,1))
         dp = pf.DebtPortfolio()
 	dp.add_loan(loan)
         cap_proj.setDebt(dp)
@@ -114,7 +115,7 @@ class CapitalProjectTests(unittest.TestCase):
         fc['other_fees'] = 5600.23
         cap_proj.setFixedCosts(fc)
         
-        loan = pf.Loan("loan1", principal = 10000000, term = 20, rate = 0.080, pmt_freq = 1, strt_period = ct.FinDate(2012,1,1))
+        loan = pf.Loan("loan1", principal = 10000000, term = 20, rate = 0.080, pmt_freq = 1, strt_period = dt.datetime(2012,1,1))
         dp = pf.DebtPortfolio()
 	dp.add_loan(loan)
         cap_proj.setDebt(dp)
@@ -150,7 +151,7 @@ class CapitalProjectTests(unittest.TestCase):
         fc['other_fees'] = 5600.23
         cap_proj.setFixedCosts(fc)
         
-        loan = pf.Loan("loan1", principal = 10000000, term = 20, rate = 0.080, pmt_freq = 1, strt_period = ct.FinDate(2012,1,1))
+        loan = pf.Loan("loan1", principal = 10000000, term = 20, rate = 0.080, pmt_freq = 1, strt_period = dt.datetime(2012,1,1))
         dp = pf.DebtPortfolio()
 	dp.add_loan(loan)
         cap_proj.setDebt(dp)
@@ -186,7 +187,7 @@ class CapitalProjectTests(unittest.TestCase):
         fc['other_fees'] = 5600.23
         #cap_proj.setFixedCosts(fc)
         
-        loan = pf.Loan("loan1", principal = 10000000, term = 20, rate = 0.080, pmt_freq = 1, strt_period = ct.FinDate(2012,1,1))
+        loan = pf.Loan("loan1", principal = 10000000, term = 20, rate = 0.080, pmt_freq = 1, strt_period = dt.datetime(2012,1,1))
         dp = pf.DebtPortfolio()
 	dp.add_loan(loan)
         cap_proj.setDebt(dp)
@@ -222,7 +223,7 @@ class CapitalProjectTests(unittest.TestCase):
         fc['other_fees'] = 5600.23
         cap_proj.setFixedCosts(fc)
         
-        loan = pf.Loan("loan1", principal = 10000000, term = 20, rate = 0.080, pmt_freq = 1, strt_period = ct.FinDate(2012,1,1))
+        loan = pf.Loan("loan1", principal = 10000000, term = 20, rate = 0.080, pmt_freq = 1, strt_period = dt.datetime(2012,1,1))
         dp = pf.DebtPortfolio()
 	dp.add_loan(loan)
         #cap_proj.setDebt(dp)
@@ -238,7 +239,7 @@ class CapitalProjectTests(unittest.TestCase):
 	dates = ['2013-05-31', '2015-06-26', '2017-05-29', '2023-03-28', '2034-10-23']
         values = [1.025541, 1.064144, 1.101344, 1.222123, 1.50259]
         for date, val in zip(dates, values):
-            self.assertAlmostEqual(cap_proj.cf_sheet['Sales_price'][cap_proj.cf_sheet.row_num(date)], val,2)
+            self.assertAlmostEqual(cap_proj.cf_sheet.loc[date]['Sales_price'], val,2)
 
         
 
@@ -318,7 +319,7 @@ class CapitalProjectTests(unittest.TestCase):
 
         for date, val in zip(dates, values):
             
-            self.assertAlmostEqual(cap_proj.cf_sheet['Production'][cap_proj.cf_sheet.row_num(date)], val, 2)
+            self.assertAlmostEqual(cap_proj.cf_sheet.loc[date]['Production'], val, 2)
 
     def testSetRevenue(self):
         """Ensure that the revenue items are correctly set"""
@@ -345,9 +346,9 @@ class CapitalProjectTests(unittest.TestCase):
         
 
         for date, val in zip(dates, values):
-            self.assertAlmostEqual(cap_proj.cf_sheet['Sales'][cap_proj.cf_sheet.row_num(date)], val,2)
-            self.assertAlmostEqual(cap_proj.cf_sheet['Revenue'][cap_proj.cf_sheet.row_num(date)], val, 2)
-        self.assertAlmostEqual(cap_proj.cf_sheet['Salvage'][cap_proj.cf_sheet.row_num('2035-01-01')], 400000, 2)
+            self.assertAlmostEqual(cap_proj.cf_sheet.loc[date]['Sales'], val,2)
+            self.assertAlmostEqual(cap_proj.cf_sheet.loc[date]['Revenue'], val, 2)
+        self.assertAlmostEqual(cap_proj.cf_sheet.loc['2035-01-01']['Salvage'], 400000, 2)
 
     def testSetVariableCosts(self):
         """The variable costs must be calculated correctly"""
@@ -383,7 +384,7 @@ class CapitalProjectTests(unittest.TestCase):
 
         for date, val in zip(dates, values):
 
-            self.assertAlmostEqual(cap_proj.cf_sheet['Variable_costs'][cap_proj.cf_sheet.row_num(date)],val,2)
+            self.assertAlmostEqual(cap_proj.cf_sheet.loc[date]['Variable_costs'],val,2)
 
 
     def testBadVariableCosts(self):
@@ -445,7 +446,7 @@ class CapitalProjectTests(unittest.TestCase):
      
 
         for date, val in zip(dates, values):
-            self.assertAlmostEqual(cap_proj.cf_sheet['Fixed_costs'][cap_proj.cf_sheet.row_num(date)], val,2)
+            self.assertAlmostEqual(cap_proj.cf_sheet.loc[date]['Fixed_costs'], val,2)
 
 
     def testBadFixedCosts(self):
@@ -508,7 +509,7 @@ class CapitalProjectTests(unittest.TestCase):
         fc['other_fees'] = 5600.23
         cap_proj.setFixedCosts(fc)
         cap_proj._calcFixedCosts()
-        loan = pf.Loan("loan1", principal = 10000000, term = 20, rate = 0.080, pmt_freq = 1, strt_period = ct.FinDate(2012,1,1))
+        loan = pf.Loan("loan1", principal = 10000000, term = 20, rate = 0.080, pmt_freq = 1, strt_period = dt.datetime(2012,1,1))
         dp = pf.DebtPortfolio()
 	dp.add_loan(loan)
         cap_proj.setDebt(dp)
@@ -522,9 +523,9 @@ class CapitalProjectTests(unittest.TestCase):
 
         for d, i, p, pro in zip(dates, interest, principal_paid, proceeds):
 
-            self.assertEqual(pro, cap_proj.cf_sheet['Loan_proceeds'][cap_proj.cf_sheet.row_num(d)])
-            self.assertAlmostEqual(i, cap_proj.cf_sheet['Interest'][cap_proj.cf_sheet.row_num(d)],2)
-            self.assertAlmostEqual(p, cap_proj.cf_sheet['Principal_payments'][cap_proj.cf_sheet.row_num(d)],2)
+            self.assertEqual(pro, cap_proj.cf_sheet.loc[d]['Loan_proceeds'])
+            self.assertAlmostEqual(i, cap_proj.cf_sheet.loc[d]['Interest'],2)
+            self.assertAlmostEqual(p, cap_proj.cf_sheet.loc[d]['Principal_payments'],2)
 
 
     def testBadDebt(self):
@@ -593,7 +594,7 @@ class CapitalProjectTests(unittest.TestCase):
         fc['other_fees'] = 5600.23
         cap_proj.setFixedCosts(fc)
         cap_proj._calcFixedCosts()
-        loan = pf.Loan("loan1", principal = 10000000, term = 20, rate = 0.080, pmt_freq = 1, strt_period = ct.FinDate(2012,1,1))
+        loan = pf.Loan("loan1", principal = 10000000, term = 20, rate = 0.080, pmt_freq = 1, strt_period = dt.datetime(2012,1,1))
         dp = pf.DebtPortfolio()
 	dp.add_loan(loan)
         cap_proj.setDebt(dp)
@@ -613,11 +614,11 @@ class CapitalProjectTests(unittest.TestCase):
      
 
         for date, cos, E, p, inc, tx in zip(dates, cost_of_sales, EBITDA, pdi, ti, tax):
-            self.assertAlmostEqual(cap_proj.cf_sheet['Cost_of_sales'][cap_proj.cf_sheet.row_num(date)], cos,2)
-            self.assertAlmostEqual(cap_proj.cf_sheet['EBITDA'][cap_proj.cf_sheet.row_num(date)], E, 2)
-            #self.assertAlmostEqual(cap_proj.cf_sheet['Pre-depreciation_income'][cap_proj.cf_sheet.row_num(date)], p, 2)
-            #self.assertAlmostEqual(cap_proj.cf_sheet['Taxable_income'][cap_proj.cf_sheet.row_num(date)], inc, 2)
-            #self.assertAlmostEqual(cap_proj.cf_sheet['Taxes'][cap_proj.cf_sheet.row_num(date)], tx, 2)
+            self.assertAlmostEqual(cap_proj.cf_sheet.loc[date]['Cost_of_sales'], cos,2)
+            self.assertAlmostEqual(cap_proj.cf_sheet.loc[date]['EBITDA'], E, 2)
+            #self.assertAlmostEqual(cap_proj.cf_sheet.loc[date]['Pre-depreciation_income'], p, 2)
+            #self.assertAlmostEqual(cap_proj.cf_sheet.loc[date]['Taxable_income'], inc, 2)
+            #self.assertAlmostEqual(cap_proj.cf_sheet.loc[date]['Taxes'], tx, 2)
         
 	"""
         for i in range(len(decom_costs)):
@@ -634,8 +635,8 @@ class CapitalProjectTests(unittest.TestCase):
     def testAssembleFinancials(self):
         """Test whether the aggregator works as required"""
         fp1 = pf.FinancialParameters()
-    
-        fp1['Initial_period'] = ct.FinDate(2012,1,1)
+        
+        fp1['Initial_period'] = dt.datetime(2012,1,1)
         fp1['Startup_period']= None
         fp1['Target_IRR'] = 0.15
         fp1['Depreciation_type'] = 'straight-line'
@@ -682,8 +683,8 @@ class CapitalProjectTests(unittest.TestCase):
         fc['other_fees'] = 0.0
         cap_proj.setFixedCosts(fc)
         
-        loan = pf.Loan("loan1", principal = 2.5E8, term = 10, rate = 0.085, pmt_freq = 2, strt_period = ct.FinDate(2012,1,1))
-	loan2 = pf.Loan("loan2", principal = 3.5E8, term = 10, rate = 0.08, pmt_freq = 2, strt_period = ct.FinDate(2012,1,1))
+        loan = pf.Loan("loan1", principal = 2.5E8, term = 10, rate = 0.085, pmt_freq = 2, strt_period = dt.datetime(2012,1,1))
+	loan2 = pf.Loan("loan2", principal = 3.5E8, term = 10, rate = 0.08, pmt_freq = 2, strt_period = dt.datetime(2012,1,1))
         dp = pf.DebtPortfolio()
 	dp.add_loan(loan)
         dp.add_loan(loan2)
@@ -699,7 +700,7 @@ class CapitalProjectTests(unittest.TestCase):
         ##daily_df = df.generateDataframeFromCSV(f_daily, col_for_rows = 'Date')
         ##monthly_df = df.generateDataframeFromCSV(f_monthly, col_for_rows = 'Date')
         ##annual_df = df.generateDataframeFromCSV(f_annual, col_for_rows = 'Date')
-        for i in range(0,cap_proj.annual_cash_sheet.numrows()):
+        for i in range(0,len(cap_proj.annual_cash_sheet)):
             
             print "Period: %s\tFixed_cost:%s" % (cap_proj.annual_cash_sheet['Period'][i], cap_proj.annual_cash_sheet['Interest'][i])
 	"""
@@ -758,14 +759,14 @@ class CapitalProjectTests(unittest.TestCase):
         fc['other_fees'] = 5600.23
         cap_proj.setFixedCosts(fc)
         
-        loan = pf.Loan("loan1", principal = 10000000, term = 20, rate = 0.080, pmt_freq = 1, strt_period = ct.FinDate(2012,1,1))
+        loan = pf.Loan("loan1", principal = 10000000, term = 20, rate = 0.080, pmt_freq = 1, strt_period = dt.datetime(2012,1,1))
         dp = pf.DebtPortfolio()
 	dp.add_loan(loan)
         cap_proj.setDebt(dp)
         cap_proj.assembleFinancials(price = (2.0, 'fixed'))
         #print cap_proj.cf_sheet['Net_cash_flow']
-        cap_proj.printFinancials(filename = 'cfs.csv')
-
+        #cap_proj.printFinancials(filename = 'cfs.csv')
+        self.assertEqual(1,0)
         #self.assertAlmostEqual(cap_proj.calcIRR(), 'what')
         #self.assertAlmostEqual(cap_proj.calcNPV(0.25),'what')
 
@@ -777,8 +778,8 @@ class FinancialParametersTests(unittest.TestCase):
     def testCorrectAccess(self):
         """Tests if the FinancialParameters object correctly sets and accesses items"""
         fp = pf.FinancialParameters()
-        fp['Initial_period'] = ct.FinDate(2024,1,1)
-        self.assertEqual(fp['Initial_period'],ct.FinDate(2024,1,1))
+        fp['Initial_period'] = dt.datetime(2024,1,1)
+        self.assertEqual(fp['Initial_period'],dt.datetime(2024,1,1))
 
     def testBadKey(self):
         fp = pf.FinancialParameters()
@@ -810,9 +811,9 @@ class FinancialParametersTests(unittest.TestCase):
             elif key == 'Design_cap':
                 fp[key] = uv.UnitVal(453, 'gal')
             elif key == 'Initial_period':
-                fp[key] = ct.FinDate(2012,1,1)
+                fp[key] = dt.datetime(2012,1,1)
             elif key == 'Startup_period':
-                fp[key] = ct.FinDate(2012,2,2) 
+                fp[key] = dt.datetime(2012,2,2) 
             else:
                 fp[key] = 2.1
 
@@ -912,7 +913,7 @@ class CapitalCostTests(unittest.TestCase):
         for (key,value) in deprec.items():
             capcosts.indirect_deprec_capital[key] = value
         capcosts.indirect_nondeprec_capital['Land'] = 10000
-        year1 = ct.FinDate(2012,1,1)
+        year1 = dt.datetime(2012,1,1)
         length = 10
         #spot check the values that are charged
         dates = np.array(['2012-01-01', '2014-03-20', '2016-02-29', '2012-12-31'])
@@ -921,8 +922,7 @@ class CapitalCostTests(unittest.TestCase):
         
         capcosts.build_depreciation_schedule(year1, length, "straight-line")
         for date, v in zip(dates,values):
-            index = capcosts.depreciation_schedule.row_num(date)
-            self.assertEqual(capcosts.depreciation_schedule['depreciation'][index],v)
+            self.assertEqual(capcosts.depreciation_schedule.loc[date]['depreciation'],v)
         
         
 
@@ -937,7 +937,7 @@ class CapitalCostTests(unittest.TestCase):
         for (key,value) in deprec.items():
             capcosts.indirect_deprec_capital[key] = value
         capcosts.indirect_nondeprec_capital['Land'] = 10000
-        year1 = ct.FinDate(2012,1,1)
+        year1 = dt.datetime(2012,1,1)
         #3 year MACRS
         length = 3
         years = np.array([2012,2013,2014,2015])
@@ -945,8 +945,8 @@ class CapitalCostTests(unittest.TestCase):
         capcosts.build_depreciation_schedule(year1,length,"MACRS")
         #Get annual totals to match to the given totals above
         schedule = np.zeros(4)
-        for date in capcosts.depreciation_schedule.rows():
-            schedule[int(date[0:4])-2012] += capcosts.depreciation_schedule['depreciation'][capcosts.depreciation_schedule.row_num(date)]
+        for date in capcosts.depreciation_schedule.index:
+            schedule[int(date[0:4])-2012] += capcosts.depreciation_schedule.loc[date]['depreciation']
 
 
         for i in range(len(values)):
@@ -958,8 +958,8 @@ class CapitalCostTests(unittest.TestCase):
         values = np.array([184.2, 294.72, 176.832, 106.0992, 106.0992, 53.0496])
         capcosts.build_depreciation_schedule(year1,length,"MACRS")
         schedule = np.zeros(6)
-        for date in capcosts.depreciation_schedule.rows():
-            schedule[int(date[0:4])-2012] += capcosts.depreciation_schedule['depreciation'][capcosts.depreciation_schedule.row_num(date)]
+        for date in capcosts.depreciation_schedule.index:
+            schedule[int(date[0:4])-2012] += capcosts.depreciation_schedule.loc[date]['depreciation']
 
 
         for i in range(len(values)):
@@ -971,8 +971,8 @@ class CapitalCostTests(unittest.TestCase):
         values = np.array([131.6109, 225.5529, 161.0829, 115.0329, 82.2453, 82.1532, 82.2453, 41.0766])
         capcosts.build_depreciation_schedule(year1,length,"MACRS")
         schedule = np.zeros(8)
-        for date in capcosts.depreciation_schedule.rows():
-            schedule[int(date[0:4])-2012] += capcosts.depreciation_schedule['depreciation'][capcosts.depreciation_schedule.row_num(date)]
+        for date in capcosts.depreciation_schedule.index:
+            schedule[int(date[0:4])-2012] += capcosts.depreciation_schedule.loc[date]['depreciation']
 
 
         for i in range(len(values)):
@@ -984,8 +984,8 @@ class CapitalCostTests(unittest.TestCase):
         values = np.array([92.1,165.78,132.624,106.0992,84.9162,67.8777,60.3255,60.3255,60.4176,60.3255,30.2088])
         capcosts.build_depreciation_schedule(year1,length,"MACRS")
         schedule = np.zeros(11)
-        for date in capcosts.depreciation_schedule.rows():
-            schedule[int(date[0:4])-2012] += capcosts.depreciation_schedule['depreciation'][capcosts.depreciation_schedule.row_num(date)]
+        for date in capcosts.depreciation_schedule.index:
+            schedule[int(date[0:4])-2012] += capcosts.depreciation_schedule.loc[date]['depreciation']
 
 
         for i in range(len(values)):
@@ -998,8 +998,8 @@ class CapitalCostTests(unittest.TestCase):
         capcosts.build_depreciation_schedule(year1,length,"MACRS")
         
         schedule = np.zeros(16)
-        for date in capcosts.depreciation_schedule.rows():
-            schedule[int(date[0:4])-2012] += capcosts.depreciation_schedule['depreciation'][capcosts.depreciation_schedule.row_num(date)]
+        for date in capcosts.depreciation_schedule.index:
+            schedule[int(date[0:4])-2012] += capcosts.depreciation_schedule.loc[date]['depreciation']
 
 
         for i in range(len(values)):
@@ -1013,8 +1013,8 @@ class CapitalCostTests(unittest.TestCase):
         capcosts.build_depreciation_schedule(year1,length,"MACRS")
         
         schedule = np.zeros(21)
-        for date in capcosts.depreciation_schedule.rows():
-            schedule[int(date[0:4])-2012] += capcosts.depreciation_schedule['depreciation'][capcosts.depreciation_schedule.row_num(date)]
+        for date in capcosts.depreciation_schedule.index:
+            schedule[int(date[0:4])-2012] += capcosts.depreciation_schedule.loc[date]['depreciation']
 
 
         for i in range(len(values)):
@@ -1110,27 +1110,27 @@ class LoanTests(unittest.TestCase):
 
     def testCorrectlyGenerateScheduleAnnual(self):
         """Testing correct loan schedule generation for annual coupon payments"""
-        loan = pf.Loan("loan1", principal = 686000, term = 20, rate = 0.085, pmt_freq = 1, strt_period = ct.FinDate(2015,1,1))
+        loan = pf.Loan("loan1", principal = 686000, term = 20, rate = 0.085, pmt_freq = 1, strt_period = dt.datetime(2015,1,1))
         loan.generate_schedule()
 
-        dates = np.array(['2016-01-01','2017-01-01','2018-01-01', '2024-01-01', '2035-01-01'])
+        dates = np.array(['2015-12-31','2016-12-31','2017-12-31', '2018-12-31', '2019-12-31'])
         principal = np.array([671819.7116, 656434.0987, 639740.7086, 505183.688, 0.0])
         interest = np.array([58310, 57104.67549, 55796.89839, 45255.56497, 5678.962686])
         principal_paid = np.array([14180.29, 15385.61, 16693.39, 27234.72, 66811.33])
         
         for date, p, i, pp in zip(dates, principal, interest, principal_paid):
-            rownum = loan.schedule.row_num(date)
-            self.assertAlmostEqual(loan.schedule['principal'][rownum],p,2)
-            self.assertAlmostEqual(loan.schedule['interest'][rownum],i,2)
-            self.assertAlmostEqual(loan.schedule['principal_payment'][rownum],pp,2) 
+            
+            self.assertAlmostEqual(loan.schedule.loc[date]['principal'],p,2)
+            self.assertAlmostEqual(loan.schedule.loc[date]['interest'],i,2)
+            self.assertAlmostEqual(loan.schedule.loc[date]['principal_payment'],pp,2) 
         
 
     def testCorrectlyGenerateScheduleBiAnnual(self):
         """Testing correct loan schedule generation for bi-annual coupon payments"""
-        loan = pf.Loan("loan1", principal = 686000, term = 20, rate = 0.085, pmt_freq = 2, strt_period = ct.FinDate(2012,1,1))
+        loan = pf.Loan("loan1", principal = 686000, term = 20, rate = 0.085, pmt_freq = 2, strt_period = dt.datetime(2012,1,1))
         loan.generate_schedule()
 
-        dates = np.array(['2012-07-01', '2013-01-01', '2013-07-01', '2016-07-01', '2022-01-01', '2027-07-01', '2032-01-01'])
+        dates = np.array(['2012-06-30', '2012-12-31', '2013-06-30', '2016-06-30', '2021-12-31', '2027-06-30', '2031-12-31'])
         
 
         
@@ -1139,16 +1139,16 @@ class LoanTests(unittest.TestCase):
         principal_paid = np.array([6804.015,7093.185,7394.646,9492.35,15004.12,23716.31,34493.06])
         
         for date, p, i, pp in zip(dates,principal,interest,principal_paid):
-            rownum = loan.schedule.row_num(date)
-            self.assertAlmostEqual(loan.schedule['principal'][rownum],p,2)
-            self.assertAlmostEqual(loan.schedule['interest'][rownum],i,2)
-            self.assertAlmostEqual(loan.schedule['principal_payment'][rownum],pp,2)
-        self.assertAlmostEqual(loan.schedule['cash_proceeds'][0],686000,2)
+            
+            self.assertAlmostEqual(loan.schedule.loc[date]['principal'],p,2)
+            self.assertAlmostEqual(loan.schedule.loc[date]['interest'],i,2)
+            self.assertAlmostEqual(loan.schedule.loc[date]['principal_payment'],pp,2)
+        self.assertAlmostEqual(loan.schedule.loc[0]['cash_proceeds'],686000,2)
 
 class DebtPortfolioTests(unittest.TestCase):
     def testAddLoan(self):
         """DebtPortfolio must correctly add a loan to its set of loans"""
-	loan = pf.Loan("loan1", principal = 686000, term = 20, rate = 0.085, pmt_freq = 1, strt_period = ct.FinDate(2015,2,27))
+	loan = pf.Loan("loan1", principal = 686000, term = 20, rate = 0.085, pmt_freq = 1, strt_period = dt.datetime(2015,2,27))
 	dp = pf.DebtPortfolio()
         dp.add_loan(loan)
         self.assertEqual(dp.loans[0],loan)
@@ -1161,45 +1161,45 @@ class DebtPortfolioTests(unittest.TestCase):
     def testRepeatedLoan(self):
         """Repeating a loan in the add list should raise an error"""
         dp = pf.DebtPortfolio()
-        loan = pf.Loan("loan1", principal = 686000, term = 20, rate = 0.085, pmt_freq = 1, strt_period = ct.FinDate(2015,1,1))
+        loan = pf.Loan("loan1", principal = 686000, term = 20, rate = 0.085, pmt_freq = 1, strt_period = dt.datetime(2015,1,1))
 	dp.add_loan(loan)
 	self.assertRaises(pf.ProjFinError, dp.add_loan, loan)
 
     def testDelLoan(self):
         """DebtPortfolio must correctly remove a loan from its set of loans"""
-	loan = pf.Loan("loan1", principal = 686000, term = 20, rate = 0.085, pmt_freq = 1, strt_period = ct.FinDate(2015,1,1))
+	loan = pf.Loan("loan1", principal = 686000, term = 20, rate = 0.085, pmt_freq = 1, strt_period = dt.datetime(2015,1,1))
 	dp = pf.DebtPortfolio()
         dp.add_loan(loan)
-        loan2 = pf.Loan("loan2", principal = 750000, term = 15, rate = 0.134, pmt_freq = 2, strt_period = ct.FinDate(2017,3,15))
+        loan2 = pf.Loan("loan2", principal = 750000, term = 15, rate = 0.134, pmt_freq = 2, strt_period = dt.datetime(2017,3,15))
         dp.add_loan(loan2)
         dp.del_loan("loan1")
         self.assertEqual(dp.loans, [loan2])
 
     def testCIPcalc(self):
         """Must correctly calculate cash proceeds, interest, and principal for a loan"""
-        loan = pf.Loan("loan1", principal = 686000, term = 20, rate = 0.085, pmt_freq = 1, strt_period = ct.FinDate(2012,1,1))
-        loan2 = pf.Loan("loan2", principal = 750000, term = 15, rate = 0.134, pmt_freq = 2, strt_period = ct.FinDate(2012,1,1))
+        loan = pf.Loan("loan1", principal = 686000, term = 20, rate = 0.085, pmt_freq = 1, strt_period = dt.datetime(2012,1,1))
+        loan2 = pf.Loan("loan2", principal = 750000, term = 15, rate = 0.134, pmt_freq = 2, strt_period = dt.datetime(2012,1,1))
         #ensure correct cash, interest, principal in 2017 and in 2024
 
         dp = pf.DebtPortfolio()
 	dp.add_loan(loan)
         dp.add_loan(loan2)
-        d1 = ct.FinDate(2012, 7, 1)
-        d2 = ct.FinDate(2013, 1, 1)
-        d3 = ct.FinDate(2027, 1, 1)
-        d4 = ct.FinDate(2029, 1, 1)
-        self.assertAlmostEqual(dp.CIP(d1.output_date())[0], 0,2)
-        self.assertAlmostEqual(dp.CIP(d1.output_date())[1], 50250,2)
-        self.assertAlmostEqual(dp.CIP(d1.output_date())[2], 8378.7234,2)
-        self.assertAlmostEqual(dp.CIP(d2.output_date())[0], 0.0,2)
-        self.assertAlmostEqual(dp.CIP(d2.output_date())[1], 107998.6255,2)
-        self.assertAlmostEqual(dp.CIP(d2.output_date())[2], 23120.38631,2)
-        self.assertAlmostEqual(dp.CIP(d3.output_date())[0], 0.0,2)
-        self.assertAlmostEqual(dp.CIP(d3.output_date())[1], 31739.18825,2)
-        self.assertAlmostEqual(dp.CIP(d3.output_date())[2], 99379.8236,2)
-        self.assertAlmostEqual(dp.CIP(d4.output_date())[0], 0.0,2)
-        self.assertAlmostEqual(dp.CIP(d4.output_date())[1], 20183.16043,2)
-        self.assertAlmostEqual(dp.CIP(d4.output_date())[2], 52307.12798,2)
+        d1 = dt.datetime(2012, 7, 1)
+        d2 = dt.datetime(2013, 1, 1)
+        d3 = dt.datetime(2027, 1, 1)
+        d4 = dt.datetime(2029, 1, 1)
+        self.assertAlmostEqual(dp.CIP(d1)[0], 0,2)
+        self.assertAlmostEqual(dp.CIP(d1)[1], 50250,2)
+        self.assertAlmostEqual(dp.CIP(d1)[2], 8378.7234,2)
+        self.assertAlmostEqual(dp.CIP(d2)[0], 0.0,2)
+        self.assertAlmostEqual(dp.CIP(d2)[1], 107998.6255,2)
+        self.assertAlmostEqual(dp.CIP(d2)[2], 23120.38631,2)
+        self.assertAlmostEqual(dp.CIP(d3)[0], 0.0,2)
+        self.assertAlmostEqual(dp.CIP(d3)[1], 31739.18825,2)
+        self.assertAlmostEqual(dp.CIP(d3)[2], 99379.8236,2)
+        self.assertAlmostEqual(dp.CIP(d4)[0], 0.0,2)
+        self.assertAlmostEqual(dp.CIP(d4)[1], 20183.16043,2)
+        self.assertAlmostEqual(dp.CIP(d4)[2], 52307.12798,2)
 
 
 

@@ -9,6 +9,9 @@ import UnitValues as uv
 import company_tools as ct
 import copy
 import pandas as pd
+import datetime as dt
+import pandas.tseries.offsets as offs
+from pandas.tseries.offsets import DateOffset
 
 class ProjFinError(Exception):
     def __init__(self,value):
@@ -66,26 +69,33 @@ class CapitalProject:
 
     def _initialize_cash_sheet(self):
         #The main cash sheet is performed daily.  I will write functions to do annual, quarterly, and monthly roll-ups.
-        ip = self.fin_param['Initial_period']
-        end_period = ct.FinDate(ip.year() + self.fin_param['Analysis_period'], ip.month(), ip.day())
-        rows = self.fin_param['Initial_period'].forward_range(end_period)
-        count = {'Period':np.arange(len(rows))}
-        self.cf_sheet = pd.DataFrame(data = count, index = rows)
+        ip = self.fin_param['Initial_period']				#This must be a datetime object for this to work -- this assignment may be unnecessary
+        dates = pd.date_range(ip, end = ip + self.fin_param['Analysis_period']*DateOffset(years=1), freq = 'D')
+        count = {'Period':np.arange(len(dates))}
+        self.cf_sheet = pd.DataFrame(data = count, index = dates)
 
     def assembleFinancials(self, price):
         """Put together the financials for a given selling price of the product"""
         #Currently, price is in the format (price, mode) where price is the price in the first year, and mode is the mode of inflation -- this stuff should be coded into financial parameters!
         if False in self.check_bits:
             raise ProjFinError, "Not all of the inputs (capex, etc.) have been set yet"        
-
+        print "in assembleFinancials"
         self._calcCapitalCosts()
+        print "Capital costs calc'd"
         self.setAnnualOutput()
+        print "Annual output set"
         self.setPrices(price[0], price[1])
+        print "Prices set"
         self.setRevenue()
+        print "Revenue set"
         self._calcVariableCosts()
+        print "Variable costs set"
         self._calcFixedCosts()
+        print "Fixed costs set"
         self._calcDebt()
+        print "Debt calc'd"
         self.setOtherFinancials()
+        print "other financials set"
 
     def rollUpMonthly(self):
         """Rolls up current sheet into monthly totals of each column -- also, calculates net taxes and puts credits into reserve (FUTURE)"""
@@ -145,7 +155,7 @@ class CapitalProject:
 
         cols = ('Production','Sales','Salvage','Revenue','Variable_costs','Fixed_costs','Decommissioning_costs','Cost_of_sales','EBITDA','Interest','Depreciation','Taxable_income','Taxes','After-tax_income','Capital_expenditures','Principal_payments','Net_cash_flow')
         order = ['Category']
-        order.extend(self.cf_sheet.rows())
+        order.extend(self.cf_sheet.index)
         
 
         if filename is not None:
@@ -195,7 +205,7 @@ class CapitalProject:
         if mode == "fixed":
             #create the daily periodic inflation rate from the indicated annual rate
             daily_rate = np.power(1+self.fin_param['Inflation_rate'], 1.0/365.0) - 1.0  #explictly ignores leap years (which should have a slightly higher inflation price)
-            self.cf_sheet['Sales_price'] = np.ones(self.cf_sheet.numrows())*base_price*np.power(1+daily_rate,self.cf_sheet['Period'])
+            self.cf_sheet['Sales_price'] = np.ones(len(self.cf_sheet))*base_price*np.power(1+daily_rate,self.cf_sheet['Period'])
             
 
         elif mode == "pre-set":
@@ -207,34 +217,26 @@ class CapitalProject:
 
     def setAnnualOutput(self):
         """Creates the annual output column for production level, adjusted for startup considerations"""
-        output = np.zeros(self.cf_sheet.numrows())
+        output = pd.DataFrame(np.zeros(len(self.cf_sheet)), index = self.cf_sheet.index)
         ann_out = self.fin_param['Cap_factor'] * self.fin_param['Design_cap'].value
         daily_out = ann_out/365.0		
-        end_period = self.fin_param['Startup_period'] + (self.fin_param['Plant_life'],'year')
-        for day in self.cf_sheet.rows():
-            if day < self.fin_param['Startup_period'].output_date() or day > end_period.output_date():
-                #zeros are fine here...do nothing
-                pass
+        end_period = self.fin_param['Startup_period'] + self.fin_param['Plant_life']*DateOffset(years=1)
+        output[self.fin_param['Startup_period']:self.fin_param['Startup_period']+DateOffset(years=1)] = self.fin_param['Startup_revenue_breakdown']*daily_out
+        output[self.fin_param['Startup_period']+DateOffset(years=1):end_period] = daily_out
 
-            elif day >= self.fin_param['Startup_period'].output_date() and day < (self.fin_param['Startup_period'] + (1,'year')).output_date():
-                output[self.cf_sheet.row_num(day)] = self.fin_param['Startup_revenue_breakdown']*daily_out
         
-            else:
-                output[self.cf_sheet.row_num(day)] = daily_out
-
         self.cf_sheet['Production'] = output
-        self.cf_sheet.units['Production'] = self.fin_param['Design_cap'].units
-        #Currently, not using units, although I certainly could and us the unit conversion engine to get correct revenues
+        
 
 
 
     def setRevenue(self):
         """Creates the sales, salvage, and revenues columns"""
         self.cf_sheet['Sales'] = self.cf_sheet['Production'] * self.cf_sheet['Sales_price']
-        self.cf_sheet['Salvage'] = np.zeros(self.cf_sheet.numrows())
+        self.cf_sheet['Salvage'] = np.zeros(len(self.cf_sheet))
         
         try:
-            self.cf_sheet['Salvage'][self.cf_sheet.row_num((self.fin_param['Startup_period'] + (self.fin_param['Plant_life'],'year')).output_date())] = self.fin_param['Salvage_value']
+            self.cf_sheet.loc[self.fin_param['Startup_period']+self.fin_param['Plant_life']*DateOffset(years=1)]['Salvage'] = self.fin_param['Salvage_value']
         except KeyError:
             pass
         self.cf_sheet['Revenue'] = self.cf_sheet['Sales'] + self.cf_sheet['Salvage']
@@ -254,17 +256,17 @@ class CapitalProject:
         self.fin_param['Startup_period'] = self.capex.build_capex_schedule(self.fin_param['Initial_period'], self.fin_param['Capital_expense_breakdown'])
         
         self.capex.build_depreciation_schedule(starting_period = self.fin_param['Startup_period'], length = self.fin_param['Depreciation_length'], method = self.fin_param['Depreciation_type'])
-
+        
         #Set up the columns in the cashflow sheet to be the proper length
-        self.cf_sheet['Capital_expenditures'] = np.zeros(self.cf_sheet.numrows())
-        self.cf_sheet['Depreciation'] = np.zeros(self.cf_sheet.numrows())
-        i = 0
+        self.cf_sheet['Capital_expenditures'] = np.zeros(len(self.cf_sheet))
+        self.cf_sheet['Depreciation'] = np.zeros(len(self.cf_sheet))
+        
         #Fill the columns by year matching
         
-        for date in self.cf_sheet.rows():
-            row_num = self.cf_sheet.row_num(date)
-            (self.cf_sheet['Capital_expenditures'][row_num],self.cf_sheet['Depreciation'][row_num]) = self.capex.costs_and_depreciation(date)
-           
+        for date in self.cf_sheet.index:
+            
+            (self.cf_sheet.loc[date]['Capital_expenditures'],self.cf_sheet.loc[date]['Depreciation']) = self.capex.costs_and_depreciation(date)
+        
           
 
     def setVariableCosts(self, VC):
@@ -278,7 +280,7 @@ class CapitalProject:
         if self.variable_costs is None:
             raise ProjFinError, "You must set the variable costs before you can calculate them"
         daily_rate = np.power(1+self.fin_param['Inflation_rate'], 1.0/365.0) - 1.0
-        self.cf_sheet['Variable_costs'] = np.ones(self.cf_sheet.numrows())*self.variable_costs.c_total_VC(self.cf_sheet.units['Production'])*self.cf_sheet['Production']*np.power(1+daily_rate,self.cf_sheet['Period'])
+        self.cf_sheet['Variable_costs'] = np.ones(len(self.cf_sheet))*self.variable_costs.c_total_VC(self.fin_param['Design_cap'].units)*self.cf_sheet['Production']*np.power(1+daily_rate,self.cf_sheet['Period'])
 
     def setFixedCosts(self, FC):
         if not isinstance(FC, FixedCosts):
@@ -291,16 +293,14 @@ class CapitalProject:
             raise ProjFinError, "You must set the fixed costs before you can calculate them"
 
         total = self.fixed_costs.c_total_fixed_costs()/365		#The fixed cost settings are on an annual basis
-        mask = np.zeros(self.cf_sheet.numrows())
-        #This is wrong -- really should shift to the monthly now
-        for period in self.cf_sheet.rows():
-            if period >= self.fin_param['Startup_period'].output_date() and period < (self.fin_param['Startup_period']+(1,'year')).output_date():
-                mask[self.cf_sheet.row_num(period)] = self.fin_param['Startup_fixed_cost_breakdown']
-            elif period > self.fin_param['Startup_period'].output_date() and period <= (self.fin_param['Startup_period']+(self.fin_param['Plant_life'],'year')).output_date():
-                mask[self.cf_sheet.row_num(period)] = 1
+        mask = pd.DataFrame(data = np.zeros(len(self.cf_sheet)), index = self.cf_sheet.index)
+        #Could easily generalize for a startup length here
+        mask[self.fin_param['Startup_period']:self.fin_param['Startup_period']+DateOffset(years=1)] = self.fin_param['Startup_fixed_cost_breakdown']
+        mask[self.fin_param['Startup_period']+DateOffset(years=1):] = 1.0
+  
 
         daily_rate = np.power(1+self.fin_param['Inflation_rate'], 1.0/365.0) - 1.0
-        self.cf_sheet['Fixed_costs'] = np.ones(self.cf_sheet.numrows())*total*np.power(1+daily_rate,self.cf_sheet['Period'])*mask
+        self.cf_sheet['Fixed_costs'] = np.ones(len(self.cf_sheet))*total*np.power(1+daily_rate,self.cf_sheet['Period'])*mask
 
     def setDebt(self, debt_pf):
         if not isinstance(debt_pf, DebtPortfolio):
@@ -315,19 +315,19 @@ class CapitalProject:
             raise ProjFinError, "You must set the debt portfolio before you can calculate the debt"
 
 
-        self.cf_sheet['Loan_proceeds'] = np.zeros(self.cf_sheet.numrows())
-        self.cf_sheet['Interest'] = np.zeros(self.cf_sheet.numrows())
-        self.cf_sheet['Principal_payments'] = np.zeros(self.cf_sheet.numrows())
+        self.cf_sheet['Loan_proceeds'] = np.zeros(len(self.cf_sheet))
+        self.cf_sheet['Interest'] = np.zeros(len(self.cf_sheet))
+        self.cf_sheet['Principal_payments'] = np.zeros(len(self.cf_sheet))
 
-        for period in self.cf_sheet.rows():
-            (self.cf_sheet['Loan_proceeds'][self.cf_sheet.row_num(period)],self.cf_sheet['Interest'][self.cf_sheet.row_num(period)],self.cf_sheet['Principal_payments'][self.cf_sheet.row_num(period)]) = self.debt.CIP(period)
+        for period in self.cf_sheet.index:
+            (self.cf_sheet.loc[period]['Loan_proceeds'],self.cf_sheet.loc[period]['Interest'],self.cf_sheet.loc[period]['Principal_payments']) = self.debt.CIP(period)
         
     def setOtherFinancials(self):
         """Sets the decommissioning cost, and calculates EBITDA, net Income, taxes, and cash flow"""
         #Need to check order bits here
-        self.cf_sheet['Decommissioning_costs'] = np.zeros(self.cf_sheet.numrows())
+        self.cf_sheet['Decommissioning_costs'] = np.zeros(len(self.cf_sheet))
         try:
-            self.cf_sheet['Decommissioning_costs'][self.cf_sheet.row_num((self.fin_param['Startup_period'] + (self.fin_param['Plant_life'],'year')).output_date())] = self.fin_param['Decommissioning_cost']
+            self.cf_sheet.loc[self.fin_param['Startup_period']+self.fin_param['Plant_life']*DateOffset(years=1)]['Decommissioning_costs'] = self.fin_param['Decommissioning_cost']
         except KeyError:
             pass
 
@@ -409,7 +409,7 @@ class FinancialParameters:
     """This is really just a kind of dictionary that is specially designed to hold important project finance parameters"""
 
     key_list = ['Initial_period', 'Startup_period','Target_IRR', 'Depreciation_type', 'Depreciation_length', 'Analysis_period', 'Plant_life', 'Inflation_rate', 'State_tax_rate', 'Federal_tax_rate','Design_cap','Cap_factor','Capital_expense_breakdown','Startup_revenue_breakdown','Startup_fixed_cost_breakdown','Startup_variable_cost_breakdown','Salvage_value','Decommissioning_cost']
-    type_dict = {'Initial_period':ct.FinDate, 'Target_IRR':float, 'Depreciation_length':int,'Analysis_period':int, 'Plant_life':int,'Inflation_rate':float,'State_tax_rate':float, 'Federal_tax_rate':float, 'Design_cap':float, 'Cap_factor':float,'Startup_revenue_breakdown':float,'Startup_fixed_cost_breakdown':float, 'Startup_variable_cost_breakdown':float, 'Salvage_value':float, 'Decommissioning_cost':float}
+    type_dict = {'Initial_period':dt.datetime, 'Target_IRR':float, 'Depreciation_length':int,'Analysis_period':int, 'Plant_life':int,'Inflation_rate':float,'State_tax_rate':float, 'Federal_tax_rate':float, 'Design_cap':float, 'Cap_factor':float,'Startup_revenue_breakdown':float,'Startup_fixed_cost_breakdown':float, 'Startup_variable_cost_breakdown':float, 'Salvage_value':float, 'Decommissioning_cost':float}
     
 
 
@@ -438,8 +438,8 @@ class FinancialParameters:
                 raise ProjFinError, "The design capacity must be a UnitVal object"
         
         elif key in ['Initial_period', 'Startup_period'] and value is not None:
-            if not (isinstance(value, ct.FinDate)):
-                raise ProjFinError, "All periods must be FinDate objects"
+            if not (isinstance(value, dt.datetime)):
+                raise ProjFinError, "All periods must be string objects (or datetime objects, not yet implemented"
 
         elif key == 'Depreciation_type' and not isinstance(value, str) and value is not None:
             raise ProjFinError, "The depreciation type must be a string"
@@ -621,22 +621,20 @@ class CapitalCosts:
             except ValueError:
                 raise ProjFinError, "The expense_breakdown list must be filled with numbers"
 
-            period = ct.FinDate(starting_period.year(), starting_period.month(), starting_period.day())
-            end_period = ct.FinDate(period.year() + len(expense_breakdown), period.month(), period.day())
             
-            rows = period.forward_range(end_period)
             
-            capcosts = np.ones(len(rows)) * self.c_total_capital()
-            self.capex_schedule = pd.DataFrame(data = {'capex':capcosts}, index = rows)
+            
+            dates = pd.date_range(starting_period, starting_period + len(expense_breakdown)*DateOffset(years=1), freq = 'D')		#OVER BY ONE?
+            
+            capcosts = np.ones(len(dates)) * self.c_total_capital()
+            self.capex_schedule = pd.DataFrame(data = {'capex':capcosts}, index = dates)
+            #The current behavior is to take the annual capital expenditure and divide it evenly over all the days; with pandas date capability, this can easily be extended to weekly, monthly, etc. charge behavior
             for y in range(0,len(expense_breakdown)):
-                capital_factor = expense_breakdown[y]/len(period.forward_range(ct.FinDate(period.year() + 1, period.month(), period.day())))
-                day = period.day()
-                year = period.year()
-                while period.year() == year or period.day() < day -1:
-                    self.capex_schedule['capex'][self.capex_schedule.row_num(period.output_date())] *= capital_factor
-                    period.increment_day()
-           
-            return end_period
+                
+                capital_factor = expense_breakdown[y]/len(self.capex_schedule[starting_period + y*DateOffset(years=1):starting_period + (y+1)*DateOffset(years=1)])
+                self.capex_schedule[starting_period + y*DateOffset(years=1):starting_period + (y+1)*DateOffset(years=1)]['capex'] *= capital_factor
+                           
+            return starting_period + len(expense_breakdown)*DateOffset(years=1)
 
 
         if mode == "categorical":
@@ -648,36 +646,30 @@ class CapitalCosts:
     
     def build_depreciation_schedule(self, starting_period, length, method):
         """Fills out the depreciation capex schedule based on the type of depreciation (straight-line, MACRS, etc.)"""
-        period = ct.FinDate(starting_period.year(), starting_period.month(), starting_period.day())
-        year = period.year()
-        end_period = ct.FinDate(year + length, period.month(), period.day())
-        
+               
         #set up the schedule Dataframe
                
 
         if method == "straight-line":
-            #all of the days will be the same
+            #all of the days will be the same - this can easily be extended to allow for various frequencies
+            dates = pd.date_range(starting_period, starting_period + length*DateOffset(years=1), freq = 'D')
             
-            rows = period.forward_range(end_period)
-            d = {'depreciation':np.ones(len(rows))}
-            self.depreciation_schedule = pd.DataFrame(data = d, index = rows)
+            d = {'depreciation':np.ones(len(dates))}
+            self.depreciation_schedule = pd.DataFrame(data = d, index = dates)
             
-            deprec_value_daily = self.c_deprec_capital()/len(rows)
+            deprec_value_daily = self.c_deprec_capital()/len(dates)
             self.depreciation_schedule['depreciation'] *= deprec_value_daily
             
         elif method == "MACRS":
-            end_period.increment_year()
-            rows = period.forward_range(end_period)
-            d = {'depreciation': np.ones(len(rows))}
-            self.depreciation_schedule = pd.DataFrame(data = d, index = rows)
+            
+            dates = pd.date_range(starting_period, starting_period + (length+1)*DateOffset(years=1), freq = 'D')
+            d = {'depreciation': np.ones(len(dates))}
+            self.depreciation_schedule = pd.DataFrame(data = d, index = dates)
             for y in range(0,length+1):
-                day = period.day()
-                year = period.year()
-                dep_factor = CapitalCosts.MACRS['%s' % (length)][y]/period.num_days_forward_year()
-                 
-                while period.year() == year or period.day() <= day - 1:
-                    self.depreciation_schedule['depreciation'][self.depreciation_schedule.row_num(period.output_date())] = dep_factor     #need to calculate the correct number of days in leap years
-                    period.increment_day()
+                
+                dep_factor = CapitalCosts.MACRS['%s' % (length)][y]/len(self.depreciation_schedule[starting_period + y*DateOffset(years=1):starting_period+(y+1)*DateOffset(years=1)])
+                self.depreciation_schedule[starting_period+y*DateOffset(years=1):starting_period+(y+1)*DateOffset(years=1)]['depreciation'] *= dep_factor                
+ 
             self.depreciation_schedule['depreciation'] *= self.c_deprec_capital()
             
 
@@ -692,11 +684,11 @@ class CapitalCosts:
         capex = 0.0
         deprec = 0.0
 
-        if period in self.capex_schedule.rows():
-            capex = self.capex_schedule.get_row(period)['capex']
+        if period in self.capex_schedule.index:
+            capex = self.capex_schedule.loc[period]['capex']
 
-        if period in self.depreciation_schedule.rows():
-            deprec = self.depreciation_schedule.get_row(period)['depreciation']
+        if period in self.depreciation_schedule.index:
+            deprec = self.depreciation_schedule.loc[period]['depreciation']
         
         return (capex, deprec)
 
@@ -893,10 +885,10 @@ class DebtPortfolio:
         date = period
 
         for loan in self.loans:
-           if date in loan.schedule.rows():
-               cash += loan.schedule.get_row(date)['cash_proceeds']
-               interest += loan.schedule.get_row(date)['interest']
-               principal += loan.schedule.get_row(date)['principal_payment']
+           if period in loan.schedule.index:
+               cash += loan.schedule.loc[date]['cash_proceeds']
+               interest += loan.schedule.loc[date]['interest']
+               principal += loan.schedule.loc[date]['principal_payment']
        
         return (cash, interest, principal)
 
@@ -925,6 +917,9 @@ class Loan:
     schedule_2 = ((1,1), (7,1))
     schedule_4 = ((1,1), (4,1), (7,1), (10,1))
     schedule_12 = ((1,1), (2,1), (3,1), (4,1), (5,1), (6,1), (7,1), (8,1), (9,1), (10,1), (11,1), (12,1))
+    #Assumes end of period payments -- will need a special case to deal with bi-annual frequencies, which are not covered (yet) in the pandas distribution
+    scheds = {1:'A', 12:'M', 4:'Q'}
+    
 
     def __init__(self, name, principal = None, term = None, rate = None, pmt_freq = None, strt_period = None):
         self.name = name
@@ -932,7 +927,7 @@ class Loan:
         self.term = term
         self.rate = rate
         self.pmt_freq = pmt_freq    #number of times per year a payment is made
-        self.strt_period = strt_period
+        self.strt_period = strt_period #should be a datetime instance
         
         
         self.scheduled = False
@@ -940,8 +935,14 @@ class Loan:
     def generate_schedule(self):
         """Generates the loan schedule from appropriate information"""
         #Should add the ability to do extra payments if desired -- just place on a separate line of the schedule, and add these in when calculating
+        if self.pmt_freq in Loan.scheds:
+            sched = pd.date_range(self.strt_period, periods = self.term*self.pmt_freq, freq = Loan.scheds[self.pmt_freq])	#so, this could also be done with an end date -- may need to do it that way
+        elif self.pmt_freq == 2:
+            sched = pd.date_range(self.strt_period, periods = self.term*self.pmt_freq, freq = 'Q')
+            sched = sched[1::2] 
 
-        self.schedule = pd.DataFrame()
+
+        self.schedule = pd.DataFrame(index = sched)
         self.pmt = self.principal*(self.rate/self.pmt_freq)*np.power(1+self.rate/self.pmt_freq,self.term*self.pmt_freq)/(np.power(1+self.rate/self.pmt_freq,self.term*self.pmt_freq)-1)
 
         for item in [self.principal, self.term, self.rate, self.pmt_freq, self.strt_period]:
@@ -949,48 +950,26 @@ class Loan:
                 raise ProjFinError, "You need to set %s before generating the loan schedule" % item
 
         
-        #Calculate the payment dates - essentially evenly space these around the year
-        #Actually, this is probably a bad idea -- we want to have consistent payment dates, and there are probably not a lot of required payment frequencies
-        #We would assume 1, 2, 4, and 12 payments (annual, bi-annual, quarterly, and monthly) as the standards; we can add more as needed, but do not
-	#anticipate "every 21 days" or such nonsense
+        #Now we just need to step through the payment dates to calculate the schedule 
 
-        
+        #set up the dataframe columns
+        self.schedule['principal'] = np.zeros(len(self.schedule))
+        self.schedule['interest'] = np.zeros(len(self.schedule))
+        self.schedule['principal_payment'] = np.zeros(len(self.schedule))
+        self.schedule['cash_proceeds'] = np.zeros(len(self.schedule))
 
-        payment_dates = getattr(self, "schedule_%s" % self.pmt_freq)
-       
+        self.schedule['cash_proceeds'][0] = self.principal		#get the cash up-front
+
+        #The iterative but straight-forward way
+
         P = self.principal
-        row_dict = {}
-        row_name = self.strt_period.output_date()
-        row_dict['principal'] = P
-        row_dict['interest'] = 0.0
-        row_dict['principal_payment'] = 0.0
-        row_dict['cash_proceeds'] = P
-        self.schedule.append(row_dict, row_name = row_name)
-        
-        y = 0
-        
-        
-        while y < self.term:
-            pd = ct.FinDate(self.strt_period.year() + y, self.strt_period.month(), self.strt_period.day())
-            n = self.pmt_freq
-           
-            while n > 0:                                
-                
-                pd.increment_day()
-                
-                if (pd.month(), pd.day()) in payment_dates:
-                    
-                    row_name = pd.output_date()
-                    row_dict = {}
-                    row_dict['interest'] = P * self.rate/self.pmt_freq
-                    row_dict['principal_payment'] = self.pmt - P*self.rate/self.pmt_freq
-                    P = P - row_dict['principal_payment']
-                    row_dict['principal'] = P
-                    row_dict['cash_proceeds'] = 0.0
-                    self.schedule.append(row_dict, row_name = row_name)
-                    n -= 1
-            y += 1
-
+        for y in range(0, len(self.schedule)):
+            self.schedule['interest'][y] = self.rate/self.pmt_freq*P
+            self.schedule['principal_payment'][y] = self.pmt - self.schedule['interest'][y]
+            self.schedule['principal'] = P - self.schedule['principal_payment'][y]
+            P = self.schedule['principal'][y]
+            
+          
         self.scheduled = True
         
 
@@ -1236,11 +1215,11 @@ class PF_FileSaver:
                     if val is None:
                         par_tag = etree.SubElement(fp, par)
                         par_tag.text = 'None'
-                    elif isinstance(val, ct.FinDate):
+                    elif isinstance(val, str):
                         par_tag = etree.SubElement(fp, par)
-                        par_tag.text = val.output_date()
+                        par_tag.text = val.strftime("%Y-%m-%d")
                     else:
-                        raise ProjFinError, "Initial period is an instance of %s, it should be an instance of FinDate" % type(val)
+                        raise ProjFinError, "Initial period is an instance of %s, it should be an instance of str" % type(val)
 
     def save(self):
         self._save_capex()

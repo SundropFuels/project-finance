@@ -947,78 +947,61 @@ class CapitalCostTests(unittest.TestCase):
         
         schedule = capcosts.depreciation_schedule.resample('A', how = 'sum')
         for year in values:
-            print year
-            self.assertAlmostEqual(schedule['depreciation'][year],values[year])
-	"""
+            
+            self.assertAlmostEqual(schedule.loc[year]['depreciation'],values[year])
+	
         #5 year MACRS
         length = 5
-        years = np.array([2012,2013,2014,2015,2016, 2017])
-        values = np.array([184.2, 294.72, 176.832, 106.0992, 106.0992, 53.0496])
+        
+        values = {'2012':184.2,'2013':294.72,'2014':176.832,'2015':106.0992,'2016':106.0992,'2017':53.0496}
         capcosts.build_depreciation_schedule(year1,length,"MACRS")
-        schedule = np.zeros(6)
-        for date in capcosts.depreciation_schedule.index:
-            schedule[int(date[0:4])-2012] += capcosts.depreciation_schedule.loc[date]['depreciation']
-
-
-        for i in range(len(values)):
-            self.assertAlmostEqual(schedule[i],values[i])
+        schedule = capcosts.depreciation_schedule.resample('A', how = 'sum')
+        for year in values:
+            self.assertAlmostEqual(schedule['depreciation'][year],values[year])
+        
 	
         #7 MACRS
         length = 7
         years = np.array([2012,2013,2014,2015,2016,2017,2018,2019])
-        values = np.array([131.6109, 225.5529, 161.0829, 115.0329, 82.2453, 82.1532, 82.2453, 41.0766])
+        values = {'2012':131.6109, '2013':225.5529, '2014':161.0829, '2015':115.0329, '2016':82.2453, '2017':82.1532, '2018':82.2453, '2019':41.0766}
         capcosts.build_depreciation_schedule(year1,length,"MACRS")
-        schedule = np.zeros(8)
-        for date in capcosts.depreciation_schedule.index:
-            schedule[int(date[0:4])-2012] += capcosts.depreciation_schedule.loc[date]['depreciation']
-
-
-        for i in range(len(values)):
-            self.assertAlmostEqual(schedule[i],values[i])
+        schedule = capcosts.depreciation_schedule.resample('A', how = 'sum')
+        for year in values:
+            self.assertAlmostEqual(schedule['depreciation'][year],values[year])
 
         #10 year MACRS
         length = 10
-        years = np.array([2012,2013,2014,2015,2016,2017,2018,2019,2020,2021,2022])
-        values = np.array([92.1,165.78,132.624,106.0992,84.9162,67.8777,60.3255,60.3255,60.4176,60.3255,30.2088])
+        years = ['2012','2013','2014','2015','2016','2017','2018','2019','2020','2021','2022']
+        vals = [92.1,165.78,132.624,106.0992,84.9162,67.8777,60.3255,60.3255,60.4176,60.3255,30.2088]
+        values = {y:v for (y,v) in zip(years, vals)}
         capcosts.build_depreciation_schedule(year1,length,"MACRS")
-        schedule = np.zeros(11)
-        for date in capcosts.depreciation_schedule.index:
-            schedule[int(date[0:4])-2012] += capcosts.depreciation_schedule.loc[date]['depreciation']
+        schedule = capcosts.depreciation_schedule.resample('A', how = 'sum')
+        for year in values:
+            self.assertAlmostEqual(schedule['depreciation'][year],values[year])
 
-
-        for i in range(len(values)):
-            self.assertAlmostEqual(schedule[i],values[i])
 
         #15 year MACRS
         length = 15
-        years = np.array([2012,2013,2014,2015,2016,2017,2018,2019,2020,2021,2022,2023,2024,2025,2026,2027])
-        values = np.array([46.05,87.495,78.7455,70.917,63.8253,57.3783,54.3390,54.3390,54.4311,54.339,54.4311,54.3390,54.4311,54.3390,54.4311,27.1695])
+        years = ['2012','2013','2014','2015','2016','2017','2018','2019','2020','2021','2022','2023','2024','2025','2026','2027']
+        vals = [46.05,87.495,78.7455,70.917,63.8253,57.3783,54.3390,54.3390,54.4311,54.339,54.4311,54.3390,54.4311,54.3390,54.4311,27.1695]
+        values = {y:v for (y,v) in zip(years, vals)}
         capcosts.build_depreciation_schedule(year1,length,"MACRS")
-        
-        schedule = np.zeros(16)
-        for date in capcosts.depreciation_schedule.index:
-            schedule[int(date[0:4])-2012] += capcosts.depreciation_schedule.loc[date]['depreciation']
+        schedule = capcosts.depreciation_schedule.resample('A', how = 'sum')
+        for year in values:
+            self.assertAlmostEqual(schedule['depreciation'][year],values[year])
 
-
-        for i in range(len(values)):
-            self.assertAlmostEqual(schedule[i],values[i])
 
         #20 year MACRS
         length = 20
-        years = np.array([2012,2013,2014,2015,2016,2017,2018,2019,2020,2021,2022,2023,2024,2025,2026, 2027, 2028,2029,2030,2031,2032])
-        values = np.array([34.5375,66.48699,61.49517,56.89017,52.61673,48.67485,45.01848,41.64762,41.09502,41.08581,41.09502,41.0858100,41.09502,41.08581,41.09502,41.08581,41.09502,41.08581,41.09502,41.08581,20.54751])
-        
+        years = ['2012','2013','2014','2015','2016','2017','2018','2019','2020','2021','2022','2023','2024','2025','2026', '2027', '2028','2029','2030','2031','2032']
+        vals = [34.5375,66.48699,61.49517,56.89017,52.61673,48.67485,45.01848,41.64762,41.09502,41.08581,41.09502,41.0858100,41.09502,41.08581,41.09502,41.08581,41.09502,41.08581,41.09502,41.08581,20.54751]
+        values = {y:v for (y,v) in zip(years, vals)}
         capcosts.build_depreciation_schedule(year1,length,"MACRS")
+        schedule = capcosts.depreciation_schedule.resample('A', how = 'sum')
+        for year in values:
+            self.assertAlmostEqual(schedule['depreciation'][year],values[year])
         
-        schedule = np.zeros(21)
-        for date in capcosts.depreciation_schedule.index:
-            schedule[int(date[0:4])-2012] += capcosts.depreciation_schedule.loc[date]['depreciation']
-
-
-        for i in range(len(values)):
-            self.assertAlmostEqual(schedule[i],values[i])
         
-        """
 
     def testCorreclyCreateCapExpendSched(self):
         pass

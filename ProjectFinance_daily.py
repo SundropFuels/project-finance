@@ -312,13 +312,12 @@ class CapitalProject:
         if self.debt is None:
             raise ProjFinError, "You must set the debt portfolio before you can calculate the debt"
 
+        debt_cols = self.debt.CIP(self.cf_sheet.index)
+        self.cf_sheet['Loan_proceeds'] = debt_cols['cash_proceeds']
+        self.cf_sheet['Interest'] = debt_cols['interest']
+        self.cf_sheet['Principal_payments'] = debt_cols['principal_payment']
 
-        self.cf_sheet['Loan_proceeds'] = np.zeros(len(self.cf_sheet))
-        self.cf_sheet['Interest'] = np.zeros(len(self.cf_sheet))
-        self.cf_sheet['Principal_payments'] = np.zeros(len(self.cf_sheet))
-
-        for period in self.cf_sheet.index:
-            (self.cf_sheet.loc[period]['Loan_proceeds'],self.cf_sheet.loc[period]['Interest'],self.cf_sheet.loc[period]['Principal_payments']) = self.debt.CIP(period)
+        
         
     def setOtherFinancials(self):
         """Sets the decommissioning cost, and calculates EBITDA, net Income, taxes, and cash flow"""
@@ -873,22 +872,20 @@ class DebtPortfolio:
 
         self.loan_schedule_bit = True
 
-    def CIP(self, period):
-        """Calculates the cash proceeds, interest, and principal payment for all loans in the portfolio for a given day"""
+    def CIP(self, date_range):
+        """Calculates the cash proceeds, interest, and principal payment for all loans in the portfolio for a given date range"""
         if not self.loan_schedule_bit:
             self.calculate_loans()
-        cash = 0.0
-        interest = 0.0
-        principal = 0.0
-        date = period
+        
+        #date_range should be a timeseries object for this to work
+        output = pd.DataFrame(index = date_range)
+        names = ['cash_proceeds','principal_payment','interest']
+        for name in names:
+            output[name] = np.zeros(len(output))
+            for loan in self.loans:
+                output[name] = (output[name] + loan.schedule[name]).fillna(0)
+        return output   
 
-        for loan in self.loans:
-           if period in loan.schedule.index:
-               cash += loan.schedule.loc[date]['cash_proceeds']
-               interest += loan.schedule.loc[date]['interest']
-               principal += loan.schedule.loc[date]['principal_payment']
-       
-        return (cash, interest, principal)
 
     def __eq__(self, other):
         return isinstance(other, self.__class__) and self.loans == other.loans and self.bonds == other.bonds

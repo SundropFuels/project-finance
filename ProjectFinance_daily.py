@@ -262,11 +262,9 @@ class CapitalProject:
         self.cf_sheet['Depreciation'] = np.zeros(len(self.cf_sheet))
         
         #Fill the columns by year matching
-        
-        for date in self.cf_sheet.index:
+        self.cf_sheet['Capital_expenditures'] = (self.cf_sheet['Capital_expenditures'] + self.capex.capex_schedule['capex']).fillna(0)
+        self.cf_sheet['Depreciation'] = (self.cf_sheet['Depreciation'] + self.capex.depreciation_schedule['depreciation']).fillna(0)
             
-            (self.cf_sheet.loc[date]['Capital_expenditures'],self.cf_sheet.loc[date]['Depreciation']) = self.capex.costs_and_depreciation(date)
-        
           
 
     def setVariableCosts(self, VC):

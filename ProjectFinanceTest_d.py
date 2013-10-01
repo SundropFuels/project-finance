@@ -1163,7 +1163,8 @@ class DebtPortfolioTests(unittest.TestCase):
         loan = pf.Loan("loan1", principal = 686000, term = 20, rate = 0.085, pmt_freq = 1, strt_period = dt.datetime(2012,1,1))
         loan2 = pf.Loan("loan2", principal = 750000, term = 15, rate = 0.134, pmt_freq = 2, strt_period = dt.datetime(2012,1,1))
         #ensure correct cash, interest, principal in 2017 and in 2024
-
+        #This test function needs to be completely re-written for the new CIP interface !!!
+        self.assertEqual(1,0)
         dp = pf.DebtPortfolio()
 	dp.add_loan(loan)
         dp.add_loan(loan2)

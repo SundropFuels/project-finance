@@ -622,7 +622,7 @@ class CapitalCosts:
             
             
             dates = pd.date_range(starting_period, starting_period + (len(expense_breakdown))*DateOffset(years=1)-DateOffset(days=1), freq = 'D')		#OVER BY ONE?
-            print dates
+            
             capcosts = np.ones(len(dates)) * self.c_total_capital()
             self.capex_schedule = pd.DataFrame(data = {'capex':capcosts}, index = dates)
             #The current behavior is to take the annual capital expenditure and divide it evenly over all the days; with pandas date capability, this can easily be extended to weekly, monthly, etc. charge behavior
@@ -664,8 +664,8 @@ class CapitalCosts:
             self.depreciation_schedule = pd.DataFrame(data = d, index = dates)
             for y in range(0,length+1):
                 
-                dep_factor = CapitalCosts.MACRS['%s' % (length)][y]/len(self.depreciation_schedule[starting_period + y*DateOffset(years=1):starting_period+(y+1)*DateOffset(years=1)])
-                self.depreciation_schedule[starting_period+y*DateOffset(years=1):starting_period+(y+1)*DateOffset(years=1)]['depreciation'] *= dep_factor                
+                dep_factor = CapitalCosts.MACRS['%s' % (length)][y]/len(self.depreciation_schedule[starting_period + y*DateOffset(years=1):starting_period+(y+1)*DateOffset(years=1)-DateOffset(days=1)])
+                self.depreciation_schedule[starting_period+y*DateOffset(years=1):starting_period+(y+1)*DateOffset(years=1)-DateOffset(days=1)]['depreciation'] *= dep_factor                
  
             self.depreciation_schedule['depreciation'] *= self.c_deprec_capital()
             

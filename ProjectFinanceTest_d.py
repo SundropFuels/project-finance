@@ -1097,7 +1097,7 @@ class LoanTests(unittest.TestCase):
         loan = pf.Loan("loan1", principal = 686000, term = 20, rate = 0.085, pmt_freq = 1, strt_period = dt.datetime(2015,1,1))
         loan.generate_schedule()
 
-        dates = np.array(['2015-12-31','2016-12-31','2017-12-31', '2018-12-31', '2019-12-31'])
+        dates = np.array(['2015-12-31','2016-12-31','2017-12-31', '2023-12-31', '2034-12-31'])
         principal = np.array([671819.7116, 656434.0987, 639740.7086, 505183.688, 0.0])
         interest = np.array([58310, 57104.67549, 55796.89839, 45255.56497, 5678.962686])
         principal_paid = np.array([14180.29, 15385.61, 16693.39, 27234.72, 66811.33])
@@ -1106,7 +1106,8 @@ class LoanTests(unittest.TestCase):
             
             self.assertAlmostEqual(loan.schedule.loc[date]['principal'],p,2)
             self.assertAlmostEqual(loan.schedule.loc[date]['interest'],i,2)
-            self.assertAlmostEqual(loan.schedule.loc[date]['principal_payment'],pp,2) 
+            self.assertAlmostEqual(loan.schedule.loc[date]['principal_payment'],pp,2)
+        self.assertEqual(686000.0, loan.schedule.loc['2015-01-01']['cash_proceeds']) 
         
 
     def testCorrectlyGenerateScheduleBiAnnual(self):

@@ -910,12 +910,13 @@ class Loan:
     """Container class for debt financing instruments"""
 
     #payment schedules in (month, day) format
-    schedule_1 = ((1,1),)
-    schedule_2 = ((1,1), (7,1))
-    schedule_4 = ((1,1), (4,1), (7,1), (10,1))
-    schedule_12 = ((1,1), (2,1), (3,1), (4,1), (5,1), (6,1), (7,1), (8,1), (9,1), (10,1), (11,1), (12,1))
+    #schedule_1 = ((1,1),)
+    #schedule_2 = ((1,1), (7,1))
+    #schedule_4 = ((1,1), (4,1), (7,1), (10,1))
+    #schedule_12 = ((1,1), (2,1), (3,1), (4,1), (5,1), (6,1), (7,1), (8,1), (9,1), (10,1), (11,1), (12,1))
     #Assumes end of period payments -- will need a special case to deal with bi-annual frequencies, which are not covered (yet) in the pandas distribution
     scheds = {1:'A', 12:'M', 4:'Q'}
+    
     
 
     def __init__(self, name, principal = None, term = None, rate = None, pmt_freq = None, strt_period = None):
@@ -934,14 +935,25 @@ class Loan:
         #Should add the ability to do extra payments if desired -- just place on a separate line of the schedule, and add these in when calculating
         if self.pmt_freq in Loan.scheds:
             sched = pd.date_range(self.strt_period, periods = self.term*self.pmt_freq, freq = Loan.scheds[self.pmt_freq])	#so, this could also be done with an end date -- may need to do it that way
+	    
         elif self.pmt_freq == 2:
             sched = pd.date_range(self.strt_period, periods = self.term*self.pmt_freq, freq = 'Q')
             sched = sched[1::2] 
 
+        else:
+            raise ProjFinError, "%s is an unrecognized frequency for loan payments" % self.pmt_freq
 
+        
+        #The only way to handle this is with an appropriately sized offset
+	s = [date for date in sched]
+        d = [s[0] - DateOffset(months = 12/self.pmt_freq) + DateOffset(days=1)]
+        d.extend(s)
+        sched = pd.DatetimeIndex(d)
+        
         self.schedule = pd.DataFrame(index = sched)
+        
         self.pmt = self.principal*(self.rate/self.pmt_freq)*np.power(1+self.rate/self.pmt_freq,self.term*self.pmt_freq)/(np.power(1+self.rate/self.pmt_freq,self.term*self.pmt_freq)-1)
-
+        
         for item in [self.principal, self.term, self.rate, self.pmt_freq, self.strt_period]:
             if item == None:
                 raise ProjFinError, "You need to set %s before generating the loan schedule" % item
@@ -958,14 +970,15 @@ class Loan:
         self.schedule['cash_proceeds'][0] = self.principal		#get the cash up-front
 
         #The iterative but straight-forward way
-
+        
         P = self.principal
-        for y in range(0, len(self.schedule)):
+        
+        for y in range(1, len(self.schedule)):
             self.schedule['interest'][y] = self.rate/self.pmt_freq*P
             self.schedule['principal_payment'][y] = self.pmt - self.schedule['interest'][y]
-            self.schedule['principal'] = P - self.schedule['principal_payment'][y]
+            self.schedule['principal'][y] = P - self.schedule['principal_payment'][y]
             P = self.schedule['principal'][y]
-            
+        print self.schedule.head()    
           
         self.scheduled = True
         

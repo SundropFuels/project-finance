@@ -236,9 +236,11 @@ class CapitalProject:
         self.cf_sheet['Salvage'] = np.zeros(len(self.cf_sheet))
         
         try:
-            self.cf_sheet.loc[self.fin_param['Startup_period']+self.fin_param['Plant_life']*DateOffset(years=1)]['Salvage'] = self.fin_param['Salvage_value']
+            self.cf_sheet['Salvage'][self.fin_param['Startup_period']+self.fin_param['Plant_life']*DateOffset(years=1)] = self.fin_param['Salvage_value']
         except KeyError:
             pass
+        
+        
         self.cf_sheet['Revenue'] = self.cf_sheet['Sales'] + self.cf_sheet['Salvage']
 
     def setCapitalCosts(self, capex):

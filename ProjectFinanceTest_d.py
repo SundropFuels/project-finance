@@ -14,6 +14,7 @@ import UnitValues as uv
 import company_tools as ct
 import pandas as pd
 import datetime as dt
+from pandas.tseries.offsets import DateOffset
 
 class CapitalProjectTests(unittest.TestCase):
     """Tests for whether the implementation of a capital project is working correctly"""

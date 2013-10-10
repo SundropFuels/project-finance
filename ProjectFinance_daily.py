@@ -937,19 +937,19 @@ class Loan:
             sched = pd.date_range(self.strt_period, periods = self.term*self.pmt_freq, freq = Loan.scheds[self.pmt_freq])	#so, this could also be done with an end date -- may need to do it that way
 	    
         elif self.pmt_freq == 2:
-            sched = pd.date_range(self.strt_period, periods = self.term*self.pmt_freq, freq = 'Q')
+            sched = pd.date_range(self.strt_period, periods = self.term*self.pmt_freq*2, freq = 'Q')
             sched = sched[1::2] 
 
         else:
             raise ProjFinError, "%s is an unrecognized frequency for loan payments" % self.pmt_freq
 
         
-        #The only way to handle this is with an appropriately sized offset
-	s = [date for date in sched]
-        d = [s[0] - DateOffset(months = 12/self.pmt_freq) + DateOffset(days=1)]
-        d.extend(s)
-        sched = pd.DatetimeIndex(d)
-        
+        #Need to add on the initial payment date -- money will always be delivered on the first day
+        d = sched[0] - DateOffset(months = 12/self.pmt_freq)
+        d_n = pd.date_range(d, freq = 'MS', periods = 1)
+        sched = d_n.append(sched)
+
+	       
         self.schedule = pd.DataFrame(index = sched)
         
         self.pmt = self.principal*(self.rate/self.pmt_freq)*np.power(1+self.rate/self.pmt_freq,self.term*self.pmt_freq)/(np.power(1+self.rate/self.pmt_freq,self.term*self.pmt_freq)-1)
@@ -978,7 +978,7 @@ class Loan:
             self.schedule['principal_payment'][y] = self.pmt - self.schedule['interest'][y]
             self.schedule['principal'][y] = P - self.schedule['principal_payment'][y]
             P = self.schedule['principal'][y]
-        print self.schedule.head()    
+        print self.schedule.head(40)    
           
         self.scheduled = True
         

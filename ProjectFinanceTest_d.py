@@ -1128,7 +1128,7 @@ class LoanTests(unittest.TestCase):
             self.assertAlmostEqual(loan.schedule.loc[date]['principal'],p,2)
             self.assertAlmostEqual(loan.schedule.loc[date]['interest'],i,2)
             self.assertAlmostEqual(loan.schedule.loc[date]['principal_payment'],pp,2)
-        self.assertAlmostEqual(loan.schedule.loc[0]['cash_proceeds'],686000,2)
+        self.assertAlmostEqual(loan.schedule.loc['2012-01-01']['cash_proceeds'],686000,2)
 
 class DebtPortfolioTests(unittest.TestCase):
     def testAddLoan(self):

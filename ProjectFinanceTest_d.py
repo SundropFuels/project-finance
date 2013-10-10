@@ -1166,29 +1166,23 @@ class DebtPortfolioTests(unittest.TestCase):
         loan2 = pf.Loan("loan2", principal = 750000, term = 15, rate = 0.134, pmt_freq = 2, strt_period = dt.datetime(2012,1,1))
         #ensure correct cash, interest, principal in 2017 and in 2024
         #This test function needs to be completely re-written for the new CIP interface !!!
-        self.assertEqual(1,0)
+        r = pd.DatetimeIndex(['2012-01-01','2012-06-30','2012-12-31','2026-12-31','2028-06-30','2030-12-31'])
         dp = pf.DebtPortfolio()
 	dp.add_loan(loan)
         dp.add_loan(loan2)
-        d1 = dt.datetime(2012, 7, 1)
-        d2 = dt.datetime(2013, 1, 1)
-        d3 = dt.datetime(2027, 1, 1)
-        d4 = dt.datetime(2029, 1, 1)
-        self.assertAlmostEqual(dp.CIP(d1)[0], 0,2)
-        self.assertAlmostEqual(dp.CIP(d1)[1], 50250,2)
-        self.assertAlmostEqual(dp.CIP(d1)[2], 8378.7234,2)
-        self.assertAlmostEqual(dp.CIP(d2)[0], 0.0,2)
-        self.assertAlmostEqual(dp.CIP(d2)[1], 107998.6255,2)
-        self.assertAlmostEqual(dp.CIP(d2)[2], 23120.38631,2)
-        self.assertAlmostEqual(dp.CIP(d3)[0], 0.0,2)
-        self.assertAlmostEqual(dp.CIP(d3)[1], 31739.18825,2)
-        self.assertAlmostEqual(dp.CIP(d3)[2], 99379.8236,2)
-        self.assertAlmostEqual(dp.CIP(d4)[0], 0.0,2)
-        self.assertAlmostEqual(dp.CIP(d4)[1], 20183.16043,2)
-        self.assertAlmostEqual(dp.CIP(d4)[2], 52307.12798,2)
+        CIP = dp.CIP(r)
+        cash = [1436000.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        interest = [0.0, 50250.0, 107998.6255, 31739.18825, 0.0, 10913.02968]
+        pp = [0.0, 8378.723433, 23120.38631, 99379.8236, 0.0, 61577.2587308423]
+
+        for d, c, i, p in zip(r, cash, interest, pp):
+            self.assertAlmostEqual(CIP.loc[d]['cash_proceeds'], c, 3)
+            self.assertAlmostEqual(CIP.loc[d]['interest'], i, 3)
+            self.assertAlmostEqual(CIP.loc[d]['principal_payment'],p,3)        
 
 
 
+        
 
 if __name__ == "__main__":
     unittest.main()

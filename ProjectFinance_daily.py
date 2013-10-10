@@ -881,11 +881,15 @@ class DebtPortfolio:
         
         #date_range should be a timeseries object for this to work
         output = pd.DataFrame(index = date_range)
+        
         names = ['cash_proceeds','principal_payment','interest']
         for name in names:
             output[name] = np.zeros(len(output))
-            for loan in self.loans:
-                output[name] = (output[name] + loan.schedule[name]).fillna(0)
+        for loan in self.loans:
+            output = output.add(loan.schedule, fill_value=0)
+               
+        output = pd.DataFrame(output, index = date_range, columns = names)
+        print output
         return output   
 
 

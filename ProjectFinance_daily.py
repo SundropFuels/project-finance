@@ -978,7 +978,7 @@ class Loan:
             self.schedule['principal_payment'][y] = self.pmt - self.schedule['interest'][y]
             self.schedule['principal'][y] = P - self.schedule['principal_payment'][y]
             P = self.schedule['principal'][y]
-        print self.schedule.head(40)    
+            
           
         self.scheduled = True
         

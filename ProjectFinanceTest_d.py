@@ -832,13 +832,32 @@ class CapitalExpenseTests(unittest.TestCase):
 
     def testCreateCapitalExpense(self):
         """Testing correct setting of a capital expense"""
-        capex1 = pf.CapitalExpense(name = "Feeder", uninstalled_cost = 141000.0, installation_factor = 1.6)
+        QB = pf.CapitalQuote(price = 141000.0, date = dt.datetime(2010,01,01), source = "Vendor")
+        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", installation_model = pf.FactoredInstallModel(1.6), size_basis = uv.UnitVal(100.0, 'ton/day'), quote_basis = QB, depreciation_type = 'MACRS')
         self.assertEqual(capex1.name, "Feeder")
-        self.assertEqual(capex1.installed_cost, 225600)
+        self.assertEqual(capex1.uninstalled_cost, 141000.0)
+        self.assertEqual(capex1.size_basis = uv.UnitVal(100.0, 'ton/day'))
+        self.assertEqual(capex1.description,"Biomass_feeder")
+        self.assertEqual(capex1.tag,"F-1401")
+        self.assertEqual(capex1.installation_model,QB)
+        self.assertEqual(capex1.depreciation_type, 'MACRS') 
 
+    def testBadCapitalCostInput(self):
+        """Bad input types or values should throw a BadCapitalCostInput error on initialization"""
+        #First test that minimum amount of items have been defined (name and tag)
+        ##!!## self.assertRaises(pf.BadCapitalCostInput, pf.CapitalExpense, ...)
+
+        #Now test that the wrong types for the various arguments raise the error
+        ##!!## self.assertRaises(pf.BadCapitalCostInput, pf.CapitalExpense, ...)
+
+        #Now test that invalid values for size basis (i.e. <0) or for depreciation type raise errors
+        ##!!## self.assertRaises(pf.BadCapitalCostInput, pf.CapitalExpense, ...)
+
+
+    
     def testSetUninstalledCost(self):
         """Testing correct setting of the uninstalled cost"""
-        capex1 = pf.CapitalExpense("Feeder")
+        capex1 = pf.CapitalExpense(tag = 'F-1014', name = "Feeder")
         capex1.uninstalled_cost = 1000.11
         self.assertEqual(capex1.uninstalled_cost, 1000.11)
 
@@ -860,7 +879,9 @@ class CapitalExpenseTests(unittest.TestCase):
         """A non-string comment should raise an error"""
         capex1 = pf.CapitalExpense(name = "feeder")
         self.assertRaises(pf.ProjFinError, capex1.add_comment, 6)
-
+    
+    #DEPRECATED
+    """
     def testSetCost(self):
         """Setting the cost later should return the correct value"""
         capex1 = pf.CapitalExpense(name = "Feeder")
@@ -869,6 +890,8 @@ class CapitalExpenseTests(unittest.TestCase):
 
     def testSetCostBadInput(self):
         pass
+
+    """
 
 class CapitalCostTests(unittest.TestCase):
     

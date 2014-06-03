@@ -701,6 +701,8 @@ class CapitalProjectTests(unittest.TestCase):
         ##daily_df = df.generateDataframeFromCSV(f_daily, col_for_rows = 'Date')
         ##monthly_df = df.generateDataframeFromCSV(f_monthly, col_for_rows = 'Date')
         ##annual_df = df.generateDataframeFromCSV(f_annual, col_for_rows = 'Date')
+        
+        print cap_proj.annual_cash_sheet
         for i in range(0,len(cap_proj.annual_cash_sheet)):
             
             print "Period: %s\tFixed_cost:%s" % (cap_proj.annual_cash_sheet['Period'][i], cap_proj.annual_cash_sheet['Interest'][i])

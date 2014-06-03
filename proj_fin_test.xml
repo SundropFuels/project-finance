@@ -53,7 +53,7 @@
 		
 	</debt_portfolio>
 	<financial_parameters>
-		<Initial_year>2012</Initial_year>
+		<Initial_period>2012-01-01</Initial_period>
 		<Target_IRR>0.15</Target_IRR>
 		<Depreciation_type>straight-line</Depreciation_type>
 		<Depreciation_length>20</Depreciation_length>

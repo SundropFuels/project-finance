@@ -79,75 +79,27 @@ class CapitalProject:
         #Currently, price is in the format (price, mode) where price is the price in the first year, and mode is the mode of inflation -- this stuff should be coded into financial parameters!
         if False in self.check_bits:
             raise ProjFinError, "Not all of the inputs (capex, etc.) have been set yet"        
-        print "in assembleFinancials"
+        
         self._calcCapitalCosts()
-        print "Capital costs calc'd"
         self.setAnnualOutput()
-        print "Annual output set"
         self.setPrices(price[0], price[1])
-        print "Prices set"
         self.setRevenue()
-        print "Revenue set"
         self._calcVariableCosts()
-        print "Variable costs set"
         self._calcFixedCosts()
-        print "Fixed costs set"
         self._calcDebt()
-        print "Debt calc'd"
         self.setOtherFinancials()
-        print "other financials set"
+        
 
     def rollUpMonthly(self):
         """Rolls up current sheet into monthly totals of each column -- also, calculates net taxes and puts credits into reserve (FUTURE)"""
-        #Get starting date and ending date
-        start = self.fin_param['Initial_period']
-        iterator = ct.FinDate(start.year(), start.month(), start.day())
-        ending_period = ct.FinDate(start.year() + self.fin_param['Analysis_period'], start.month(), start.day())
-        self.monthly_cash_sheet = pd.DataFrame()
-        i = 0
-
-        while iterator < ending_period:
-            p = "%02d-%02d" % (iterator.month(), iterator.year())
-            month = iterator.month()
-            row = self.cf_sheet.get_row("%s-%02d-%02d" % (iterator.year(), iterator.month(), iterator.day()))
-            
-            row['Period'] = i
-            self.monthly_cash_sheet.append(row, row_name = p)
-            
-            iterator.increment_day()
-            while iterator.month() == month:
-                row = self.cf_sheet.get_row("%s-%02d-%02d" % (iterator.year(), iterator.month(), iterator.day()))
-                
-                for key in row:
-                    if key != "Period":
-                        self.monthly_cash_sheet[key][i] += row[key]
-                iterator.increment_day()    
-            i += 1
-            
+        #just resample
+        self.monthly_cash_sheet = self.cf_sheet.resample('M', how = 'sum')            
         
 
     def rollUpAnnual(self):
         """Rolls up current sheet into annual totals of each column"""
-        start = self.fin_param['Initial_period']
-        iterator = ct.FinDate(start.year(), start.month(), start.day())
-        ending_period = ct.FinDate(start.year() + self.fin_param['Analysis_period'], start.month(), start.day())
-        self.annual_cash_sheet = pd.DataFrame()
-        i = 0
-    
-        while iterator < ending_period:
-            p = "%s" % iterator.year()
-            year = iterator.year()
-            row = self.cf_sheet.get_row("%s-%02d-%02d" % (iterator.year(), iterator.month(), iterator.day()))
-            row['Period'] = i
-            self.annual_cash_sheet.append(row, row_name = p)
-            iterator.increment_day()
-            while iterator.year() == year:
-                row = self.cf_sheet.get_row("%s-%02d-%02d" % (iterator.year(), iterator.month(), iterator.day()))
-                for key in row:
-                    if key != 'Period':
-                        self.annual_cash_sheet[key][i] += row[key]
-                iterator.increment_day()
-            i += 1
+        #resample
+        self.annual_cash_sheet = self.cf_sheet.resample('A', how = 'sum')
             
 
     def printFinancials(self, filename = None):
@@ -205,6 +157,7 @@ class CapitalProject:
         if mode == "fixed":
             #create the daily periodic inflation rate from the indicated annual rate
             daily_rate = np.power(1+self.fin_param['Inflation_rate'], 1.0/365.0) - 1.0  #explictly ignores leap years (which should have a slightly higher inflation price)
+            print daily_rate
             self.cf_sheet['Sales_price'] = np.ones(len(self.cf_sheet))*base_price*np.power(1+daily_rate,self.cf_sheet['Period'])
             
 
@@ -334,7 +287,7 @@ class CapitalProject:
         self.cf_sheet['EBITDA'] = self.cf_sheet['Revenue'] - self.cf_sheet['Cost_of_sales']
         self.cf_sheet['Pre-depreciation_income'] = self.cf_sheet['EBITDA'] - self.cf_sheet['Interest']
         self.cf_sheet['Taxable_income'] = self.cf_sheet['Pre-depreciation_income'] - self.cf_sheet['Depreciation']
-        
+        #!!!#Taxes are wrong, wrong, wrong.  At the very least, need to make tax zero in negative revenue years.  Next would be to add loss carry-over.  Finally would be to create a reserve of credits and carryovers and correctly apply these.
         self.cf_sheet['Taxes'] = self.cf_sheet['Taxable_income'] * (self.fin_param['State_tax_rate'] + self.fin_param['Federal_tax_rate'])   
         self.cf_sheet['After-tax_income'] = self.cf_sheet['Taxable_income'] - self.cf_sheet['Taxes']
         self.cf_sheet['Net_cash_flow'] = self.cf_sheet['After-tax_income'] - self.cf_sheet['Capital_expenditures'] - self.cf_sheet['Principal_payments'] + self.cf_sheet['Loan_proceeds'] + self.cf_sheet['Depreciation']
@@ -655,7 +608,7 @@ class CapitalCosts:
             
             d = {'depreciation':np.ones(len(dates))}
             self.depreciation_schedule = pd.DataFrame(data = d, index = dates)
-            
+            #!!!#This is not actually correct -- need to adjust this for leap years.  Do this annually, like in the MACRS schedule below
             deprec_value_daily = self.c_deprec_capital()/len(dates)
             self.depreciation_schedule['depreciation'] *= deprec_value_daily
             
@@ -889,7 +842,7 @@ class DebtPortfolio:
             output = output.add(loan.schedule, fill_value=0)
                
         output = pd.DataFrame(output, index = date_range, columns = names)
-        print output
+        
         return output   
 
 
@@ -1089,13 +1042,15 @@ class PF_FileLoader:
 
     def _load_fin_params(self):
         new_fin_params = FinancialParameters()
-        integers = ['Initial_year', 'Analysis_period', 'Depreciation_length', 'Plant_life']
+        integers = ['Analysis_period', 'Depreciation_length', 'Plant_life']
         fin_params = self.docroot.find("financial_parameters")
         for fin_param in fin_params:
             if fin_param.tag == "Design_cap":				#reflects new naming convention NOT yet in use
                 new_fin_params[fin_param.tag] = uv.UnitVal(self._cast_special(fin_param.text,float), fin_param.attrib["units"])
             elif fin_param.tag == "Depreciation_type":
                 new_fin_params[fin_param.tag] = fin_param.text
+            elif fin_param.tag == "Initial_period":
+                new_fin_params[fin_param.tag] = dt.datetime.strptime(fin_param.text,"%Y-%m-%d")
             elif fin_param.tag == "Capital_expense_breakdown":
                 if fin_param.attrib["type"] == "simple":
                     breakdown = []

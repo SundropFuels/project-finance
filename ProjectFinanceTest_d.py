@@ -854,14 +854,6 @@ class CapitalExpenseTests(unittest.TestCase):
         ##!!## self.assertRaises(pf.BadCapitalCostInput, pf.CapitalExpense, ...)
 
 
-    
-    def testSetUninstalledCost(self):
-        """Testing correct setting of the uninstalled cost"""
-        capex1 = pf.CapitalExpense(tag = 'F-1014', name = "Feeder")
-        capex1.uninstalled_cost = 1000.11
-        self.assertEqual(capex1.uninstalled_cost, 1000.11)
-
-
     def testSetInstallationFactor(self):
         """Testing correct setting of the installation factor"""
         capex1 = pf.CapitalExpense(name = "feeder", uninstalled_cost = 141000.0)

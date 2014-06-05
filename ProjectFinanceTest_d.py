@@ -1031,6 +1031,30 @@ class CapitalExpenseTests(unittest.TestCase):
         self.assertRaises(pf.BadCapitalDepreciationInput, capex1.build_depreciation_schedule, year1, length, escalation)
         capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", size_basis = uv.UnitVal(100.0, 'ton/day'), quote_basis = QB, depreciation_type = 'MACRS')
         self.assertRaises(pf.BadCapitalDepreciationInput, capex1.build_depreciation_schedule, year1, length, escalation)
+   
+    def testTICCorrectCalculation(self):
+        """Test that TIC is correctly calculated for all supported methods"""
+        QB = pf.CapitalQuote(price = 141000.0, date = dt.datetime(2010,01,01), source = "Vendor")
+	IM = pf.FactoredInstallModel(1.6)
+        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", installation_model = IM, size_basis = uv.UnitVal(100.0, 'ton/day'), quote_basis = QB, depreciation_type = 'MACRS')
+        self.assertEqual(capex1.TIC(), 141000.0*1.6)
+
+        IM = pf.FixedInstallModel(100000.0)
+        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", installation_model = IM, size_basis = uv.UnitVal(100.0, 'ton/day'), quote_basis = QB, depreciation_type = 'MACRS')
+        self.assertEqual(capex1.TIC(), 141000.0+100000.0)
+
+    def testTICUnderdefined(self):
+        """Test that the Capex TIC function throws the proper errors when the Capital Expense is underdefined"""
+        QB = pf.CapitalQuote(price = 141000.0, date = dt.datetime(2010,01,01), source = "Vendor")
+	IM = pf.FactoredInstallModel(1.6)
+        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", size_basis = uv.UnitVal(100.0, 'ton/day'), quote_basis = QB, depreciation_type = 'MACRS')
+        self.assertRaises(pf.BadCapitalTICInput, capex1.TIC)
+        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", installation_model = IM, size_basis = uv.UnitVal(100.0, 'ton/day'), depreciation_type = 'MACRS')
+        self.assertRaises(pf.BadCapitalTICInput, capex1.TIC)
+
+
+
+
 
 class CapitalCostTests(unittest.TestCase):
     

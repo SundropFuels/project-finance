@@ -1052,8 +1052,51 @@ class CapitalExpenseTests(unittest.TestCase):
         capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", installation_model = IM, size_basis = uv.UnitVal(100.0, 'ton/day'), depreciation_type = 'MACRS')
         self.assertRaises(pf.BadCapitalTICInput, capex1.TIC)
 
+    def testCostLayoutScheduleFixedDate(self):
+        """Test that the Capex can calculate its own layout schedule (with no escalation) on a Fixed Date"""
+        QB = pf.CapitalQuote(price = 141000.0, date = dt.datetime(2010,01,01), source = "Vendor")
+	IM = pf.FactoredInstallModel(1.6)
+        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", installation_model = IM, size_basis = uv.UnitVal(100.0, 'ton/day'), quote_basis = QB, depreciation_type = 'MACRS')
+        date = dt.datetime(2012,1,1)
+        schedule = capex1.calc_investment_schedule(date)  #escalation implied as "off" when None
+        #schedule_ck = CostSchedule() dataframe object not yet implemented
+        self.assertEqual(schedule, schedule_ck)
 
+    def testCostLayoutScheduleFixedSchedule(self): 
+        """Test that the Capex can calculate its own layout schedule (with no escalation) on a Fixed Schedule"""
+        QB = pf.CapitalQuote(price = 141000.0, date = dt.datetime(2010,01,01), source = "Vendor")
+	IM = pf.FactoredInstallModel(1.6)
+        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", installation_model = IM, size_basis = uv.UnitVal(100.0, 'ton/day'), quote_basis = QB, depreciation_type = 'MACRS')
+        #set_schedule = CostSchedule()
+        schedule = capex1.calc_investment_schedule(set_schedule)  #escalation implied as "off" when None
+        #schedule_ck = CostSchedule() dataframe object not yet implemented
+        self.assertEqual(schedule, schedule_ck)
 
+    def testCostLayoutScheduleFixedPeriodInterval(self):
+        """Test that the Capex can calculate its own layout schedule (with no escalation) on a Fixed Interval"""
+        QB = pf.CapitalQuote(price = 141000.0, date = dt.datetime(2010,01,01), source = "Vendor")
+	IM = pf.FactoredInstallModel(1.6)
+        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", installation_model = IM, size_basis = uv.UnitVal(100.0, 'ton/day'), quote_basis = QB, depreciation_type = 'MACRS')
+        start_date = dt.datetime(2012,1,1)
+        end_date = dt.datetime(2014,1,1)
+        schedule = capex1.calc_investment_schedule(start_date = start_date, end_date = end_date, period = 'monthly')  #escalation implied as "off" when None
+        #schedule_ck = CostSchedule() dataframe object not yet implemented
+        self.assertEqual(schedule, schedule_ck)
+
+    def testBadCapitalCostScheduleInput(self):
+        """Test that we get the appropriate errors when inputs are invalid or underdefined"""
+        QB = pf.CapitalQuote(price = 141000.0, date = dt.datetime(2010,01,01), source = "Vendor")
+	IM = pf.FactoredInstallModel(1.6)
+        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", installation_model = IM, size_basis = uv.UnitVal(100.0, 'ton/day'), quote_basis = QB, depreciation_type = 'MACRS')
+        start_date = dt.datetime(2012,1,1)
+        end_date = dt.datetime(2014,1,1)
+        self.assertRaises(pf.BadCapitalCostScheduleInput, 'meep')
+        #self.assertRaises(pf.BadCapitalCostScheduleInput  Need definition for kwargs to do errors for bad inputs for the fixed period-interval
+        #underdefined rules
+        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", size_basis = uv.UnitVal(100.0, 'ton/day'), quote_basis = QB, depreciation_type = 'MACRS')
+        self.assertRaises(pf.BadCapitalCostScheduleInput, start_date)
+        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", installation_model = IM, size_basis = uv.UnitVal(100.0, 'ton/day'), depreciation_type = 'MACRS')
+        self.assertRaises(pf.BadCapitalCostScheduleInput, start_date)
 
 
 class CapitalCostTests(unittest.TestCase):

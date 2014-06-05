@@ -941,6 +941,86 @@ class CapitalExpenseTests(unittest.TestCase):
 
     """
 
+    def testCorrectlyBuildDeprecSchedSL(self):
+        """Testing if a straight-line depreciation sheet is correctly created"""
+       
+        QB = pf.CapitalQuote(price = 141000.0, date = dt.datetime(2010,01,01), source = "Vendor")
+	IM = pf.FactoredInstallModel(1.6)
+        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", installation_model = pf.FactoredInstallModel(1.6), size_basis = uv.UnitVal(100.0, 'ton/day'), quote_basis = QB, depreciation_type = 'MACRS')
+        self.assertEqual(capex1.name, "Feeder")
+        self.assertEqual(capex1.uninstalled_cost, 141000.0)
+        self.assertEqual(capex1.size_basis = uv.UnitVal(100.0, 'ton/day'))
+        self.assertEqual(capex1.description,"Biomass_feeder")
+        self.assertEqual(capex1.tag,"F-1401")
+        self.assertEqual(capex1.quote_basis,QB)
+	self.assertEqual(capex1.installation_model, IM)
+        self.assertEqual(capex1.depreciation_type, 'straight-line')
+       
+        year1 = dt.datetime(2012,1,1)
+        length = 10
+        #spot check the values that are charged
+        dates = np.array(['2012-01-01', '2014-03-20', '2016-02-29', '2012-12-31'])
+        value = 225600.0/3653.0
+        values = np.array([value, value, value, value])
+        
+        capex1.build_depreciation_schedule(year1, length, escalation='off')
+        for date, v in zip(dates,values):
+            self.assertAlmostEqual(capex.depreciation_schedule.loc[date]['depreciation'],v)
+
+
+    def testCorrectlyBuildDeprecSchedMACRS(self):
+        """Testing if a MACRS depreciation sheet is correctly created"""
+       
+        QB = pf.CapitalQuote(price = 141000.0, date = dt.datetime(2010,01,01), source = "Vendor")
+	IM = pf.FactoredInstallModel(1.6)
+        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", installation_model = pf.FactoredInstallModel(1.6), size_basis = uv.UnitVal(100.0, 'ton/day'), quote_basis = QB, depreciation_type = 'MACRS')
+        self.assertEqual(capex1.name, "Feeder")
+        self.assertEqual(capex1.uninstalled_cost, 141000.0)
+        self.assertEqual(capex1.size_basis = uv.UnitVal(100.0, 'ton/day'))
+        self.assertEqual(capex1.description,"Biomass_feeder")
+        self.assertEqual(capex1.tag,"F-1401")
+        self.assertEqual(capex1.quote_basis,QB)
+	self.assertEqual(capex1.installation_model, IM)
+        self.assertEqual(capex1.depreciation_type, 'MACRS')
+       
+        year1 = dt.datetime(2012,1,1)
+        length = 10
+        #spot check the values that are charged
+        dates = np.array(['2012-01-01', '2014-03-20', '2016-02-29', '2012-12-31'])
+        value = 225600.0/3653.0          #This is wrong, and it needs to be updated to the actual value set
+        values = np.array([value, value, value, value])
+        
+        capex1.build_depreciation_schedule(year1, length, escalation='off')
+        for date, v in zip(dates,values):
+            self.assertAlmostEqual(capex.depreciation_schedule.loc[date]['depreciation'],v)
+
+    def testCorrectlyBuildDeprecSchedMACRS(self):
+        """Testing if a Schedule depreciation sheet is correctly created"""
+       
+        QB = pf.CapitalQuote(price = 141000.0, date = dt.datetime(2010,01,01), source = "Vendor")
+	IM = pf.FactoredInstallModel(1.6)
+        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", installation_model = pf.FactoredInstallModel(1.6), size_basis = uv.UnitVal(100.0, 'ton/day'), quote_basis = QB, depreciation_type = 'MACRS')
+        self.assertEqual(capex1.name, "Feeder")
+        self.assertEqual(capex1.uninstalled_cost, 141000.0)
+        self.assertEqual(capex1.size_basis = uv.UnitVal(100.0, 'ton/day'))
+        self.assertEqual(capex1.description,"Biomass_feeder")
+        self.assertEqual(capex1.tag,"F-1401")
+        self.assertEqual(capex1.quote_basis,QB)
+	self.assertEqual(capex1.installation_model, IM)
+        self.assertEqual(capex1.depreciation_type, 'schedule')
+        
+        year1 = dt.datetime(2012,1,1)
+        length = 10
+        schedule = pf.DepreciationSchedule() #This still needs to be implemented to work correctly
+        #spot check the values that are charged
+        dates = np.array(['2012-01-01', '2014-03-20', '2016-02-29', '2012-12-31'])
+        value = 225600.0/3653.0          #This is wrong, and it needs to be updated to the actual value set
+        values = np.array([value, value, value, value])
+        
+        capex1.build_depreciation_schedule(year1, length, escalation='off')
+        for date, v in zip(dates,values):
+            self.assertAlmostEqual(capex.depreciation_schedule.loc[date]['depreciation'],v)
+
 class CapitalCostTests(unittest.TestCase):
     
     

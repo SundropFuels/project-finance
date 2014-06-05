@@ -413,6 +413,59 @@ class FinancialParameters:
     def __ne__(self, other):
         return not self.__eq__(other)
 
+class QuoteBasis:
+    """This is the class for holding quotation information that a capital item will require to scale"""
+    def __init__(self, price = None, date = None, size_basis = None source = None):
+        if price = None or date = None or size_basis = None:
+            raise QuoteBasisBadInput, "QuoteBasis is underspecified"
+        try:
+            if price < 0:
+                raise QuoteBasisBadInput, "price must be greater than zero"
+        except ValueError:
+                raise QuoteBasisBadInput, "price must be numeric"
+
+        if not isinstance(date, dt.datetime):
+            raise QuoteBasisBadInput, "date must be a datetime.datetime object"
+
+        if not isinstance(source, string):
+            raise QuoteBasisBadInput, "The source must be a string"
+
+        if not isinstance(size_basis, uv.UnitVal):
+            raise QuoteBasisBadInput, "The size basis must be a UnitVal"
+
+        self.price = price
+        self.date = date
+        self.size_basis = size_basis 
+
+    def scale(self, new_scale=None, method = 'linear', exponent = 1.0):
+        """Scales the existing cost to a new basis and returns the value"""
+        if new_scale is None:
+            raise QuoteBasisBadInput, "A new scale to price to is missing"
+        if not isinstance(new_scale, uv.UnitVal):
+            raise QuoteBasisBadInput, "The new scale must be a unit value"
+
+        if not new_scale.value > 0:
+            raise QuoteBasisBadInput, "The new scale must be positive in value"
+
+        try:
+            return getattr(self, '_%s_scale' % method, new_scale, exponent)
+
+        except AttributeError:
+            raise QuoteBasisBadInput, "%s is not a valid scaling method" % method
+
+    def _linear_scale(self, new_scale, exponent):  #this may be a good place for **kwargs
+        """Linear price scaling"""
+        return self.price * new_scale/self.scale_basis
+
+    def _exponent_scale(self, new_scale, exponent):
+        """Exponential price scaling"""
+        return self.price * (new_scale/self.scale_basis)**exponent
+
+
+
+    def _six_tenths
+
+
 class CapitalExpense:
     """Container class for capital expenditures"""
     

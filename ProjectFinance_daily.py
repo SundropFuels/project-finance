@@ -540,8 +540,8 @@ class CapitalExpense:
         self.comments.append(comment)
 
     def TIC(self):
-        """Returns the total installed cost for the basis year"""
-        
+        """Returns the total installed cost for the basis year -- escalation done when schedule built"""
+        return self.install_model.calc_installed_cost(self.quote_basis.price)
 
     def __eq__(self, other):
         return isinstance(other, self.__class__) and self.name == other.name and self.uninstalled_cost == other.uninstalled_cost and self.installation_factor == other.installation_factor and self.comments == other.comments

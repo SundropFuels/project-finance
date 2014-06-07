@@ -497,25 +497,36 @@ class CapitalExpense:
         self.name = name
         self.tag = tag
         self.description = description
-        if not isinstance(installation_model, InstallModel):
-            raise BadCapitalCostInput, "The installation model must be of class InstallModel"
-        self.installation_model = installation_model
-        
+        self.set_install_model(installation_model)
+        self.set_size_basis(size_basis)
+        self.set_quote_basis(quote_basis)
+        self.set_depreciation_type(depreciation_type)
+        self.comments = []
+
+    def set_install_model(self, install_model):
+        if not isinstance(install_model, InstallModel):
+            raise BadCapitalCostInput, "install_model must be of class InstallModel"
+        self.install_model = install_model
+
+    def set_size_basis(self, size_basis):
         if not isinstance(size_basis, uv.UnitVal):
             raise BadCapitalCostInput, "The size basis must be of class UnitVal"
         if not size_basis.value > 0:
             raise BadCapitalCostInput, "The size basis must be positive"
         self.size_basis = size_basis
-        
+
+    def set_quote_basis(self, quote_basis):
         if not isinstance(quote_basis, QuoteBasis):
             raise BadCapitalCostInput, "The quote_basis must be of type QuoteBasis"
         self.quote_basis = quote_basis
-        
+
+    def set_depreciation_type(self, dep_type):
         dep_types = ['straight-line','MACRS', 'schedule']
         if depreciation_type not in dep_types:
             raise BadCapitalCostInput, "%s is not a supported depreciation type" % depreciation_type
+        self.depreciation_type = dep_type
 
-        self.comments = []
+
 
     def set_cost(self, uninstalled_cost, installation_factor):
         self.uninstalled_cost = uninstalled_cost

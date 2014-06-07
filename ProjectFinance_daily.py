@@ -462,8 +462,29 @@ class QuoteBasis:
         return self.price * (new_scale/self.scale_basis)**exponent
 
 
+class InstallModel:
+    """Class to hold models for installed cost"""
+    def __init__(self):
+        pass
 
-    def _six_tenths
+    def calc_installed_cost(self):
+        pass
+
+class FactoredInstallModel(InstallModel):
+    def __init__(self, factor):
+        self.factor = factor
+
+    def calc_installed_cost(self, base_cost):
+        return self.factor * base_cost
+
+class FixedInstallModel(InstallModel):
+    def __init__(self, fixed_amt):
+        self.fixed = fixed_amt
+
+    def calc_installed_cost(self, base_cost):
+        return self.fixed + base_cost
+
+
 
 
 class CapitalExpense:
@@ -472,12 +493,27 @@ class CapitalExpense:
     gl_add_info = OrderedDict([('name',('Name',str)),('uninstalled_cost',('Uninstalled cost',float)),('installation_factor',('Installation factor',float))])
 
 
-    def __init__(self, name, uninstalled_cost = None, installation_factor = None):
+    def __init__(self, tag, name, description = None, installation_model = None, size_basis = None, quote_basis = None, depreciation_type = 'straight-line'):
         self.name = name
-        self.uninstalled_cost = uninstalled_cost
-        self.installation_factor = installation_factor
-        if self.uninstalled_cost is not None and installation_factor is not None:
-            self.installed_cost = self.uninstalled_cost * installation_factor
+        self.tag = tag
+        self.description = description
+        if not isinstance(installation_model, InstallModel):
+            raise BadCapitalCostInput, "The installation model must be of class InstallModel"
+        self.installation_model = installation_model
+        
+        if not isinstance(size_basis, uv.UnitVal):
+            raise BadCapitalCostInput, "The size basis must be of class UnitVal"
+        if not size_basis.value > 0:
+            raise BadCapitalCostInput, "The size basis must be positive"
+        self.size_basis = size_basis
+        
+        if not isinstance(quote_basis, QuoteBasis):
+            raise BadCapitalCostInput, "The quote_basis must be of type QuoteBasis"
+        self.quote_basis = quote_basis
+        
+        dep_types = ['straight-line','MACRS', 'schedule']
+        if depreciation_type not in dep_types:
+            raise BadCapitalCostInput, "%s is not a supported depreciation type" % depreciation_type
 
         self.comments = []
 

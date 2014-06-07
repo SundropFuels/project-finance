@@ -843,6 +843,8 @@ class CapitalExpenseTests(unittest.TestCase):
         self.assertEqual(capex1.quote_basis,QB)
 	self.assertEqual(capex1.installation_model, IM)
         self.assertEqual(capex1.depreciation_type, 'MACRS') 
+        self.assertEqual(1,0)  #NEED TO MAKE SURE THAT WE ADD THE SCALING FUNCTIONS IN QB, NOT IN THE GENERAL CAPITAL EXPENSE
+
 
     def testBadCapitalCostInput(self):
         """Bad input types or values should throw a BadCapitalCostInput error on initialization"""

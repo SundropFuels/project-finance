@@ -930,19 +930,7 @@ class CapitalExpenseTests(unittest.TestCase):
         capex1 = pf.CapitalExpense(name = "feeder")
         self.assertRaises(pf.ProjFinError, capex1.add_comment, 6)
     
-    #DEPRECATED
-    """
-    def testSetCost(self):
-        """Setting the cost later should return the correct value"""
-        capex1 = pf.CapitalExpense(name = "Feeder")
-        capex1.set_cost(141000,1.6)
-        self.assertEqual(capex1.installed_cost, 225600)
-
-    def testSetCostBadInput(self):
-        pass
-
-    """
-
+    
     def testCorrectlyBuildDeprecSchedSL(self):
         """Testing if a straight-line depreciation sheet is correctly created"""
        
@@ -980,7 +968,7 @@ class CapitalExpenseTests(unittest.TestCase):
         for date, v in zip(dates,values):
             self.assertAlmostEqual(capex.depreciation_schedule.loc[date]['depreciation'],v)
 
-    def testCorrectlyBuildDeprecSchedMACRS(self):
+    def testCorrectlyBuildDeprecSchedSchedule(self):
         """Testing if a Schedule depreciation sheet is correctly created"""
        
         QB = pf.CapitalQuote(price = 141000.0, date = dt.datetime(2010,01,01), source = "Vendor")

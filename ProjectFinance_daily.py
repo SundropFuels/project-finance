@@ -415,7 +415,7 @@ class FinancialParameters:
 
 class QuoteBasis:
     """This is the class for holding quotation information that a capital item will require to scale"""
-    def __init__(self, price = None, date = None, size_basis = None source = None):
+    def __init__(self, price = None, date = None, size_basis = None, source = None):
         if price = None or date = None or size_basis = None:
             raise QuoteBasisBadInput, "QuoteBasis is underspecified"
         try:
@@ -538,6 +538,10 @@ class CapitalExpense:
         if type(comment) is not str:
             raise ProjFinError, "Comments must be strings"
         self.comments.append(comment)
+
+    def TIC(self):
+        """Returns the total installed cost for the basis year"""
+        
 
     def __eq__(self, other):
         return isinstance(other, self.__class__) and self.name == other.name and self.uninstalled_cost == other.uninstalled_cost and self.installation_factor == other.installation_factor and self.comments == other.comments

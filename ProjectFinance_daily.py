@@ -489,7 +489,14 @@ class FixedInstallModel(InstallModel):
 
 class CapitalExpense:
     """Container class for capital expenditures"""
-    
+    MACRS = {}
+    MACRS['3'] = np.array([0.3333, 0.4445, 0.1481, 0.0741])
+    MACRS['5'] = np.array([0.2, 0.32, 0.1920, 0.1152, 0.1152, 0.0576])
+    MACRS['7'] = np.array([0.1429, 0.2449, 0.1749, 0.1249, 0.0893, 0.0892, 0.0893, 0.0446])
+    MACRS['10'] = np.array([0.1000, 0.18, 0.144, 0.1152, 0.0922, 0.0737, 0.0655, 0.0655, 0.0656, 0.0655, 0.0328])
+    MACRS['15'] = np.array([0.05, 0.095, 0.0855, 0.0770, 0.0693, 0.0623, 0.0590, 0.0590, 0.0591, 0.0590, 0.0591, 0.0590, 0.0591, 0.0590, 0.0591, 0.0295])
+    MACRS['20'] = np.array([0.0375, 0.07219, 0.06677, 0.06177, 0.05713, 0.05285, 0.04888, 0.04522, 0.04462, 0.04461, 0.04462, 0.044610, 0.04462, 0.04461, 0.04462, 0.04461, 0.04462, 0.04461, 0.04462, 0.04461, 0.02231])
+   
     gl_add_info = OrderedDict([('name',('Name',str)),('uninstalled_cost',('Uninstalled cost',float)),('installation_factor',('Installation factor',float))])
 
 
@@ -543,6 +550,44 @@ class CapitalExpense:
         """Returns the total installed cost for the basis year -- escalation done when schedule built"""
         return self.install_model.calc_installed_cost(self.quote_basis.price)
 
+    def build_depreciation_schedule(self, starting_period, length, escalation = 'off'):
+        """Fills out the depreciation capex schedule based on the type of depreciation (straight-line, MACRS, etc.)"""
+        dep_methods = ['straight-line', 'MACRS']       #Need non-deprec and schedule
+        #set up the schedule Dataframe
+        if self.depreciation_type not in dep_methods:
+            raise BadCapitalDepreciationInput, "No depreciation method selected"
+
+        if escalation is not 'off':
+            print "I need to add the escalation function -- should this be in TIC instead?"
+
+        #call the underlying method  ##!!## -- NEED A MODE FOR NON-DEPRECIABLE CAPTIAL -- call it non-deprec
+        getattr(self, '_%s_build_depreciation_schedule' % self.depreciation_type)  #Need to pass starting period and length along for this to work
+
+    def _straight-line_build_depreciation_schedule(self, starting_period, length):
+        """Fills out a straight-line depreciation schedule"""
+        #all of the days will be the same - this can easily be extended to allow for various frequencies
+        dates = pd.date_range(starting_period, starting_period + length*DateOffset(years=1) - DateOffset(days=1), freq = 'D')
+            
+        d = {'depreciation':np.ones(len(dates))}
+        self.depreciation_schedule = pd.DataFrame(data = d, index = dates)  #Should we subclass this for specific types of schedule? Maybe the cash flow one
+        #!!!#This is not actually correct -- need to adjust this for leap years.  Do this annually, like in the MACRS schedule below
+        deprec_value_daily = self.TIC()/len(dates)
+        self.depreciation_schedule['depreciation'] *= deprec_value_daily
+
+    def _MACRS_build_depreciation_schedule(self, starting_period, length):
+        """Fills out a MACRS depreciation schedule"""
+            
+        dates = pd.date_range(starting_period, starting_period + (length+1)*DateOffset(years=1)-DateOffset(days=1), freq = 'D')
+        d = {'depreciation': np.ones(len(dates))}
+        self.depreciation_schedule = pd.DataFrame(data = d, index = dates)
+        for y in range(0,length+1):
+                
+            dep_factor = CapitalExpense.MACRS['%s' % (length)][y]/len(self.depreciation_schedule[starting_period + y*DateOffset(years=1):starting_period+(y+1)*DateOffset(years=1)-DateOffset(days=1)])
+            self.depreciation_schedule[starting_period+y*DateOffset(years=1):starting_period+(y+1)*DateOffset(years=1)-DateOffset(days=1)]['depreciation'] *= dep_factor                
+ 
+        self.depreciation_schedule['depreciation'] *= self.c_deprec_capital()
+               
+
     def __eq__(self, other):
         return isinstance(other, self.__class__) and self.name == other.name and self.uninstalled_cost == other.uninstalled_cost and self.installation_factor == other.installation_factor and self.comments == other.comments
 
@@ -579,14 +624,7 @@ class CapitalExpense:
            
 
 class CapitalCosts:
-    MACRS = {}
-    MACRS['3'] = np.array([0.3333, 0.4445, 0.1481, 0.0741])
-    MACRS['5'] = np.array([0.2, 0.32, 0.1920, 0.1152, 0.1152, 0.0576])
-    MACRS['7'] = np.array([0.1429, 0.2449, 0.1749, 0.1249, 0.0893, 0.0892, 0.0893, 0.0446])
-    MACRS['10'] = np.array([0.1000, 0.18, 0.144, 0.1152, 0.0922, 0.0737, 0.0655, 0.0655, 0.0656, 0.0655, 0.0328])
-    MACRS['15'] = np.array([0.05, 0.095, 0.0855, 0.0770, 0.0693, 0.0623, 0.0590, 0.0590, 0.0591, 0.0590, 0.0591, 0.0590, 0.0591, 0.0590, 0.0591, 0.0295])
-    MACRS['20'] = np.array([0.0375, 0.07219, 0.06677, 0.06177, 0.05713, 0.05285, 0.04888, 0.04522, 0.04462, 0.04461, 0.04462, 0.044610, 0.04462, 0.04461, 0.04462, 0.04461, 0.04462, 0.04461, 0.04462, 0.04461, 0.02231])
-   
+    
 
     #Stuff for GUI
     id_labels = {'site_prep':'Site preparation', 'engineering_and_design':'Engineering and design', 'process_contingency':'Process contingency', 'project_contingency':'Project contingency', 'other':'Other', 'one-time_licensing_fees':'One time licensing fees', 'up-front_permitting_costs':'Up-front permitting costs'}

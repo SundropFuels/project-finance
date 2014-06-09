@@ -436,6 +436,8 @@ class QuoteBasis:
         self.price = price
         self.date = date
         self.size_basis = size_basis 
+        self.escalation_method = 'off'
+
 
     def scale(self, new_scale=None, method = 'linear', exponent = 1.0):
         """Scales the existing cost to a new basis and returns the value"""
@@ -528,7 +530,7 @@ class CapitalExpense:
         self.quote_basis = quote_basis
 
     def set_depreciation_type(self, dep_type):
-        dep_types = ['straight-line','MACRS', 'schedule']
+        dep_types = ['straight-line','MACRS', 'schedule', 'non-deprec']
         if depreciation_type not in dep_types:
             raise BadCapitalCostInput, "%s is not a supported depreciation type" % depreciation_type
         self.depreciation_type = dep_type
@@ -546,9 +548,23 @@ class CapitalExpense:
             raise ProjFinError, "Comments must be strings"
         self.comments.append(comment)
 
-    def TIC(self):
+    def TIC(self, escalation = 'off', **kwargs):
         """Returns the total installed cost for the basis year -- escalation done when schedule built"""
-        return self.install_model.calc_installed_cost(self.quote_basis.price)
+        base_cost = self.install_model.calc_installed_cost(self.quote_basis.price)
+        return getattr(self, '_%s_escalation' % escalation)(base_cost, **kwargs)
+
+    def _off_escalation(self, base_cost):
+        return base_cost
+
+    def _CPIindex_escalation(self, base_cost, date=self.quote_basis.date):
+        """Uses the CPI index for escalation -- will need to encode these values, passing for now"""
+        pass
+
+    def _inflation_escalation(self, base_cost, date=self.quote_basis.date, rate):
+        """Uses annualized inflation for escalation -- rate assumed to be on annual basis"""
+        delta = date - self.quote_basis.date
+        N = delta.days
+        return base_cost * (1+rate/365.0)**(N)
 
     def build_depreciation_schedule(self, starting_period, length, escalation = 'off'):
         """Fills out the depreciation capex schedule based on the type of depreciation (straight-line, MACRS, etc.)"""
@@ -569,7 +585,7 @@ class CapitalExpense:
         dates = pd.date_range(starting_period, starting_period + length*DateOffset(years=1) - DateOffset(days=1), freq = 'D')
             
         d = {'depreciation':np.ones(len(dates))}
-        self.depreciation_schedule = pd.DataFrame(data = d, index = dates)  #Should we subclass this for specific types of schedule? Maybe the cash flow one
+        self.depreciation_schedule = pd.DataFrame(data = d, index = dates)  
         #!!!#This is not actually correct -- need to adjust this for leap years.  Do this annually, like in the MACRS schedule below
         deprec_value_daily = self.TIC()/len(dates)
         self.depreciation_schedule['depreciation'] *= deprec_value_daily

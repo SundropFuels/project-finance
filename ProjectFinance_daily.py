@@ -601,23 +601,11 @@ class CapitalExpense:
             raise ProjFinError, "Comments must be strings"
         self.comments.append(comment)
 
-    def TIC(self, escalation = 'off', **kwargs):
-        """Returns the total installed cost for the basis year -- escalation done when schedule built"""
+    def TIC(self, date, **kwargs):
+        """Returns the total installed cost for the given date, applying the internal escalator and inflation functions"""
         base_cost = self.install_model.calc_installed_cost(self.quote_basis.price)
-        return getattr(self, '_%s_escalation' % escalation)(base_cost, **kwargs)
-
-    def _off_escalation(self, base_cost):
-        return base_cost
-
-    def _CPIindex_escalation(self, base_cost, date=self.quote_basis.date):
-        """Uses the CPI index for escalation -- will need to encode these values, passing for now"""
-        pass
-
-    def _inflation_escalation(self, base_cost, date=self.quote_basis.date, rate):
-        """Uses annualized inflation for escalation -- rate assumed to be on annual basis"""
-        delta = date - self.quote_basis.date
-        N = delta.days
-        return base_cost * (1+rate/365.0)**(N)
+        return self.escalator.escalate(basecost, self.quote_basis.date, date, **kwargs)
+ 
 
     def build_depreciation_schedule(self, starting_period, length, escalation = 'off', **kwargs):
         """Fills out the depreciation capex schedule based on the type of depreciation (straight-line, MACRS, etc.)"""

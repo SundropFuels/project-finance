@@ -20,6 +20,12 @@ class ProjFinError(Exception):
     def __str__(self):
         return repr(self.value)
 
+class BadDateError(ProjFinError):
+    pass
+
+class BadEscalatorType(ProjFinError):
+    pass
+
 class ProjAnalyzer:
     """Base class for analyzing a single project"""
     def __init__(self):
@@ -486,7 +492,43 @@ class FixedInstallModel(InstallModel):
     def calc_installed_cost(self, base_cost):
         return self.fixed + base_cost
 
+class Escalator:
+    """The cost escalation class.  It takes an input date and escalates to a future date based on a variety of subclasses"""
 
+    def __init__(self):
+        self.factor = 1.0			#When it comes down to it, all escalators increase their underlying values by a given factor
+
+    def escalate(self, cost, basis_date, new_date):
+        #do checking on the basis date and the new date
+        if not isinstance(basis_date, dt.datetime) or if not isinstance(new_date, dt.datetime):
+            raise BadDateError, "The basis date and the new date both need to be of class datetime.datetime"
+
+        return self.factor * cost
+
+class InflationRateEscalator:
+    """Uses a fixed inflation rate (annual) to determine the final cost"""
+    def escalate(self, rate, **kwargs):
+        try:
+            n = (kwargs[new_date]-kwargs[basis_date])/365			#Right now, the number of years is whole and we are just rounding; this is as good as the estimates, anyway
+            self.factor = (1+rate)**n
+            Escalator.escalate(self, **kwargs)
+        except KeyError:
+            raise MissingInfoError, "We are missing some data from the escalate function"
+        except ValueError:
+            raise ProjFinError, "The values used for the inflation rate are invalid"
+
+class CPIindexEscalator:
+    """Uses the CPI index to determine the final cost"""
+    #Need a pandas timeseries with values of the CPI index hardcoded
+
+    def escalate(self):
+        #Determine the basis CPI Index
+        
+        #Determine the new CPI Index
+
+        #Calculate a factor
+        pass
+        
 
 
 class CapitalExpense:
@@ -502,7 +544,7 @@ class CapitalExpense:
     gl_add_info = OrderedDict([('name',('Name',str)),('uninstalled_cost',('Uninstalled cost',float)),('installation_factor',('Installation factor',float))])
 
 
-    def __init__(self, tag, name, description = None, installation_model = None, size_basis = None, quote_basis = None, depreciation_type = 'straight-line'):
+    def __init__(self, tag, name, description = None, installation_model = None, size_basis = None, quote_basis = None, escalation_type = None, depreciation_type = 'straight-line'):
         self.name = name
         self.tag = tag
         self.description = description
@@ -510,6 +552,7 @@ class CapitalExpense:
         self.set_size_basis(size_basis)
         self.set_quote_basis(quote_basis)
         self.set_depreciation_type(depreciation_type)
+        self.set_escalator(escalation_type)
         self.comments = []
 
     def set_install_model(self, install_model):
@@ -535,6 +578,16 @@ class CapitalExpense:
             raise BadCapitalCostInput, "%s is not a supported depreciation type" % depreciation_type
         self.depreciation_type = dep_type
 
+    def set_escalator(self, esc_type):
+        esc_types = ['InflationRate','CPIindex']
+        if esc_type is None:
+            self.escalator = Escalator()
+
+        elif esc_type in esc_types:
+            self.escalator = getattr(self, "%sEscalator" % esc_type)()
+
+        else:
+            raise BadEscalatorTypeError, "%s is not a supported escalator type" % esc_type
 
 
     def set_cost(self, uninstalled_cost, installation_factor):
@@ -566,7 +619,7 @@ class CapitalExpense:
         N = delta.days
         return base_cost * (1+rate/365.0)**(N)
 
-    def build_depreciation_schedule(self, starting_period, length, escalation = 'off'):
+    def build_depreciation_schedule(self, starting_period, length, escalation = 'off', **kwargs):
         """Fills out the depreciation capex schedule based on the type of depreciation (straight-line, MACRS, etc.)"""
         dep_methods = ['straight-line', 'MACRS']       #Need non-deprec and schedule
         #set up the schedule Dataframe
@@ -577,15 +630,16 @@ class CapitalExpense:
             print "I need to add the escalation function -- should this be in TIC instead?"
 
         #call the underlying method  ##!!## -- NEED A MODE FOR NON-DEPRECIABLE CAPTIAL -- call it non-deprec
-        getattr(self, '_%s_build_depreciation_schedule' % self.depreciation_type)  #Need to pass starting period and length along for this to work
+        getattr(self, '_%s_build_depreciation_schedule' % self.depreciation_type)(starting_period=starting_period, length=length, escalation=escalation, **kwargs)
 
-    def _straight-line_build_depreciation_schedule(self, starting_period, length):
+    def _straight-line_build_depreciation_schedule(self, starting_period, length, **kwargs):
         """Fills out a straight-line depreciation schedule"""
         #all of the days will be the same - this can easily be extended to allow for various frequencies
         dates = pd.date_range(starting_period, starting_period + length*DateOffset(years=1) - DateOffset(days=1), freq = 'D')
             
         d = {'depreciation':np.ones(len(dates))}
-        self.depreciation_schedule = pd.DataFrame(data = d, index = dates)  
+        self.depreciation_schedule = pd.DataFrame(data = d, index = dates) 
+        
         #!!!#This is not actually correct -- need to adjust this for leap years.  Do this annually, like in the MACRS schedule below
         deprec_value_daily = self.TIC()/len(dates)
         self.depreciation_schedule['depreciation'] *= deprec_value_daily

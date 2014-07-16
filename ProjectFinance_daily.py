@@ -529,6 +529,60 @@ class CPIindexEscalator:
         #Calculate a factor
         pass
         
+class DepreciationSchedule(pd.Dataframe):
+    """A timeseries-indexed dataframe that holds the depreciation schedule"""
+
+    def __init__(self, length, starting_period):
+        self.length = length
+        if not isinstance(starting_period, dt.datetime):
+            raise BadDateError, "starting_date must be a datetime.datetime object; found %s instead" % type(starting_date)
+        self.starting_period = starting_period
+
+    def build(self):
+        """Fills in the depreciation schedule"""
+	self.length = length
+        if not isinstance(starting_date, dt.datetime):
+            raise BadDateError, "starting_date must be a datetime.datetime object; found %s instead" % type(starting_date)
+        self.starting_date = starting_date
+
+class StraightLineDepreciationSchedule(DepreciationSchedule):
+
+    def __init__(self, **kwargs):
+        DepreciationSchedule.__init__(self, **kwargs)
+        dates = pd.date_range(self.starting_period, self.starting_period + self.length*DateOffset(years=1) - DateOffset(days=1), freq = 'D')
+        d = {'depreciation':np.zeros(len(dates))}
+        pd.DataFrame.__init__(self, data = d, index = dates)
+
+    def build(self, cost):
+        """Fills out a straight-line depreciation schedule"""
+        self['depreciation'] += 1.0
+        deprec_value_daily = cost/len(dates)
+        self['depreciation'] *= deprec_value_daily
+
+class MACRSDepreciationSchedule(DepreciationSchedule):
+    MACRS = {}
+    MACRS['3'] = np.array([0.3333, 0.4445, 0.1481, 0.0741])
+    MACRS['5'] = np.array([0.2, 0.32, 0.1920, 0.1152, 0.1152, 0.0576])
+    MACRS['7'] = np.array([0.1429, 0.2449, 0.1749, 0.1249, 0.0893, 0.0892, 0.0893, 0.0446])
+    MACRS['10'] = np.array([0.1000, 0.18, 0.144, 0.1152, 0.0922, 0.0737, 0.0655, 0.0655, 0.0656, 0.0655, 0.0328])
+    MACRS['15'] = np.array([0.05, 0.095, 0.0855, 0.0770, 0.0693, 0.0623, 0.0590, 0.0590, 0.0591, 0.0590, 0.0591, 0.0590, 0.0591, 0.0590, 0.0591, 0.0295])
+    MACRS['20'] = np.array([0.0375, 0.07219, 0.06677, 0.06177, 0.05713, 0.05285, 0.04888, 0.04522, 0.04462, 0.04461, 0.04462, 0.044610, 0.04462, 0.04461, 0.04462, 0.04461, 0.04462, 0.04461, 0.04462, 0.04461, 0.02231])
+   
+    def __init__(self, **kwargs):
+        DepreciationSchedule.__init__(self, **kwargs)
+
+        dates = pd.date_range(self.starting_period, self.starting_period + (self.length+1)*DateOffset(years=1)-DateOffset(days=1), freq = 'D')
+        d = {'depreciation': np.zeros(len(dates))}
+        pd.DataFrame.__init__(self, data = d, index = dates)
+
+    def build(self, cost):
+        self['depreciation'] += 1.0
+        for y in range(0,self.length+1):
+                
+            dep_factor = MACRSDepreciationSchedule.MACRS['%s' % (self.length)][y]/len(self[self.starting_period + y*DateOffset(years=1):self.starting_period+(y+1)*DateOffset(years=1)-DateOffset(days=1)])
+            self[self.starting_period+y*DateOffset(years=1):self.starting_period+(y+1)*DateOffset(years=1)-DateOffset(days=1)]['depreciation'] *= dep_factor                
+ 
+        self['depreciation'] *= self.c_deprec_capital()
 
 
 class CapitalExpense:
@@ -607,18 +661,15 @@ class CapitalExpense:
         return self.escalator.escalate(basecost, self.quote_basis.date, date, **kwargs)
  
 
-    def build_depreciation_schedule(self, starting_period, length, escalation = 'off', **kwargs):
+    def build_depreciation_schedule(self, starting_period, length, **kwargs):
         """Fills out the depreciation capex schedule based on the type of depreciation (straight-line, MACRS, etc.)"""
         dep_methods = ['straight-line', 'MACRS']       #Need non-deprec and schedule
         #set up the schedule Dataframe
         if self.depreciation_type not in dep_methods:
             raise BadCapitalDepreciationInput, "No depreciation method selected"
 
-        if escalation is not 'off':
-            print "I need to add the escalation function -- should this be in TIC instead?"
-
         #call the underlying method  ##!!## -- NEED A MODE FOR NON-DEPRECIABLE CAPTIAL -- call it non-deprec
-        getattr(self, '_%s_build_depreciation_schedule' % self.depreciation_type)(starting_period=starting_period, length=length, escalation=escalation, **kwargs)
+        getattr(self, '_%s_build_depreciation_schedule' % self.depreciation_type)(starting_period=starting_period, length=length, **kwargs)
 
     def _straight-line_build_depreciation_schedule(self, starting_period, length, **kwargs):
         """Fills out a straight-line depreciation schedule"""

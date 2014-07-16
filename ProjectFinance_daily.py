@@ -627,7 +627,7 @@ class CapitalExpense:
         self.quote_basis = quote_basis
 
     def set_depreciation_type(self, dep_type):
-        dep_types = ['straight-line','MACRS', 'schedule', 'non-deprec']
+        dep_types = ['StraightLine','MACRS', 'schedule', 'non-deprec']
         if depreciation_type not in dep_types:
             raise BadCapitalCostInput, "%s is not a supported depreciation type" % depreciation_type
         self.depreciation_type = dep_type
@@ -663,38 +663,13 @@ class CapitalExpense:
 
     def build_depreciation_schedule(self, starting_period, length, **kwargs):
         """Fills out the depreciation capex schedule based on the type of depreciation (straight-line, MACRS, etc.)"""
-        dep_methods = ['straight-line', 'MACRS']       #Need non-deprec and schedule
+        dep_methods = ['StraightLine', 'MACRS']       #Need non-deprec and schedule
         #set up the schedule Dataframe
         if self.depreciation_type not in dep_methods:
             raise BadCapitalDepreciationInput, "No depreciation method selected"
 
-        #call the underlying method  ##!!## -- NEED A MODE FOR NON-DEPRECIABLE CAPTIAL -- call it non-deprec
-        getattr(self, '_%s_build_depreciation_schedule' % self.depreciation_type)(starting_period=starting_period, length=length, **kwargs)
-
-    def _straight-line_build_depreciation_schedule(self, starting_period, length, **kwargs):
-        """Fills out a straight-line depreciation schedule"""
-        #all of the days will be the same - this can easily be extended to allow for various frequencies
-        dates = pd.date_range(starting_period, starting_period + length*DateOffset(years=1) - DateOffset(days=1), freq = 'D')
-            
-        d = {'depreciation':np.ones(len(dates))}
-        self.depreciation_schedule = pd.DataFrame(data = d, index = dates) 
-        
-        #!!!#This is not actually correct -- need to adjust this for leap years.  Do this annually, like in the MACRS schedule below
-        deprec_value_daily = self.TIC()/len(dates)
-        self.depreciation_schedule['depreciation'] *= deprec_value_daily
-
-    def _MACRS_build_depreciation_schedule(self, starting_period, length):
-        """Fills out a MACRS depreciation schedule"""
-            
-        dates = pd.date_range(starting_period, starting_period + (length+1)*DateOffset(years=1)-DateOffset(days=1), freq = 'D')
-        d = {'depreciation': np.ones(len(dates))}
-        self.depreciation_schedule = pd.DataFrame(data = d, index = dates)
-        for y in range(0,length+1):
-                
-            dep_factor = CapitalExpense.MACRS['%s' % (length)][y]/len(self.depreciation_schedule[starting_period + y*DateOffset(years=1):starting_period+(y+1)*DateOffset(years=1)-DateOffset(days=1)])
-            self.depreciation_schedule[starting_period+y*DateOffset(years=1):starting_period+(y+1)*DateOffset(years=1)-DateOffset(days=1)]['depreciation'] *= dep_factor                
- 
-        self.depreciation_schedule['depreciation'] *= self.c_deprec_capital()
+        self.depreciator = globals["%sDepreciationSchedule" % self.depreciation_type](starting_period = starting_period, length = length)
+        self.depreciator.build()
                
 
     def __eq__(self, other):

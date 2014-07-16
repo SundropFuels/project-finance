@@ -26,6 +26,12 @@ class BadDateError(ProjFinError):
 class BadEscalatorType(ProjFinError):
     pass
 
+class BadScalingMethodError(ProjFinError):
+    pass
+
+class NoScalingExponentError(ProjFinError):
+    pass
+
 class ProjAnalyzer:
     """Base class for analyzing a single project"""
     def __init__(self):
@@ -421,7 +427,7 @@ class FinancialParameters:
 
 class QuoteBasis:
     """This is the class for holding quotation information that a capital item will require to scale"""
-    def __init__(self, price = None, date = None, size_basis = None, source = None):
+    def __init__(self, price = None, date = None, size_basis = None, source = None, scaling_method = None, **kwargs):
         if price = None or date = None or size_basis = None:
             raise QuoteBasisBadInput, "QuoteBasis is underspecified"
         try:
@@ -442,10 +448,15 @@ class QuoteBasis:
         self.price = price
         self.date = date
         self.size_basis = size_basis 
-        self.escalation_method = 'off'
+        scaling_methods = ['linear', 'exponent']
+        if scaling_method not in scaling_methods:
+            raise BadScalingMethodError, "%s is not a valid scaling method" % scaling_method
+        self.scaling_method = scaling_method
 
+        if 'exponent' in kwargs:
+            self.scale_exponent = kwargs['exponent']
 
-    def scale(self, new_scale=None, method = 'linear', exponent = 1.0):
+    def scale(self, new_scale=None):
         """Scales the existing cost to a new basis and returns the value"""
         if new_scale is None:
             raise QuoteBasisBadInput, "A new scale to price to is missing"
@@ -456,19 +467,23 @@ class QuoteBasis:
             raise QuoteBasisBadInput, "The new scale must be positive in value"
 
         try:
-            return getattr(self, '_%s_scale' % method, new_scale, exponent)
+            return getattr(self, '_%s_scale' % self.scaling_method, new_scale)
 
         except AttributeError:
             raise QuoteBasisBadInput, "%s is not a valid scaling method" % method
 
     def _linear_scale(self, new_scale, exponent):  #this may be a good place for **kwargs
         """Linear price scaling"""
-        return self.price * new_scale/self.scale_basis
+        price = self.price * new_scale/self.scale_basis
+        return QuoteBasis(price = price, date=self.date, scale_basis = new_scale)
 
     def _exponent_scale(self, new_scale, exponent):
         """Exponential price scaling"""
-        return self.price * (new_scale/self.scale_basis)**exponent
-
+        try:
+            price = self.price * (new_scale/self.scale_basis)**self.scale_exponent
+        except AttributeError:
+            raise NoScaleExponentError, "There was an attribute error on exponential scaling; check to make sure you set the scaling exponent"
+	return QuoteBasis(price = price, date=self.date, scale_basis = new_scale)
 
 class InstallModel:
     """Class to hold models for installed cost"""
@@ -587,16 +602,8 @@ class MACRSDepreciationSchedule(DepreciationSchedule):
 
 class CapitalExpense:
     """Container class for capital expenditures"""
-    MACRS = {}
-    MACRS['3'] = np.array([0.3333, 0.4445, 0.1481, 0.0741])
-    MACRS['5'] = np.array([0.2, 0.32, 0.1920, 0.1152, 0.1152, 0.0576])
-    MACRS['7'] = np.array([0.1429, 0.2449, 0.1749, 0.1249, 0.0893, 0.0892, 0.0893, 0.0446])
-    MACRS['10'] = np.array([0.1000, 0.18, 0.144, 0.1152, 0.0922, 0.0737, 0.0655, 0.0655, 0.0656, 0.0655, 0.0328])
-    MACRS['15'] = np.array([0.05, 0.095, 0.0855, 0.0770, 0.0693, 0.0623, 0.0590, 0.0590, 0.0591, 0.0590, 0.0591, 0.0590, 0.0591, 0.0590, 0.0591, 0.0295])
-    MACRS['20'] = np.array([0.0375, 0.07219, 0.06677, 0.06177, 0.05713, 0.05285, 0.04888, 0.04522, 0.04462, 0.04461, 0.04462, 0.044610, 0.04462, 0.04461, 0.04462, 0.04461, 0.04462, 0.04461, 0.04462, 0.04461, 0.02231])
-   
+    
     gl_add_info = OrderedDict([('name',('Name',str)),('uninstalled_cost',('Uninstalled cost',float)),('installation_factor',('Installation factor',float))])
-
 
     def __init__(self, tag, name, description = None, installation_model = None, size_basis = None, quote_basis = None, escalation_type = None, depreciation_type = 'straight-line'):
         self.name = name
@@ -638,7 +645,7 @@ class CapitalExpense:
             self.escalator = Escalator()
 
         elif esc_type in esc_types:
-            self.escalator = getattr(self, "%sEscalator" % esc_type)()
+            self.escalator = globals[self, "%sEscalator" % esc_type]()
 
         else:
             raise BadEscalatorTypeError, "%s is not a supported escalator type" % esc_type
@@ -669,7 +676,7 @@ class CapitalExpense:
             raise BadCapitalDepreciationInput, "No depreciation method selected"
 
         self.depreciator = globals["%sDepreciationSchedule" % self.depreciation_type](starting_period = starting_period, length = length)
-        self.depreciator.build()
+        self.depreciator.build(cost = self.TIC(starting_period))
                
 
     def __eq__(self, other):
@@ -687,25 +694,11 @@ class CapitalExpense:
     def set_scale_type(self, scale_type):
         self.scale_type = scale_type
 
-    def scale(self, new_scale):
-        new_capex = CapitalExpense(name = self.name)
-        new_cost = self.scale_function(new_scale, self.scale, self.uninstalled_cost)
-        new_capex.set_cost(new_cost, self.installation_factor)
-        new_capex.comments = self.comments
-        return new_capex
-
-    def scale_function(self, new_scale, old_scale, cost):
-        #convert the scales to the same basis
-        converter = uc.UnitConverter()
-        scaled = converter.convert(new_scale[0], new_scale[1], old_scale[1])
-        if self.scale_type == 'linear':
-            return cost * scaled/old_scale[0]
-        elif self.scale_type == 'six_tenths':
-            return cost * np.power(scaled/old_scale[0],0.6)
-        else:
-            return cost * scaled/old_scale[0]   #default to linear
-
-           
+    def scale(self, tag, name, new_scale):
+        """Returns a new CapitalExpense, scaled from the current capital expense using the scaling method in the quote basis"""
+        newQB = self.quote_basis.scale(new_scale)
+        return CapitalExpense(tag, name, description = self.description, installation_model = self.installation_model, size_basis = self.size_basis, quote_basis = newQB, escalation_type = self.escalation_type, depreciation_type = self.depreciation_type)
+              
 
 class CapitalCosts:
     

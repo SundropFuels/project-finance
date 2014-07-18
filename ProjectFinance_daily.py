@@ -520,6 +520,13 @@ class Escalator:
 
         return self.factor * cost
 
+class NoEscalationEscalator:
+    """Scales to a constant value"""
+    def escalate(self, **kwargs):
+        self.factor = 1.0
+        Escalator.escalate(self, **kwargs)    
+
+
 class InflationRateEscalator:
     """Uses a fixed inflation rate (annual) to determine the final cost"""
     def escalate(self, rate, **kwargs):

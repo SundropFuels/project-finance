@@ -560,6 +560,18 @@ class DepreciationSchedule(pd.Dataframe):
             raise BadDateError, "starting_date must be a datetime.datetime object; found %s instead" % type(starting_date)
         self.starting_date = starting_date
 
+class NonDepreciableDepreciationSchedule(DepreciationSchedule):
+    def __init__(self, **kwargs):
+        DepreciationSchedule.__init__(self, **kwargs)
+        dates = pd.date_range(self.starting_period, self.starting_period + self.length*DateOffset(years=1) - DateOffset(days=1), freq = 'D')
+	d = {'depreciation':np.zeros(len(dates))}
+        pd.DataFrame.__init__(self, data=d, index = dates)
+
+    def build(self, cost):
+        """Nothing to do here -- the schedule should be filled with zeros"""
+        pass
+
+
 class StraightLineDepreciationSchedule(DepreciationSchedule):
 
     def __init__(self, **kwargs):
@@ -600,12 +612,14 @@ class MACRSDepreciationSchedule(DepreciationSchedule):
         self['depreciation'] *= self.c_deprec_capital()
 
 
+
+
 class CapitalExpense:
     """Container class for capital expenditures"""
     
     gl_add_info = OrderedDict([('name',('Name',str)),('uninstalled_cost',('Uninstalled cost',float)),('installation_factor',('Installation factor',float))])
 
-    def __init__(self, tag, name, description = None, installation_model = None, size_basis = None, quote_basis = None, escalation_type = None, depreciation_type = 'straight-line'):
+    def __init__(self, tag, name, description = None, installation_model = None, size_basis = None, quote_basis = None, escalation_type = None, depreciation_type = 'StraightLine'):
         self.name = name
         self.tag = tag
         self.description = description
@@ -634,7 +648,7 @@ class CapitalExpense:
         self.quote_basis = quote_basis
 
     def set_depreciation_type(self, dep_type):
-        dep_types = ['StraightLine','MACRS', 'schedule', 'non-deprec']
+        dep_types = ['StraightLine','MACRS', 'Schedule', 'NonDepreciable']
         if depreciation_type not in dep_types:
             raise BadCapitalCostInput, "%s is not a supported depreciation type" % depreciation_type
         self.depreciation_type = dep_type
@@ -670,18 +684,18 @@ class CapitalExpense:
 
     def build_depreciation_schedule(self, starting_period, length, **kwargs):
         """Fills out the depreciation capex schedule based on the type of depreciation (straight-line, MACRS, etc.)"""
-        dep_methods = ['StraightLine', 'MACRS']       #Need non-deprec and schedule
+        dep_methods = ['StraightLine', 'MACRS', 'Schedule', 'NonDepreciable']       #Need non-deprec and schedule
         #set up the schedule Dataframe
         if self.depreciation_type not in dep_methods:
             raise BadCapitalDepreciationInput, "No depreciation method selected"
 
-        self.depreciator = globals["%sDepreciationSchedule" % self.depreciation_type](starting_period = starting_period, length = length)
-        self.depreciator.build(cost = self.TIC(starting_period))
+        self.depreciation_schedule = globals["%sDepreciationSchedule" % self.depreciation_type](starting_period = starting_period, length = length)
+        self.depreciation_schedule.build(cost = self.TIC(starting_period))
                
 
     def __eq__(self, other):
         return isinstance(other, self.__class__) and self.name == other.name and self.uninstalled_cost == other.uninstalled_cost and self.installation_factor == other.installation_factor and self.comments == other.comments
-
+        ##??## This needs to be fixed to reflect the additional class attributes
     def __ne__(self, other):
         return not self.__eq__(other)
     

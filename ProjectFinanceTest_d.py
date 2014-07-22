@@ -829,10 +829,58 @@ class FinancialParametersTests(unittest.TestCase):
 
 class CapitalExpenseTests(unittest.TestCase):
     
+    def testProperEscalationNone(self):
+        """Default esclator should return the same value on escalation"""
+        start = dt.datetime(2010,01,01)
+        finish = dt.datetime(2012,01,01)
+        es = pf.NoEscalationEscalator()
+        val = es.escalate(cost = 100.0, basis_date = start, new_date = finish)
+        self.assertEqual(100.0, val)
+
+    def testBadEscalationDates(self):
+        """Not passing in proper dates should throw an error"""
+        start = 'poop'
+	finish = dt.datetime(2012,01,01)
+        es = NoEscalationEscalator()
+        self.assertRaises(pf.BadDateError, es.escalate, 100.0, start, finish)
+        start = finish
+        finish = 234.0
+        self.assertRaises(pf.BadDateError, es.escalate, 100.0, start, finish)
+
+    def testBadEscalationCost(self):
+        """Cost should be a non-zero value"""
+	start = dt.datetime(2010,01,01)
+        finish = dt.datetime(2012,01,01)
+        es = NoEscalationEscalator()
+        self.assertRaises(pf.BadValue, es.escalate, 'moop', start, finish)
+
+        
+    def testProperEscalationInflationRate(self):
+        """Test whether an inflation rate is properly escalated"""
+        start = dt.datetime(2010,01,01)
+        finish = dt.datetime(2011,01,01)
+        es = InflationRateEscalator()
+        val = es.escalate(rate = 0.015, cost = 100.0, basis_date = start, new_date = finish)
+        actual = 100.0*(1+rate)
+        self.assertEqual(val,actual)
+        finish = dt.datetime(2012,06,25)
+        val = es.escalate(rate = 0.015, cost = 100.0, basis_date = start, new_date = finish)
+        r = (np.power(rate,1/365.0)-1)
+        actual = 100.0 * (1+r)**906
+        self.assertEqual(val, actual)
+
+    def testBadEscalationRate(self):
+        """Rate should be non-zero, or throw an error"""
+        self.assertEqual(0,1)
+
+    def testProperEscalationCPI(self):
+        """Escalation using the CPI index should be properly calculated"""
+        self.assertEqual(0,1)
+
 
     def testCreateCapitalExpense(self):
         """Testing correct setting of a capital expense"""
-        QB = pf.CapitalQuote(price = 141000.0, date = dt.datetime(2010,01,01), source = "Vendor")
+        QB = pf.CapitalQuote(price = 141000.0, date = dt.datetime(2010,01,01), source = "Vendor", scaling_method = 'linear')
 	IM = pf.FactoredInstallModel(1.6)
         capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", installation_model = pf.FactoredInstallModel(1.6), size_basis = uv.UnitVal(100.0, 'ton/day'), quote_basis = QB, depreciation_type = 'MACRS')
         self.assertEqual(capex1.name, "Feeder")
@@ -856,7 +904,7 @@ class CapitalExpenseTests(unittest.TestCase):
 
         #Now test that invalid values for size basis (i.e. <0) or for depreciation type raise errors
         ##!!## self.assertRaises(pf.BadCapitalCostInput, pf.CapitalExpense, ...)
-
+        self.assertEqual(1,0)
 
     def testSetInstallationModel(self):
         """Testing correct setting of the installation factor"""
@@ -901,10 +949,10 @@ class CapitalExpenseTests(unittest.TestCase):
     def testSetDepreciationType(self):
         """Testing correct setting of the depreciation type"""
         capex1 = pf.CapitalExpense(name = "feeder", tag = "f-101")
-        depreciation_types = ['straight-line', 'MACRS', 'schedule']
+        depreciation_types = ['StraightLine', 'MACRS', 'Schedule', 'NonDepreciable']
         for t in depreciation_types:
             capex1.set_depreciation_type(t)
-            self.assertEqual(pf.depreciation_type, t)
+            self.assertEqual(capex1.depreciation_type, t)
 
     def testBadDepreciationtype(self):
         """An unsupported depreciation type should throw an error"""
@@ -913,9 +961,6 @@ class CapitalExpenseTests(unittest.TestCase):
         self.assertRaises(pf.BadCapitalCostInput, capex1.set_depreciation_type, 3.4)
         #Now test a non-supported type
         self.assertRaises(pf.BadCapitalCostInput, capex1.set_depreciation_type, 'random-turtles')
-
-
-
 
 
     def testAddCommentCorrectly(self):

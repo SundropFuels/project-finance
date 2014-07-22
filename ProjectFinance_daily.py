@@ -518,6 +518,15 @@ class Escalator:
         if not isinstance(basis_date, dt.datetime) or if not isinstance(new_date, dt.datetime):
             raise BadDateError, "The basis date and the new date both need to be of class datetime.datetime"
 
+        #test for validity of cost
+        try:
+            if cost < 0:
+                raise BadValue, "The cost must be a non-negative number"
+            if cost != 0:
+                a = 23.0/cost
+        except ValueError:
+            raise BadValue, "The cost must be numeric"
+
         return self.factor * cost
 
 class NoEscalationEscalator:
@@ -528,10 +537,11 @@ class NoEscalationEscalator:
 
 
 class InflationRateEscalator:
-    """Uses a fixed inflation rate (annual) to determine the final cost"""
+    """Uses a fixed inflation rate (annual, effective) to determine the final cost"""
     def escalate(self, rate, **kwargs):
         try:
-            n = (kwargs[new_date]-kwargs[basis_date])/365			#Right now, the number of years is whole and we are just rounding; this is as good as the estimates, anyway
+            dpr = (np.power(rate, 1/365.0)-1)
+            n = (kwargs[new_date]-kwargs[basis_date]).days	#number of days between intervening periods
             self.factor = (1+rate)**n
             Escalator.escalate(self, **kwargs)
         except KeyError:
@@ -546,7 +556,7 @@ class CPIindexEscalator:
     def escalate(self):
         #Determine the basis CPI Index
         
-        #Determine the new CPI Index
+        #Determine the new CPI Index using interpolation (linear, or spline???)
 
         #Calculate a factor
         pass

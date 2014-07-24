@@ -32,6 +32,9 @@ class BadScalingMethodError(ProjFinError):
 class NoScalingExponentError(ProjFinError):
     pass
 
+class BadCapitalCostInput(ProjFinError):
+    pass
+
 class ProjAnalyzer:
     """Base class for analyzing a single project"""
     def __init__(self):
@@ -427,7 +430,7 @@ class FinancialParameters:
 
 class QuoteBasis:
     """This is the class for holding quotation information that a capital item will require to scale"""
-    def __init__(self, price = None, date = None, size_basis = None, source = None, scaling_method = None, **kwargs):
+    def __init__(self, price = None, date = None, size_basis = None, source = None, scaling_method = None, installation_model = None, **kwargs):
         if price = None or date = None or size_basis = None:
             raise QuoteBasisBadInput, "QuoteBasis is underspecified"
         try:
@@ -439,11 +442,14 @@ class QuoteBasis:
         if not isinstance(date, dt.datetime):
             raise QuoteBasisBadInput, "date must be a datetime.datetime object"
 
-        if not isinstance(source, string):
+        if source is not None and not isinstance(source, string):
             raise QuoteBasisBadInput, "The source must be a string"
 
         if not isinstance(size_basis, uv.UnitVal):
             raise QuoteBasisBadInput, "The size basis must be a UnitVal"
+
+        if installation_model is not None and not isinstance(installation_model, InstallModel):
+            raise QuoteBasisBadInput, "The installation model must be an InstallModel object"
 
         self.price = price
         self.date = date
@@ -455,6 +461,18 @@ class QuoteBasis:
 
         if 'exponent' in kwargs:
             self.scale_exponent = kwargs['exponent']
+     
+        self.install_model = installation_model
+
+
+    def __eq__(self, other):
+        if not isinstance(other, QuoteBasis):
+            raise TypeError, "Cannot compare %s to QuoteBasis" % type(other)
+        val = True
+        l = ['price', 'date', 'size_basis', 'scaling_method', 'install_model']
+        for att in l:
+            val = val and (getattr(self, att) == getattr(other,att))
+        return val
 
     def scale(self, new_scale=None):
         """Scales the existing cost to a new basis and returns the value"""
@@ -471,6 +489,14 @@ class QuoteBasis:
 
         except AttributeError:
             raise QuoteBasisBadInput, "%s is not a valid scaling method" % method
+
+    def installed_cost(self):
+        if self.install_model is None:
+            print "Warning: No install model specified for this quote -- returning base cost"
+            return self.price
+
+        else:
+            return self.install_model.calc_installed_cost(self.price)
 
     def _linear_scale(self, new_scale, exponent):  #this may be a good place for **kwargs
         """Linear price scaling"""
@@ -493,6 +519,10 @@ class InstallModel:
     def calc_installed_cost(self):
         pass
 
+    def __eq__(self, other):
+        if not isinstance(other, InstallModel):
+            raise TypeError, "Cannot compare %s to InstallModel" % type(other)
+
 class FactoredInstallModel(InstallModel):
     def __init__(self, factor):
         self.factor = factor
@@ -500,12 +530,21 @@ class FactoredInstallModel(InstallModel):
     def calc_installed_cost(self, base_cost):
         return self.factor * base_cost
 
+    def __eq__(self, other):
+        InstallModel.__eq__(self, other)
+        return self.factor == other.factor
+
 class FixedInstallModel(InstallModel):
     def __init__(self, fixed_amt):
         self.fixed = fixed_amt
 
     def calc_installed_cost(self, base_cost):
         return self.fixed + base_cost
+
+    def __eq__(self, other):
+        InstallModel.__eq__(self, other)
+        return self.fixed == other.fixed
+
 
 class Escalator:
     """The cost escalation class.  It takes an input date and escalates to a future date based on a variety of subclasses"""
@@ -636,29 +675,16 @@ class CapitalExpense:
     
     gl_add_info = OrderedDict([('name',('Name',str)),('uninstalled_cost',('Uninstalled cost',float)),('installation_factor',('Installation factor',float))])
 
-    def __init__(self, tag, name, description = None, installation_model = None, size_basis = None, quote_basis = None, escalation_type = None, depreciation_type = 'StraightLine'):
+    def __init__(self, tag, name, description = None, quote_basis = None, escalation_type = None, depreciation_type = 'StraightLine'):
         self.name = name
         self.tag = tag
         self.description = description
-        self.set_install_model(installation_model)
-        self.set_size_basis(size_basis)
         self.set_quote_basis(quote_basis)
         self.set_depreciation_type(depreciation_type)
         self.set_escalator(escalation_type)
         self.comments = []
 
-    def set_install_model(self, install_model):
-        if not isinstance(install_model, InstallModel):
-            raise BadCapitalCostInput, "install_model must be of class InstallModel"
-        self.install_model = install_model
-
-    def set_size_basis(self, size_basis):
-        if not isinstance(size_basis, uv.UnitVal):
-            raise BadCapitalCostInput, "The size basis must be of class UnitVal"
-        if not size_basis.value > 0:
-            raise BadCapitalCostInput, "The size basis must be positive"
-        self.size_basis = size_basis
-
+    
     def set_quote_basis(self, quote_basis):
         if not isinstance(quote_basis, QuoteBasis):
             raise BadCapitalCostInput, "The quote_basis must be of type QuoteBasis"
@@ -673,7 +699,7 @@ class CapitalExpense:
     def set_escalator(self, esc_type):
         esc_types = ['InflationRate','CPIindex']
         if esc_type is None:
-            self.escalator = Escalator()
+            self.escalator = NoEscalationEscalator()
 
         elif esc_type in esc_types:
             self.escalator = globals[self, "%sEscalator" % esc_type]()
@@ -682,12 +708,7 @@ class CapitalExpense:
             raise BadEscalatorTypeError, "%s is not a supported escalator type" % esc_type
 
 
-    def set_cost(self, uninstalled_cost, installation_factor):
-        self.uninstalled_cost = uninstalled_cost
-        self.installation_factor = installation_factor
-        self.installed_cost = self.uninstalled_cost * self.installation_factor
-
-
+    
     def add_comment(self, comment):
         if type(comment) is not str:
             raise ProjFinError, "Comments must be strings"
@@ -711,20 +732,18 @@ class CapitalExpense:
                
 
     def __eq__(self, other):
-        return isinstance(other, self.__class__) and self.name == other.name and self.uninstalled_cost == other.uninstalled_cost and self.installation_factor == other.installation_factor and self.comments == other.comments
-        ##??## This needs to be fixed to reflect the additional class attributes
+        if not isinstance(other, CapitalExpense):
+            raise TypeError, "Cannot compare CapitalExpense with %s" % type(other)
+        l = ['tag', 'name', 'description', 'quote_basis', 'escalation_type', 'depreciation_type']
+        val = True
+        for att in l:
+            val = val and getattr(self, att) == getattr(other, att)
+        return val
+        
     def __ne__(self, other):
         return not self.__eq__(other)
     
-    def set_base_scale(self, scale):
-        if not isinstance(scale, tuple):
-            raise pf.ProfFinError, "scale must be a tuple of the form (value, units)"
-
-        self.scale = scale                 #scale should be a (value, units) tuple
-
-    def set_scale_type(self, scale_type):
-        self.scale_type = scale_type
-
+    
     def scale(self, tag, name, new_scale):
         """Returns a new CapitalExpense, scaled from the current capital expense using the scaling method in the quote basis"""
         newQB = self.quote_basis.scale(new_scale)

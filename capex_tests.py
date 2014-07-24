@@ -33,7 +33,7 @@ class CapitalExpenseTests(unittest.TestCase):
         """Not passing in proper dates should throw an error"""
         start = 'poop'
 	finish = dt.datetime(2012,01,01)
-        es = NoEscalationEscalator()
+        es = pf.NoEscalationEscalator()
         self.assertRaises(pf.BadDateError, es.escalate, 100.0, start, finish)
         start = finish
         finish = 234.0
@@ -43,7 +43,7 @@ class CapitalExpenseTests(unittest.TestCase):
         """Cost should be a non-zero value"""
 	start = dt.datetime(2010,01,01)
         finish = dt.datetime(2012,01,01)
-        es = NoEscalationEscalator()
+        es = pf.NoEscalationEscalator()
         self.assertRaises(pf.BadValue, es.escalate, 'moop', start, finish)
 
         
@@ -51,15 +51,15 @@ class CapitalExpenseTests(unittest.TestCase):
         """Test whether an inflation rate is properly escalated"""
         start = dt.datetime(2010,01,01)
         finish = dt.datetime(2011,01,01)
-        es = InflationRateEscalator()
+        es = pf.InflationRateEscalator()
         val = es.escalate(rate = 0.015, cost = 100.0, basis_date = start, new_date = finish)
-        actual = 100.0*(1+rate)
-        self.assertEqual(val,actual)
+        actual = 100.0*(1+0.015)
+        self.assertAlmostEqual(val,actual)
         finish = dt.datetime(2012,06,25)
         val = es.escalate(rate = 0.015, cost = 100.0, basis_date = start, new_date = finish)
-        r = (np.power(rate,1/365.0)-1)
+        r = (np.power(1.015,1/365.0)-1)
         actual = 100.0 * (1+r)**906
-        self.assertEqual(val, actual)
+        self.assertAlmostEqual(val, actual)
 
     def testBadEscalationRate(self):
         """Rate should be non-zero, or throw an error"""

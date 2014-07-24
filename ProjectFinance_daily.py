@@ -571,27 +571,28 @@ class Escalator:
 
         return self.factor * cost
 
-class NoEscalationEscalator:
+class NoEscalationEscalator(Escalator):
     """Scales to a constant value"""
     def escalate(self, **kwargs):
         self.factor = 1.0
-        Escalator.escalate(self, **kwargs)    
+        return Escalator.escalate(self, **kwargs)    
 
 
-class InflationRateEscalator:
+class InflationRateEscalator(Escalator):
     """Uses a fixed inflation rate (annual, effective) to determine the final cost"""
     def escalate(self, rate, **kwargs):
         try:
-            dpr = (np.power(rate, 1/365.0)-1)
-            n = (kwargs[new_date]-kwargs[basis_date]).days	#number of days between intervening periods
-            self.factor = (1+rate)**n
-            Escalator.escalate(self, **kwargs)
+            dpr = np.power(1+rate, 1/365.0)-1
+            n = (kwargs['new_date']-kwargs['basis_date']).days	#number of days between intervening periods
+            print n
+            self.factor = (1+dpr)**n
+            return Escalator.escalate(self, **kwargs)
         except KeyError:
             raise MissingInfoError, "We are missing some data from the escalate function"
         except ValueError:
             raise ProjFinError, "The values used for the inflation rate are invalid"
 
-class CPIindexEscalator:
+class CPIindexEscalator(Escalator):
     """Uses the CPI index to determine the final cost"""
     #Need a pandas timeseries with values of the CPI index hardcoded
 

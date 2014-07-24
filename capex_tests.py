@@ -132,14 +132,14 @@ class CapitalExpenseTests(unittest.TestCase):
 
     def testAddCommentCorrectly(self):
         """Test that a comment is correctly added"""
-        capex1 = pf.CapitalExpense(name = "feeder")
+        capex1 = pf.CapitalExpense(name = "feeder", tag = 'f-101')
         capex1.add_comment("K-tron KCLKT20")
         capex1.add_comment("Bought from ebay")
         self.assertEqual(capex1.comments, ['K-tron KCLKT20','Bought from ebay'])
 
     def testCommentErrorNotString(self):
         """A non-string comment should raise an error"""
-        capex1 = pf.CapitalExpense(name = "feeder")
+        capex1 = pf.CapitalExpense(name = "feeder", tag = "f-101")
         self.assertRaises(pf.ProjFinError, capex1.add_comment, 6)
     
     

@@ -682,7 +682,9 @@ class CapitalExpense:
         self.name = name
         self.tag = tag
         self.description = description
-        self.set_quote_basis(quote_basis)
+        if quote_basis is not None:
+            self.set_quote_basis(quote_basis)
+        
         self.set_depreciation_type(depreciation_type)
         self.set_escalator(escalation_type)
         self.comments = []
@@ -695,7 +697,9 @@ class CapitalExpense:
 
     def set_depreciation_type(self, dep_type):
         dep_types = ['StraightLine','MACRS', 'Schedule', 'NonDepreciable']
-        if depreciation_type not in dep_types:
+        if dep_type is None:
+            dep_type = 'NonDepreciable'
+        if dep_type not in dep_types:
             raise BadCapitalCostInput, "%s is not a supported depreciation type" % depreciation_type
         self.depreciation_type = dep_type
 

@@ -35,6 +35,9 @@ class NoScalingExponentError(ProjFinError):
 class BadCapitalCostInput(ProjFinError):
     pass
 
+class BadCapitalDepreciationInput(ProjFinError):
+    pass
+
 class ProjAnalyzer:
     """Base class for analyzing a single project"""
     def __init__(self):
@@ -431,7 +434,7 @@ class FinancialParameters:
 class QuoteBasis:
     """This is the class for holding quotation information that a capital item will require to scale"""
     def __init__(self, price = None, date = None, size_basis = None, source = None, scaling_method = None, installation_model = None, **kwargs):
-        if price = None or date = None or size_basis = None:
+        if price == None or date == None or size_basis == None:
             raise QuoteBasisBadInput, "QuoteBasis is underspecified"
         try:
             if price < 0:
@@ -554,7 +557,7 @@ class Escalator:
 
     def escalate(self, cost, basis_date, new_date):
         #do checking on the basis date and the new date
-        if not isinstance(basis_date, dt.datetime) or if not isinstance(new_date, dt.datetime):
+        if not isinstance(basis_date, dt.datetime) or not isinstance(new_date, dt.datetime):
             raise BadDateError, "The basis date and the new date both need to be of class datetime.datetime"
 
         #test for validity of cost
@@ -600,7 +603,7 @@ class CPIindexEscalator:
         #Calculate a factor
         pass
         
-class DepreciationSchedule(pd.Dataframe):
+class DepreciationSchedule(pd.DataFrame):
     """A timeseries-indexed dataframe that holds the depreciation schedule"""
 
     def __init__(self, length, starting_period):

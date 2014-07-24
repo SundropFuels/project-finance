@@ -953,11 +953,11 @@ class CapitalExpenseTests(unittest.TestCase):
     
     def testCorrectlyBuildDeprecSchedSL(self):
         """Testing if a straight-line depreciation sheet is correctly created"""
-       
-        QB = pf.CapitalQuote(price = 141000.0, date = dt.datetime(2010,01,01), source = "Vendor")
-	IM = pf.FactoredInstallModel(1.6)
-        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", installation_model = pf.FactoredInstallModel(1.6), size_basis = uv.UnitVal(100.0, 'ton/day'), quote_basis = QB, depreciation_type = 'MACRS')
-               
+        IM = pf.FactoredInstallModel(1.6)
+        QB = pf.CapitalQuote(price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", scaling_method = 'linear', installation_model = IM )
+	
+        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'StraightLine')
+        
         year1 = dt.datetime(2012,1,1)
         length = 10
         #spot check the values that are charged
@@ -965,7 +965,7 @@ class CapitalExpenseTests(unittest.TestCase):
         value = 225600.0/3653.0
         values = np.array([value, value, value, value])
         
-        capex1.build_depreciation_schedule(year1, length, escalation='off')
+        capex1.build_depreciation_schedule(year1, length)
         for date, v in zip(dates,values):
             self.assertAlmostEqual(capex.depreciation_schedule.loc[date]['depreciation'],v)
 
@@ -973,27 +973,30 @@ class CapitalExpenseTests(unittest.TestCase):
     def testCorrectlyBuildDeprecSchedMACRS(self):
         """Testing if a MACRS depreciation sheet is correctly created"""
        
-        QB = pf.CapitalQuote(price = 141000.0, date = dt.datetime(2010,01,01), source = "Vendor")
-	IM = pf.FactoredInstallModel(1.6)
-        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", installation_model = pf.FactoredInstallModel(1.6), size_basis = uv.UnitVal(100.0, 'ton/day'), quote_basis = QB, depreciation_type = 'MACRS')
+        IM = pf.FactoredInstallModel(1.6)
+        QB = pf.CapitalQuote(price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", scaling_method = 'linear', installation_model = IM )
+	
+        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'MACRS')
         
         year1 = dt.datetime(2012,1,1)
         length = 10
+        #Need to do this for ALL valid MACRS lengths
         #spot check the values that are charged
         dates = np.array(['2012-01-01', '2014-03-20', '2016-02-29', '2012-12-31'])
         value = 225600.0/3653.0          #This is wrong, and it needs to be updated to the actual value set
         values = np.array([value, value, value, value])
         
-        capex1.build_depreciation_schedule(year1, length, escalation='off')
+        capex1.build_depreciation_schedule(year1, length)
         for date, v in zip(dates,values):
             self.assertAlmostEqual(capex.depreciation_schedule.loc[date]['depreciation'],v)
 
     def testCorrectlyBuildDeprecSchedSchedule(self):
         """Testing if a Schedule depreciation sheet is correctly created"""
        
-        QB = pf.CapitalQuote(price = 141000.0, date = dt.datetime(2010,01,01), source = "Vendor")
-	IM = pf.FactoredInstallModel(1.6)
-        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", installation_model = pf.FactoredInstallModel(1.6), size_basis = uv.UnitVal(100.0, 'ton/day'), quote_basis = QB, depreciation_type = 'MACRS')
+        IM = pf.FactoredInstallModel(1.6)
+        QB = pf.CapitalQuote(price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", scaling_method = 'linear', installation_model = IM )
+	
+        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'Schedule')
               
         year1 = dt.datetime(2012,1,1)
         length = 10
@@ -1003,37 +1006,32 @@ class CapitalExpenseTests(unittest.TestCase):
         value = 225600.0/3653.0          #This is wrong, and it needs to be updated to the actual value set
         values = np.array([value, value, value, value])
         
-        capex1.build_depreciation_schedule(year1, length, escalation='off')
+        capex1.build_depreciation_schedule(year1, length)
         for date, v in zip(dates,values):
             self.assertAlmostEqual(capex.depreciation_schedule.loc[date]['depreciation'],v)
 
     def testBadDepreciationInputs(self):
         """Test that invalid inputs to the depreciation functions throw proper errors"""
-        QB = pf.CapitalQuote(price = 141000.0, date = dt.datetime(2010,01,01), source = "Vendor")
-	IM = pf.FactoredInstallModel(1.6)
-        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", installation_model = pf.FactoredInstallModel(1.6), size_basis = uv.UnitVal(100.0, 'ton/day'), quote_basis = QB, depreciation_type = 'MACRS')
+        IM = pf.FactoredInstallModel(1.6)
+        QB = pf.CapitalQuote(price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", scaling_method = 'linear', installation_model = IM )
+	
+        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'StraightLine')
         
         #Test that a bad length throws an error
-        escalation = 'off'
+        
         length = 'six'
         year1 = dt.datetime(2012,1,1)
-        self.assertRaises(pf.BadCapitalDepreciationInput, capex1.build_depreciation_schedule, year1, length, escalation)
+        self.assertRaises(pf.BadCapitalDepreciationInput, capex1.build_depreciation_schedule, year1, length)
         length = -5
-        self.assertRaises(pf.BadCapitalDepreciationInput, capex1.build_depreciation_schedule, year1, length, escalation)
+        self.assertRaises(pf.BadCapitalDepreciationInput, capex1.build_depreciation_schedule, year1, length)
         #Test that a bad initial year throws an error
         
         year1 = 'poop'
         length = 10
-        self.assertRaises(pf.BadCapitalDepreciationInput, capex1.build_depreciation_schedule, year1, length, escalation)
-        #Test that a bad escalation function (anything other than 'off' for now) throws an error
-
-        year1 = dt.datetime(2012,1,1)
-        length = 10
-        escalation = 4
-        self.assertRaises(pf.BadCapitalDepreciationInput, capex1.build_depreciation_schedule, year1, length, escalation=4)
-
-        #Fail on underdefined inputs
-        escalation = 'off'
+        self.assertRaises(pf.BadCapitalDepreciationInput, capex1.build_depreciation_schedule, year1, length)
+        
+        #Fail on underdefined inputs -- this will currently be broken
+        
         capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", installation_model = pf.FactoredInstallModel(1.6), size_basis = uv.UnitVal(100.0, 'ton/day'), depreciation_type = 'MACRS')
         self.assertRaises(pf.BadCapitalDepreciationInput, capex1.build_depreciation_schedule, year1, length, escalation)
 
@@ -1044,26 +1042,36 @@ class CapitalExpenseTests(unittest.TestCase):
    
     def testTICCorrectCalculation(self):
         """Test that TIC is correctly calculated for all supported methods"""
-        QB = pf.CapitalQuote(price = 141000.0, date = dt.datetime(2010,01,01), source = "Vendor")
-	IM = pf.FactoredInstallModel(1.6)
-        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", installation_model = IM, size_basis = uv.UnitVal(100.0, 'ton/day'), quote_basis = QB, depreciation_type = 'MACRS')
-        self.assertEqual(capex1.TIC(), 141000.0*1.6)
+        IM = pf.FactoredInstallModel(1.6)
+        QB = pf.CapitalQuote(price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", scaling_method = 'linear', installation_model = IM )
+	
+        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'StraightLine')
+        
+        self.assertEqual(capex1.TIC(dt.datetime(2014,01,01)), 141000.0*1.6)
 
         IM = pf.FixedInstallModel(100000.0)
-        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", installation_model = IM, size_basis = uv.UnitVal(100.0, 'ton/day'), quote_basis = QB, depreciation_type = 'MACRS')
-        self.assertEqual(capex1.TIC(), 141000.0+100000.0)
+        QB = pf.CapitalQuote(price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", scaling_method = 'linear', installation_model = IM )
+	
+        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'StraightLine')
+        
+        self.assertEqual(capex1.TIC(dt.datetime(2014,01,01)), 141000.0+100000.0)
+
+        #Need one that tests escalation here
+        self.assertEqual(0,1)
 
     def testTICUnderdefined(self):
         """Test that the Capex TIC function throws the proper errors when the Capital Expense is underdefined"""
-        QB = pf.CapitalQuote(price = 141000.0, date = dt.datetime(2010,01,01), source = "Vendor")
-	IM = pf.FactoredInstallModel(1.6)
-        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", size_basis = uv.UnitVal(100.0, 'ton/day'), quote_basis = QB, depreciation_type = 'MACRS')
+	IM = pf.FactoredInstallModel(1.6)        
+	QB = pf.CapitalQuote(price = 141000.0, date = dt.datetime(2010,01,01), source = "Vendor")
+	
+        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", depreciation_type = 'StraightLine')
         self.assertRaises(pf.BadCapitalTICInput, capex1.TIC)
-        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", installation_model = IM, size_basis = uv.UnitVal(100.0, 'ton/day'), depreciation_type = 'MACRS')
-        self.assertRaises(pf.BadCapitalTICInput, capex1.TIC)
+        
 
     def testCostLayoutScheduleFixedDate(self):
-        """Test that the Capex can calculate its own layout schedule (with no escalation) on a Fixed Date"""
+        """Test that the Capex can calculate its own layout schedule (with and without escalation) on a Fixed Date"""
+        
+        ##!!##HERE##!!##
         QB = pf.CapitalQuote(price = 141000.0, date = dt.datetime(2010,01,01), source = "Vendor")
 	IM = pf.FactoredInstallModel(1.6)
         capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", installation_model = IM, size_basis = uv.UnitVal(100.0, 'ton/day'), quote_basis = QB, depreciation_type = 'MACRS')

@@ -38,6 +38,15 @@ class BadCapitalCostInput(ProjFinError):
 class BadCapitalDepreciationInput(ProjFinError):
     pass
 
+class BadCapitalTICInput(ProjFinError):
+    pass
+
+class QuoteBasisBadInput(ProjFinError):
+    pass
+
+class BadValue(ProjFinError):
+    pass
+
 class ProjAnalyzer:
     """Base class for analyzing a single project"""
     def __init__(self):
@@ -457,7 +466,7 @@ class QuoteBasis:
         self.price = price
         self.date = date
         self.size_basis = size_basis 
-        scaling_methods = ['linear', 'exponent']
+        scaling_methods = ['linear', 'exponent', None]
         if scaling_method not in scaling_methods:
             raise BadScalingMethodError, "%s is not a valid scaling method" % scaling_method
         self.scaling_method = scaling_method
@@ -487,6 +496,13 @@ class QuoteBasis:
         if not new_scale.value > 0:
             raise QuoteBasisBadInput, "The new scale must be positive in value"
 
+        if self.scaling_method is None:
+            if self.source is None:
+                source = "No source"
+            else:
+                source = self.source
+            return QuoteBasis(price = self.price, date=self.date, scale_basis = self.scale_basis, installation_model = self.installation_model, scaling_method = self.scaling_method, source = "%s_no_scaling" % source)
+
         try:
             return getattr(self, '_%s_scale' % self.scaling_method, new_scale)
 
@@ -504,7 +520,11 @@ class QuoteBasis:
     def _linear_scale(self, new_scale, exponent):  #this may be a good place for **kwargs
         """Linear price scaling"""
         price = self.price * new_scale/self.scale_basis
-        return QuoteBasis(price = price, date=self.date, scale_basis = new_scale)
+        if self.source is None:
+           source = "No source"
+        else:
+           source = self.source
+        return QuoteBasis(price = price, date=self.date, scale_basis = new_scale, installation_model = self.installation_model, scaling_method = self.scaling_method, source = "%s_scaled_linearly" % source)
 
     def _exponent_scale(self, new_scale, exponent):
         """Exponential price scaling"""
@@ -512,7 +532,11 @@ class QuoteBasis:
             price = self.price * (new_scale/self.scale_basis)**self.scale_exponent
         except AttributeError:
             raise NoScaleExponentError, "There was an attribute error on exponential scaling; check to make sure you set the scaling exponent"
-	return QuoteBasis(price = price, date=self.date, scale_basis = new_scale)
+        if self.source is None:
+           source = "No source"
+        else:
+           source = self.source
+	return QuoteBasis(price = price, date=self.date, scale_basis = new_scale, installation_model = self.installation_model, scaling_method = self.scaling_method, source = "%s_scaled_exponent_%s" % (source, self.scale_exponent), exponent = self.scale_exponent)
 
 class InstallModel:
     """Class to hold models for installed cost"""
@@ -566,7 +590,7 @@ class Escalator:
                 raise BadValue, "The cost must be a non-negative number"
             if cost != 0:
                 a = 23.0/cost
-        except ValueError:
+        except TypeError:
             raise BadValue, "The cost must be numeric"
 
         return self.factor * cost
@@ -710,7 +734,7 @@ class CapitalExpense:
             self.escalator = NoEscalationEscalator()
 
         elif esc_type in esc_types:
-            self.escalator = globals[self, "%sEscalator" % esc_type]()
+            self.escalator = globals["%sEscalator" % esc_type]()
 
         else:
             raise BadEscalatorTypeError, "%s is not a supported escalator type" % esc_type
@@ -724,8 +748,8 @@ class CapitalExpense:
 
     def TIC(self, date, **kwargs):
         """Returns the total installed cost for the given date, applying the internal escalator and inflation functions"""
-        base_cost = self.install_model.calc_installed_cost(self.quote_basis.price)
-        return self.escalator.escalate(basecost, self.quote_basis.date, date, **kwargs)
+        base_cost = self.quote_basis.installed_cost()
+        return self.escalator.escalate(cost = base_cost, basis_date = self.quote_basis.date, new_date = date, **kwargs)
  
 
     def build_depreciation_schedule(self, starting_period, length, **kwargs):

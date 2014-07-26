@@ -445,7 +445,7 @@ class QuoteBasis:
         if not isinstance(date, dt.datetime):
             raise QuoteBasisBadInput, "date must be a datetime.datetime object"
 
-        if source is not None and not isinstance(source, string):
+        if source is not None and not isinstance(source, basestring):
             raise QuoteBasisBadInput, "The source must be a string"
 
         if not isinstance(size_basis, uv.UnitVal):

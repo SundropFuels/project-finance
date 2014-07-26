@@ -709,6 +709,8 @@ class CapitalExpense:
         self.description = description
         if quote_basis is not None:
             self.set_quote_basis(quote_basis)
+        else:
+           self.quote_basis = None
         
         self.set_depreciation_type(depreciation_type)
         self.set_escalator(escalation_type)
@@ -748,6 +750,8 @@ class CapitalExpense:
 
     def TIC(self, date, **kwargs):
         """Returns the total installed cost for the given date, applying the internal escalator and inflation functions"""
+        if self.quote_basis is None:
+            raise BadCapitalTICInput, "A quote basis must be defined to give a total installed cost"
         base_cost = self.quote_basis.installed_cost()
         return self.escalator.escalate(cost = base_cost, basis_date = self.quote_basis.date, new_date = date, **kwargs)
  

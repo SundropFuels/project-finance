@@ -34,10 +34,12 @@ class CapitalExpenseTests(unittest.TestCase):
         start = 'poop'
 	finish = dt.datetime(2012,01,01)
         es = pf.NoEscalationEscalator()
-        self.assertRaises(pf.BadDateError, es.escalate, 100.0, start, finish)
+        kwargs = {'cost':100.0, 'basis_date':start, 'new_date':finish}
+        self.assertRaises(pf.BadDateError, es.escalate, **kwargs)
         start = finish
         finish = 234.0
-        self.assertRaises(pf.BadDateError, es.escalate, 100.0, start, finish)
+        kwargs = {'cost':100.0, 'basis_date':start, 'new_date':finish}
+        self.assertRaises(pf.BadDateError, es.escalate, **kwargs)
 
     def testBadEscalationCost(self):
         """Cost should be a non-zero value"""
@@ -258,7 +260,7 @@ class CapitalExpenseTests(unittest.TestCase):
 	QB = pf.QuoteBasis(price = 141000.0, date = dt.datetime(2010,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'))
 	
         capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", depreciation_type = 'StraightLine')
-        self.assertRaises(pf.BadCapitalTICInput, capex1.TIC)
+        self.assertRaises(pf.BadCapitalTICInput, capex1.TIC, dt.datetime(2015,01,01))
         
 
     def testCostLayoutScheduleFixedDate(self):

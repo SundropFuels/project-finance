@@ -47,6 +47,9 @@ class QuoteBasisBadInput(ProjFinError):
 class BadValue(ProjFinError):
     pass
 
+class MissingInfoError(ProjFinError):
+    pass
+
 class ProjAnalyzer:
     """Base class for analyzing a single project"""
     def __init__(self):
@@ -605,7 +608,11 @@ class NoEscalationEscalator(Escalator):
 class InflationRateEscalator(Escalator):
     """Uses a fixed inflation rate (annual, effective) to determine the final cost"""
     def escalate(self, rate, **kwargs):
+
         try:
+	    c = 1/rate
+            if rate < 0:
+                raise BadValue, "The rate must be positive"
             dpr = np.power(1+rate, 1/365.0)-1
             n = (kwargs['new_date']-kwargs['basis_date']).days	#number of days between intervening periods
             print n
@@ -613,8 +620,8 @@ class InflationRateEscalator(Escalator):
             return Escalator.escalate(self, **kwargs)
         except KeyError:
             raise MissingInfoError, "We are missing some data from the escalate function"
-        except ValueError:
-            raise ProjFinError, "The values used for the inflation rate are invalid"
+        except TypeError or ValueError:
+            raise BadValue, "The values used for the inflation rate are invalid"
 
 class CPIindexEscalator(Escalator):
     """Uses the CPI index to determine the final cost"""

@@ -66,7 +66,16 @@ class CapitalExpenseTests(unittest.TestCase):
 
     def testBadEscalationRate(self):
         """Rate should be non-zero, or throw an error"""
-        self.assertEqual(0,1)
+	start = dt.datetime(2010,01,01)
+        finish = dt.datetime(2011,01,01)
+        es = pf.InflationRateEscalator()
+	rate = 'poop'
+	self.assertRaises(pf.BadValue, es.escalate, rate, kwargs = {'cost':100.0, 'basis_date':start, 'new_date':finish})
+	rate = 0.15
+	self.assertRaises(pf.MissingInfoError, es.escalate, rate, kwargs = {'cost':100.0, 'new_date':finish})
+	self.assertRaises(pf.MissingInfoError, es.escalate, rate, kwargs = {'cost':100.0, 'basis_date':start})
+	self.assertRaises(pf.MissingInfoError, es.escalate, rate, kwargs = {'basis_date':start, 'new_date':finish})
+      
 
     def testProperEscalationCPI(self):
         """Escalation using the CPI index should be properly calculated"""

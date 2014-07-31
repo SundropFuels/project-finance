@@ -148,6 +148,7 @@ class CapitalExpenseTests(unittest.TestCase):
     
     def testCorrectlyBuildDeprecSchedSL(self):
         """Testing if a straight-line depreciation sheet is correctly created"""
+        self.assertEqual(0,1)
         IM = pf.FactoredInstallModel(1.6)
         QB = pf.QuoteBasis(price = 141000.0, date = dt.datetime(2012,01,01), size_basis = uv.UnitVal(100, 'lb/hr'), source = "Vendor", scaling_method = 'linear', installation_model = IM )
 	
@@ -163,7 +164,7 @@ class CapitalExpenseTests(unittest.TestCase):
         capex1.build_depreciation_schedule(year1, length)
         for date, v in zip(dates,values):
             self.assertAlmostEqual(capex.depreciation_schedule.loc[date]['depreciation'],v)
-
+        
 
     def testCorrectlyBuildDeprecSchedMACRS(self):
         """Testing if a MACRS depreciation sheet is correctly created"""
@@ -227,13 +228,13 @@ class CapitalExpenseTests(unittest.TestCase):
         
         #Fail on underdefined inputs -- this will currently be broken
         
-        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", installation_model = pf.FactoredInstallModel(1.6), size_basis = uv.UnitVal(100.0, 'ton/day'), depreciation_type = 'MACRS')
-        self.assertRaises(pf.BadCapitalDepreciationInput, capex1.build_depreciation_schedule, year1, length, escalation)
-
-        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", installation_model = pf.FactoredInstallModel(1.6), size_basis = uv.UnitVal(100.0, 'ton/day'), quote_basis = QB)
-        self.assertRaises(pf.BadCapitalDepreciationInput, capex1.build_depreciation_schedule, year1, length, escalation)
-        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", size_basis = uv.UnitVal(100.0, 'ton/day'), quote_basis = QB, depreciation_type = 'MACRS')
-        self.assertRaises(pf.BadCapitalDepreciationInput, capex1.build_depreciation_schedule, year1, length, escalation)
+        IM = pf.FactoredInstallModel(1.6)
+        QB = pf.QuoteBasis(price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaling_method = 'linear', installation_model = IM )
+	
+        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", depreciation_type = 'StraightLine')
+       
+        self.assertRaises(pf.BadCapitalDepreciationInput, capex1.build_depreciation_schedule, year1, length)
+        
    
     def testTICCorrectCalculation(self):
         """Test that TIC is correctly calculated for all supported methods"""

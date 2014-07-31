@@ -631,25 +631,34 @@ class CPIindexEscalator(Escalator):
 class DepreciationSchedule(pd.DataFrame):
     """A timeseries-indexed dataframe that holds the depreciation schedule"""
 
-    def __init__(self, length, starting_period):
-        self.length = length
-        if not isinstance(starting_period, dt.datetime):
-            raise BadDateError, "starting_date must be a datetime.datetime object; found %s instead" % type(starting_date)
-        self.starting_period = starting_period
+    def __init__(self, date_range = None, data = None, **kwargs):
+		
+	pd.DataFrame.__init__(self, data=data, index=date_range)
 
     def build(self):
         """Fills in the depreciation schedule"""
-	self.length = length
-        if not isinstance(starting_date, dt.datetime):
-            raise BadDateError, "starting_date must be a datetime.datetime object; found %s instead" % type(starting_date)
-        self.starting_date = starting_date
+	pass
+
+    def check_inputs(self, length, starting_period):
+        if not isinstance(starting_period, dt.datetime):
+            raise BadCapitalDepreciationInput, "starting_period must be a datetime.datetime object; found %s instead" % type(starting_period)
+
+        try:
+            f = 9.3/length
+            if length < 0:
+                raise BadCapitalDepreciationInput, "length must be positive"
+        except TypeError or ValueError:
+            raise BadCapitalDepreciationInput, "length must be numeric and positive"    
+        
 
 class NonDepreciableDepreciationSchedule(DepreciationSchedule):
-    def __init__(self, **kwargs):
-        DepreciationSchedule.__init__(self, **kwargs)
-        dates = pd.date_range(self.starting_period, self.starting_period + self.length*DateOffset(years=1) - DateOffset(days=1), freq = 'D')
+    def __init__(self, starting_period=None, length=None, **kwargs):
+        self.check_inputs(starting_period, length)
+        self.le = length
+        self.starting_period = starting_period
+        dates = pd.date_range(self.starting_period, self.starting_period + self.le*DateOffset(years=1) - DateOffset(days=1), freq = 'D')
 	d = {'depreciation':np.zeros(len(dates))}
-        pd.DataFrame.__init__(self, data=d, index = dates)
+        DepreciationSchedule.__init__(date_range = dates, data = d)
 
     def build(self, cost):
         """Nothing to do here -- the schedule should be filled with zeros"""
@@ -658,11 +667,13 @@ class NonDepreciableDepreciationSchedule(DepreciationSchedule):
 
 class StraightLineDepreciationSchedule(DepreciationSchedule):
 
-    def __init__(self, **kwargs):
-        DepreciationSchedule.__init__(self, **kwargs)
-        dates = pd.date_range(self.starting_period, self.starting_period + self.length*DateOffset(years=1) - DateOffset(days=1), freq = 'D')
+    def __init__(self, starting_period=None, length=None,**kwargs):
+        self.check_inputs(starting_period, length)
+        self.le = length
+        self.starting_period = starting_period
+        dates = pd.date_range(self.starting_period, self.starting_period + self.le*DateOffset(years=1) - DateOffset(days=1), freq = 'D')
         d = {'depreciation':np.zeros(len(dates))}
-        pd.DataFrame.__init__(self, data = d, index = dates)
+        DepreciationSchedule.__init__(date_range = dates, data = d)
 
     def build(self, cost):
         """Fills out a straight-line depreciation schedule"""
@@ -679,18 +690,20 @@ class MACRSDepreciationSchedule(DepreciationSchedule):
     MACRS['15'] = np.array([0.05, 0.095, 0.0855, 0.0770, 0.0693, 0.0623, 0.0590, 0.0590, 0.0591, 0.0590, 0.0591, 0.0590, 0.0591, 0.0590, 0.0591, 0.0295])
     MACRS['20'] = np.array([0.0375, 0.07219, 0.06677, 0.06177, 0.05713, 0.05285, 0.04888, 0.04522, 0.04462, 0.04461, 0.04462, 0.044610, 0.04462, 0.04461, 0.04462, 0.04461, 0.04462, 0.04461, 0.04462, 0.04461, 0.02231])
    
-    def __init__(self, **kwargs):
-        DepreciationSchedule.__init__(self, **kwargs)
+    def __init__(self, starting_period=None, length=None,**kwargs):
+        self.check_inputs(starting_period, length)
+        self.le = length
+        self.starting_period = starting_period
 
-        dates = pd.date_range(self.starting_period, self.starting_period + (self.length+1)*DateOffset(years=1)-DateOffset(days=1), freq = 'D')
+        dates = pd.date_range(self.starting_period, self.starting_period + (self.le+1)*DateOffset(years=1)-DateOffset(days=1), freq = 'D')
         d = {'depreciation': np.zeros(len(dates))}
-        pd.DataFrame.__init__(self, data = d, index = dates)
+        DepreciationSchedule.__init__(date_range = dates, data = d)
 
     def build(self, cost):
         self['depreciation'] += 1.0
-        for y in range(0,self.length+1):
+        for y in range(0,self.le+1):
                 
-            dep_factor = MACRSDepreciationSchedule.MACRS['%s' % (self.length)][y]/len(self[self.starting_period + y*DateOffset(years=1):self.starting_period+(y+1)*DateOffset(years=1)-DateOffset(days=1)])
+            dep_factor = MACRSDepreciationSchedule.MACRS['%s' % (self.le)][y]/len(self[self.starting_period + y*DateOffset(years=1):self.starting_period+(y+1)*DateOffset(years=1)-DateOffset(days=1)])
             self[self.starting_period+y*DateOffset(years=1):self.starting_period+(y+1)*DateOffset(years=1)-DateOffset(days=1)]['depreciation'] *= dep_factor                
  
         self['depreciation'] *= self.c_deprec_capital()
@@ -727,7 +740,7 @@ class CapitalExpense:
         if dep_type is None:
             dep_type = 'NonDepreciable'
         if dep_type not in dep_types:
-            raise BadCapitalCostInput, "%s is not a supported depreciation type" % depreciation_type
+            raise BadCapitalCostInput, "%s is not a supported depreciation type" % dep_type
         self.depreciation_type = dep_type
 
     def set_escalator(self, esc_type):
@@ -762,9 +775,10 @@ class CapitalExpense:
         #set up the schedule Dataframe
         if self.depreciation_type not in dep_methods:
             raise BadCapitalDepreciationInput, "No depreciation method selected"
-
-        self.depreciation_schedule = globals["%sDepreciationSchedule" % self.depreciation_type](starting_period = starting_period, length = length)
-        self.depreciation_schedule.build(cost = self.TIC(starting_period))
+        
+        self.depreciation_schedule = globals()["%sDepreciationSchedule" % self.depreciation_type](starting_period = starting_period, length = length)
+       
+        #self.depreciation_schedule.build(cost = self.TIC(starting_period))
                
 
     def __eq__(self, other):

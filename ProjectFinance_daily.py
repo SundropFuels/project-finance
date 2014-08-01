@@ -638,9 +638,13 @@ class CPIindexEscalator(Escalator):
 class DepreciationSchedule:
     """A timeseries-indexed dataframe that holds the depreciation schedule"""
 
-    def __init__(self, date_range = None, data = None, **kwargs):
-		
-	self.frame = pd.DataFrame(data=data, index=date_range)
+    def __init__(self, starting_period, length):
+	#create an empty dataframe, if nothing else
+	self.check_inputs(starting_period, length)
+	self.length = length
+	self.starting_period = starting_period
+
+	#Any creation of an actual schedule will require creation of the DataFrame in the __init__ member function
 
     def build(self):
         """Fills in the depreciation schedule"""
@@ -670,13 +674,13 @@ class DepreciationSchedule:
 
 class NonDepreciableDepreciationSchedule(DepreciationSchedule):
     def __init__(self, starting_period=None, length=None, **kwargs):
-        self.check_inputs(starting_period, length)
         
-        dates = pd.date_range(starting_period, starting_period + length*DateOffset(years=1) - DateOffset(days=1), freq = 'D')
+        DepreciationSchedule.__init__(self, starting_period, length)
+        dates = pd.date_range(self.starting_period, self.starting_period + self.length*DateOffset(years=1) - DateOffset(days=1), freq = 'D')
 	d = {'depreciation':np.zeros(len(dates))}
-        DepreciationSchedule.__init__(self, date_range = dates, data = d)
-	self.le = length
-        self.starting_period = starting_period
+	self.frame = pd.DataFrame(index = dates, data = d)
+        
+	
 
 
     def build(self, cost):
@@ -688,19 +692,19 @@ class NonDepreciableDepreciationSchedule(DepreciationSchedule):
 class StraightLineDepreciationSchedule(DepreciationSchedule):
 
     def __init__(self, starting_period=None, length=None,**kwargs):
-        self.check_inputs(starting_period, length)
         
-        dates = pd.date_range(starting_period, starting_period + length*DateOffset(years=1) - DateOffset(days=1), freq = 'D')
+        DepreciationSchedule.__init__(self, starting_period, length)
+        dates = pd.date_range(self.starting_period, self.starting_period + self.length*DateOffset(years=1) - DateOffset(days=1), freq = 'D')
         d = {'depreciation':np.zeros(len(dates))}
-        DepreciationSchedule.__init__(self, date_range = dates, data = d)
-	self.le = length
-        self.starting_period = starting_period
+        self.frame = pd.DataFrame(index = dates, data = d)
+	
 
     def build(self, cost):
         """Fills out a straight-line depreciation schedule"""
         self['depreciation'] += 1.0
         deprec_value_daily = cost/len(self.frame.index)
         self['depreciation'] *= deprec_value_daily
+
 
 class MACRSDepreciationSchedule(DepreciationSchedule):
     MACRS = {}
@@ -712,20 +716,18 @@ class MACRSDepreciationSchedule(DepreciationSchedule):
     MACRS['20'] = np.array([0.0375, 0.07219, 0.06677, 0.06177, 0.05713, 0.05285, 0.04888, 0.04522, 0.04462, 0.04461, 0.04462, 0.044610, 0.04462, 0.04461, 0.04462, 0.04461, 0.04462, 0.04461, 0.04462, 0.04461, 0.02231])
    
     def __init__(self, starting_period=None, length=None,**kwargs):
-        self.check_inputs(starting_period, length)
+        DepreciationSchedule.__init__(self, starting_period, length)
         
-
-        dates = pd.date_range(starting_period, starting_period + (length+1)*DateOffset(years=1)-DateOffset(days=1), freq = 'D')
+        dates = pd.date_range(self.starting_period, self.starting_period + (self.length+1)*DateOffset(years=1)-DateOffset(days=1), freq = 'D')
         d = {'depreciation': np.zeros(len(dates))}
-        DepreciationSchedule.__init__(self, date_range = dates, data = d)
-	self.le = length
-        self.starting_period = starting_period
+        self.frame = pd.DataFrame(index = dates, data = d)
+	
 
     def build(self, cost):
         self['depreciation'] += 1.0
-        for y in range(0,self.le+1):
+        for y in range(0,self.length+1):
                 
-            dep_factor = MACRSDepreciationSchedule.MACRS['%s' % (self.le)][y]/len(self[self.starting_period + y*DateOffset(years=1):self.starting_period+(y+1)*DateOffset(years=1)-DateOffset(days=1)])
+            dep_factor = MACRSDepreciationSchedule.MACRS['%s' % (self.length)][y]/len(self[self.starting_period + y*DateOffset(years=1):self.starting_period+(y+1)*DateOffset(years=1)-DateOffset(days=1)])
             self[self.starting_period+y*DateOffset(years=1):self.starting_period+(y+1)*DateOffset(years=1)-DateOffset(days=1)]['depreciation'] *= dep_factor                
  
         self['depreciation'] *= cost

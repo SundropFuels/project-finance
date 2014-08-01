@@ -756,7 +756,7 @@ class CapitalExpense:
             self.escalator = NoEscalationEscalator()
 
         elif esc_type in esc_types:
-            self.escalator = globals["%sEscalator" % esc_type]()
+            self.escalator = globals()["%sEscalator" % esc_type]()
 
         else:
             raise BadEscalatorTypeError, "%s is not a supported escalator type" % esc_type

@@ -262,7 +262,13 @@ class CapitalExpenseTests(unittest.TestCase):
         self.assertEqual(capex1.TIC(dt.datetime(2014,01,01)), 141000.0+100000.0)
 
         #Need one that tests escalation here
-        self.assertEqual(0,1)
+        
+	IM = pf.FactoredInstallModel(1.6)
+        QB = pf.QuoteBasis(price = 141000.0, date = dt.datetime(2009,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaling_method = 'linear', installation_model = IM)
+	
+        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'StraightLine', escalation_type = "InflationRate" )
+        
+        self.assertAlmostEqual(capex1.TIC(dt.datetime(2011,01,01), rate = 0.05), 141000.0*1.6*1.05*1.05)
 
     def testTICUnderdefined(self):
         """Test that the Capex TIC function throws the proper errors when the Capital Expense is underdefined"""

@@ -635,18 +635,18 @@ class CPIindexEscalator(Escalator):
         #Calculate a factor
         pass
         
-class DepreciationSchedule(pd.DataFrame):
+class DepreciationSchedule:
     """A timeseries-indexed dataframe that holds the depreciation schedule"""
 
     def __init__(self, date_range = None, data = None, **kwargs):
 		
-	pd.DataFrame.__init__(self, data=data, index=date_range)
+	self.frame = pd.DataFrame(data=data, index=date_range)
 
     def build(self):
         """Fills in the depreciation schedule"""
 	pass
 
-    def check_inputs(self, length, starting_period):
+    def check_inputs(self, starting_period, length):
         if not isinstance(starting_period, dt.datetime):
             raise BadCapitalDepreciationInput, "starting_period must be a datetime.datetime object; found %s instead" % type(starting_period)
 
@@ -657,35 +657,49 @@ class DepreciationSchedule(pd.DataFrame):
         except TypeError or ValueError:
             raise BadCapitalDepreciationInput, "length must be numeric and positive"    
         
+    def __getitem__(self, key):
+        return self.frame[key]
+
+    def __setitem__(self, key, val):
+        self.frame[key] = val
+
+    def value(self, date):
+	return self.frame.loc[date]['depreciation']
+
+
 
 class NonDepreciableDepreciationSchedule(DepreciationSchedule):
     def __init__(self, starting_period=None, length=None, **kwargs):
         self.check_inputs(starting_period, length)
-        self.le = length
-        self.starting_period = starting_period
-        dates = pd.date_range(self.starting_period, self.starting_period + self.le*DateOffset(years=1) - DateOffset(days=1), freq = 'D')
+        
+        dates = pd.date_range(starting_period, starting_period + length*DateOffset(years=1) - DateOffset(days=1), freq = 'D')
 	d = {'depreciation':np.zeros(len(dates))}
-        DepreciationSchedule.__init__(date_range = dates, data = d)
+        DepreciationSchedule.__init__(self, date_range = dates, data = d)
+	self.le = length
+        self.starting_period = starting_period
+
 
     def build(self, cost):
         """Nothing to do here -- the schedule should be filled with zeros"""
         pass
 
+    
 
 class StraightLineDepreciationSchedule(DepreciationSchedule):
 
     def __init__(self, starting_period=None, length=None,**kwargs):
         self.check_inputs(starting_period, length)
-        self.le = length
-        self.starting_period = starting_period
-        dates = pd.date_range(self.starting_period, self.starting_period + self.le*DateOffset(years=1) - DateOffset(days=1), freq = 'D')
+        
+        dates = pd.date_range(starting_period, starting_period + length*DateOffset(years=1) - DateOffset(days=1), freq = 'D')
         d = {'depreciation':np.zeros(len(dates))}
-        DepreciationSchedule.__init__(date_range = dates, data = d)
+        DepreciationSchedule.__init__(self, date_range = dates, data = d)
+	self.le = length
+        self.starting_period = starting_period
 
     def build(self, cost):
         """Fills out a straight-line depreciation schedule"""
         self['depreciation'] += 1.0
-        deprec_value_daily = cost/len(dates)
+        deprec_value_daily = cost/len(self.frame.index)
         self['depreciation'] *= deprec_value_daily
 
 class MACRSDepreciationSchedule(DepreciationSchedule):
@@ -699,12 +713,13 @@ class MACRSDepreciationSchedule(DepreciationSchedule):
    
     def __init__(self, starting_period=None, length=None,**kwargs):
         self.check_inputs(starting_period, length)
-        self.le = length
-        self.starting_period = starting_period
+        
 
-        dates = pd.date_range(self.starting_period, self.starting_period + (self.le+1)*DateOffset(years=1)-DateOffset(days=1), freq = 'D')
+        dates = pd.date_range(starting_period, starting_period + (length+1)*DateOffset(years=1)-DateOffset(days=1), freq = 'D')
         d = {'depreciation': np.zeros(len(dates))}
-        DepreciationSchedule.__init__(date_range = dates, data = d)
+        DepreciationSchedule.__init__(self, date_range = dates, data = d)
+	self.le = length
+        self.starting_period = starting_period
 
     def build(self, cost):
         self['depreciation'] += 1.0
@@ -713,7 +728,7 @@ class MACRSDepreciationSchedule(DepreciationSchedule):
             dep_factor = MACRSDepreciationSchedule.MACRS['%s' % (self.le)][y]/len(self[self.starting_period + y*DateOffset(years=1):self.starting_period+(y+1)*DateOffset(years=1)-DateOffset(days=1)])
             self[self.starting_period+y*DateOffset(years=1):self.starting_period+(y+1)*DateOffset(years=1)-DateOffset(days=1)]['depreciation'] *= dep_factor                
  
-        self['depreciation'] *= self.c_deprec_capital()
+        self['depreciation'] *= cost
 
 
 
@@ -785,7 +800,7 @@ class CapitalExpense:
         
         self.depreciation_schedule = globals()["%sDepreciationSchedule" % self.depreciation_type](starting_period = starting_period, length = length)
        
-        #self.depreciation_schedule.build(cost = self.TIC(starting_period))
+        self.depreciation_schedule.build(cost = self.TIC(starting_period))
                
 
     def __eq__(self, other):

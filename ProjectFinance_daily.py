@@ -23,7 +23,7 @@ class ProjFinError(Exception):
 class BadDateError(ProjFinError):
     pass
 
-class BadEscalatorType(ProjFinError):
+class BadEscalatorTypeError(ProjFinError):
     pass
 
 class BadScalingMethodError(ProjFinError):

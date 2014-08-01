@@ -99,15 +99,17 @@ class CapitalExpenseTests(unittest.TestCase):
 
     def testBadCapitalCostInput(self):
         """Bad input types or values should throw a BadCapitalCostInput error on initialization"""
-        #First test that minimum amount of items have been defined (name and tag)
-        ##!!## self.assertRaises(pf.BadCapitalCostInput, pf.CapitalExpense, ...)
+        #String based inputs won't throw errors, so won't test for errors on tag, name, or description
+	tag = 'a'
+	name = 'something'
+	IM = pf.FactoredInstallModel(1.6)
+	QB = pf.QuoteBasis(price = 141000.0, date = dt.datetime(2010,01,01), source = "Vendor", scaling_method = 'linear', installation_model = IM, size_basis = uv.UnitVal(100, 'lb/hr') )
+	self.assertRaises(pf.BadCapitalCostInput, pf.CapitalExpense, tag, name, 'poop', 'jimmy', None, 'StraightLine') 
 
-        #Now test that the wrong types for the various arguments raise the error
-        ##!!## self.assertRaises(pf.BadCapitalCostInput, pf.CapitalExpense, ...)
+        self.assertRaises(pf.BadCapitalCostInput, pf.CapitalExpense, tag, name, 'poop', QB, None, 'MoFarter') 
+	self.assertRaises(pf.BadEscalatorTypeError, pf.CapitalExpense, tag, name, 'poop', QB, 'WhoSays', 'StraightLine') 
 
-        #Now test that invalid values for size basis (i.e. <0) or for depreciation type raise errors
-        ##!!## self.assertRaises(pf.BadCapitalCostInput, pf.CapitalExpense, ...)
-        self.assertEqual(1,0)
+       
 
        
     

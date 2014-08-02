@@ -244,22 +244,28 @@ class CapitalExpenseTests(unittest.TestCase):
     def testCorrectlyBuildDeprecSchedSchedule(self):
         """Testing if a Schedule depreciation sheet is correctly created"""
        
-        IM = pf.FactoredInstallModel(1.6)
+        IM = pf.FactoredInstallModel(1.0)
         QB = pf.QuoteBasis(price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaling_method = 'linear', installation_model = IM )
 	
         capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'Schedule')
               
         year1 = dt.datetime(2012,1,1)
+	rng = pd.date_range(year1, periods = 10*365, freq = 'D')
+        sched = pd.DataFrame(index = rng, data = {'depreciation':np.zeros(10*365)})
+	date1 = dt.datetime(2015,3,28)
+	sched['depreciation'][date1] = 0.95
+	date2 = dt.datetime(2018,6,2)
+	sched['depreciation'][date2] = 0.05
+
+
         length = 10
-        schedule = pf.DepreciationSchedule() #This still needs to be implemented to work correctly
-        #spot check the values that are charged
-        dates = np.array(['2012-01-01', '2014-03-20', '2016-02-29', '2012-12-31'])
-        value = 225600.0/3653.0          #This is wrong, and it needs to be updated to the actual value set
-        values = np.array([value, value, value, value])
+        dates = np.array([date1, date2, dt.datetime(2020,03,2)])
+	       
+        values = np.array([141000.0*0.95, 141000*0.05, 0.00])
         
-        capex1.build_depreciation_schedule(year1, length)
+        capex1.build_depreciation_schedule(year1, length, schedule=sched)
         for date, v in zip(dates,values):
-            self.assertAlmostEqual(capex.depreciation_schedule.loc[date]['depreciation'],v)
+            self.assertAlmostEqual(capex1.depreciation_schedule.value(date),v,4)
 
     def testBadDepreciationInputs(self):
         """Test that invalid inputs to the depreciation functions throw proper errors"""

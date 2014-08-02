@@ -733,7 +733,22 @@ class MACRSDepreciationSchedule(DepreciationSchedule):
         self['depreciation'] *= cost
 
 
+class ScheduleDepreciationSchedule(DepreciationSchedule):
+    """A fixed schedule of fractional write-downs should be passed in"""
+    def __init__(self, starting_period=None, length=None, schedule=None):
+	DepreciationSchedule.__init__(self, starting_period, length)
+	if not isinstance(schedule, pd.DataFrame) or not isinstance(schedule.index, pd.DatetimeIndex):
+	    raise BadCapitalDepreciationInput, "The schedule must be a pandas dataframe with a timeseries index"
+        if schedule.index[0] < starting_period:
+            raise BadCapitalDepreciationInput, "The schedule starts before the given starting period"
 
+        if 'depreciation' not in schedule.columns:
+            raise BadCapitalDepreciationInput, "The depreciation schedule must have a 'depreciation' column"
+
+        self.frame = pd.DataFrame(schedule)
+
+    def build(self, cost):
+        self['depreciation'] *= cost
 
 class CapitalExpense:
     """Container class for capital expenditures"""
@@ -800,7 +815,7 @@ class CapitalExpense:
         if self.depreciation_type not in dep_methods:
             raise BadCapitalDepreciationInput, "No depreciation method selected"
         
-        self.depreciation_schedule = globals()["%sDepreciationSchedule" % self.depreciation_type](starting_period = starting_period, length = length)
+        self.depreciation_schedule = globals()["%sDepreciationSchedule" % self.depreciation_type](starting_period = starting_period, length = length, **kwargs)
        
         self.depreciation_schedule.build(cost = self.TIC(starting_period))
                

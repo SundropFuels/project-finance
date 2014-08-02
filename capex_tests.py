@@ -366,19 +366,23 @@ class CapitalExpenseTests(unittest.TestCase):
 
     def testBadCapitalCostScheduleInput(self):
         """Test that we get the appropriate errors when inputs are invalid or underdefined"""
-        QB = pf.QuoteBasis(price = 141000.0, date = dt.datetime(2010,01,01), source = "Vendor")
-	IM = pf.FactoredInstallModel(1.6)
-        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", installation_model = IM, size_basis = uv.UnitVal(100.0, 'ton/day'), quote_basis = QB, depreciation_type = 'MACRS')
-        start_date = dt.datetime(2012,1,1)
-        end_date = dt.datetime(2014,1,1)
-        self.assertRaises(pf.BadCapitalCostScheduleInput, 'meep')
-        #self.assertRaises(pf.BadCapitalCostScheduleInput  Need definition for kwargs to do errors for bad inputs for the fixed period-interval
-        #underdefined rules
-        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", size_basis = uv.UnitVal(100.0, 'ton/day'), quote_basis = QB, depreciation_type = 'MACRS')
-        self.assertRaises(pf.BadCapitalCostScheduleInput, start_date)
-        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", installation_model = IM, size_basis = uv.UnitVal(100.0, 'ton/day'), depreciation_type = 'MACRS')
-        self.assertRaises(pf.BadCapitalCostScheduleInput, start_date)
-
+        IM = pf.FactoredInstallModel(1.0)
+        QB = pf.QuoteBasis(price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaling_method = 'linear', installation_model = IM )
+	
+        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'Schedule')
+              
+        year1 = dt.datetime(2012,1,1)
+	rng = pd.date_range(year1, periods = 10*365, freq = 'D')
+	rng1 = pd.date_range(dt.datetime(2011,1,1), periods = 10*365, freq = 'D')
+        sched = pd.DataFrame(index = rng, data = {'depreciation':np.zeros(10*365)})
+	kwargs = {'schedule':'poop'}
+        self.assertRaises(pf.BadCapitalDepreciationInput, capex1.build_depreciation_schedule, year1, 10, **kwargs)
+	kwargs = {'schedule':pd.DataFrame(index = rng1, data = {'depreciation':np.zeros(10*365)})}
+	self.assertRaises(pf.BadCapitalDepreciationInput, capex1.build_depreciation_schedule, year1, 10, **kwargs)
+        kwargs = {'schedule':pd.DataFrame(index = np.array([1,2,3]), data = {'depreciation':np.zeros(3)})}
+	self.assertRaises(pf.BadCapitalDepreciationInput, capex1.build_depreciation_schedule, year1, 10, **kwargs)
+	kwargs = {'schedule':pd.DataFrame(index = rng, data = {'depreciation1':np.zeros(10*365)})}
+	self.assertRaises(pf.BadCapitalDepreciationInput, capex1.build_depreciation_schedule, year1, 10, **kwargs)
 
 if __name__ == "__main__":
     unittest.main()

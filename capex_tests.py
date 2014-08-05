@@ -55,11 +55,12 @@ class CapitalExpenseTests(unittest.TestCase):
         start = dt.datetime(2010,01,01)
         finish = dt.datetime(2011,01,01)
         es = pf.InflationRateEscalator()
-        val = es.escalate(rate = 0.015, cost = 100.0, basis_date = start, new_date = finish)
+	es.rate = 0.015
+        val = es.escalate(cost = 100.0, basis_date = start, new_date = finish)
         actual = 100.0*(1+0.015)
         self.assertAlmostEqual(val,actual)
         finish = dt.datetime(2012,06,25)
-        val = es.escalate(rate = 0.015, cost = 100.0, basis_date = start, new_date = finish)
+        val = es.escalate(cost = 100.0, basis_date = start, new_date = finish)
         r = (np.power(1.015,1/365.0)-1)
         actual = 100.0 * (1+r)**906
         self.assertAlmostEqual(val, actual)
@@ -70,11 +71,13 @@ class CapitalExpenseTests(unittest.TestCase):
         finish = dt.datetime(2011,01,01)
         es = pf.InflationRateEscalator()
 	rate = 'poop'
-	self.assertRaises(pf.BadValue, es.escalate, rate, kwargs = {'cost':100.0, 'basis_date':start, 'new_date':finish})
+	es.rate = rate
+	self.assertRaises(pf.BadValue, es.escalate, kwargs = {'cost':100.0, 'basis_date':start, 'new_date':finish})
 	rate = 0.15
-	self.assertRaises(pf.MissingInfoError, es.escalate, rate, kwargs = {'cost':100.0, 'new_date':finish})
-	self.assertRaises(pf.MissingInfoError, es.escalate, rate, kwargs = {'cost':100.0, 'basis_date':start})
-	self.assertRaises(pf.MissingInfoError, es.escalate, rate, kwargs = {'basis_date':start, 'new_date':finish})
+	es.rate = rate
+	self.assertRaises(pf.MissingInfoError, es.escalate, kwargs = {'cost':100.0, 'new_date':finish})
+	self.assertRaises(pf.MissingInfoError, es.escalate, kwargs = {'cost':100.0, 'basis_date':start})
+	self.assertRaises(pf.MissingInfoError, es.escalate, kwargs = {'basis_date':start, 'new_date':finish})
       
 
     def testProperEscalationCPI(self):
@@ -319,8 +322,8 @@ class CapitalExpenseTests(unittest.TestCase):
         QB = pf.QuoteBasis(price = 141000.0, date = dt.datetime(2009,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaling_method = 'linear', installation_model = IM)
 	
         capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'StraightLine', escalation_type = "InflationRate" )
-        
-        self.assertAlmostEqual(capex1.TIC(dt.datetime(2011,01,01), rate = 0.05), 141000.0*1.6*1.05*1.05)
+        capex1.set_inflation_rate(0.05)
+        self.assertAlmostEqual(capex1.TIC(dt.datetime(2011,01,01)), 141000.0*1.6*1.05*1.05)
 
     def testTICUnderdefined(self):
         """Test that the Capex TIC function throws the proper errors when the Capital Expense is underdefined"""
@@ -359,68 +362,89 @@ class CapitalExpenseTests(unittest.TestCase):
 	
         capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'StraightLine', payment_terms = 'LumpSumDelivered')
         start_date = dt.datetime(2014,01,01)
-        capex1.calc_payment_schedule(date = start_date)
-        self.assertEqual(capex1.payment_schedule['payment'][start_date+dt.timedelta(days=365)], 141000.0*1.4)        
+        capex1.calc_payment_schedule(order_date = start_date)
+        self.assertEqual(capex1.payment_schedule['payments'][start_date+dt.timedelta(days=365)], 141000.0*1.6)        
 
 	QB = pf.QuoteBasis(price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaling_method = 'linear', installation_model = IM, lead_time = dt.timedelta(days=365))
 	capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'StraightLine', payment_terms = 'LumpSumOrdered')
         start_date = dt.datetime(2014,01,01)
-        capex1.calc_payment_schedule(date = start_date)
-        self.assertEqual(capex1.payment_schedule['payment'][start_date], 141000.0*1.4)   
+        capex1.calc_payment_schedule(order_date = start_date)
+        self.assertEqual(capex1.payment_schedule['payments'][start_date], 141000.0*1.6)   
 
 	
     def testCostLayoutScheduleFixedSchedule(self): 
         """Test that the Capex can calculate its own layout schedule (with no escalation) on a Fixed Schedule"""
         IM = pf.FactoredInstallModel(1.6)
-        QB = pf.QuoteBasis(price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaling_method = 'linear', installation_model = IM, lead_time = dt.timedelta(days=365))
+        QB = pf.QuoteBasis(price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaling_method = 'linear', installation_model = IM, lead_time = dt.timedelta(days=3*365))
+	dates = pd.date_range(dt.datetime(2014,01,01), periods = 5, freq = 'M')
+        data = {'payments':np.array([141000*1.6*0.2,141000*1.6*0.3,141000*1.6*0.1,141000*1.6*.3,141000*1.6*.1])}
+	schedule = pd.DataFrame(index = dates, data = data)
 	
-        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'StraightLine', payment_terms = 'LumpSumDelivered')
+        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'StraightLine', payment_terms = 'FixedSchedule')
         start_date = dt.datetime(2014,01,01)
-        capex1.calc_payment_schedule(date = start_date)
-        self.assertEqual(capex1.payment_schedule['payment'][start_date+dt.timedelta(days=365)], 141000.0*1.4)        
-
-	QB = pf.QuoteBasis(price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaling_method = 'linear', installation_model = IM, lead_time = dt.timedelta(days=365))
-	capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'StraightLine', payment_terms = 'LumpSumOrdered')
-        start_date = dt.datetime(2014,01,01)
-        capex1.calc_payment_schedule(date = start_date)
-        self.assertEqual(capex1.payment_schedule['payment'][start_date], 141000.0*1.4)   
+        capex1.calc_payment_schedule(order_date = start_date, schedule = schedule)
+        self.assertEqual(capex1.payment_schedule['payments'][dt.datetime(2014,01,31)], 141000.0*1.6*0.2)
+	self.assertEqual(capex1.payment_schedule['payments'][dt.datetime(2014,02,28)], 141000.0*1.6*0.3)        
+	self.assertEqual(capex1.payment_schedule['payments'][dt.datetime(2014,03,31)], 141000.0*1.6*0.1)
+	self.assertEqual(capex1.payment_schedule['payments'][dt.datetime(2014,04,30)], 141000.0*1.6*0.3)
+	self.assertEqual(capex1.payment_schedule['payments'][dt.datetime(2014,05,31)], 141000.0*1.6*0.1)  
 
     def testCostLayoutScheduleFixedFraction(self):
         """Test that the Capex can calculate its own layout schedule (with no escalation) on a Fixed Schedule"""
         IM = pf.FactoredInstallModel(1.6)
-        QB = pf.QuoteBasis(price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaling_method = 'linear', installation_model = IM, lead_time = dt.timedelta(days=365))
-	
-        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'StraightLine', payment_terms = 'LumpSumDelivered')
+        QB = pf.QuoteBasis(price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaling_method = 'linear', installation_model = IM, lead_time = dt.timedelta(days=3*365))
+	dates = pd.date_range(dt.datetime(2014,01,01), periods = 5, freq = 'M')
+        data = {'payments':np.array([.2,.3,.1,.3,.1])}
+	schedule = pd.DataFrame(index = dates, data = data)
+	print sum(schedule['payments'])
+        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'StraightLine', payment_terms = 'FractionalSchedule')
         start_date = dt.datetime(2014,01,01)
-        capex1.calc_payment_schedule(date = start_date)
-        self.assertEqual(capex1.payment_schedule['payment'][start_date+dt.timedelta(days=365)], 141000.0*1.4)        
-
-	QB = pf.QuoteBasis(price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaling_method = 'linear', installation_model = IM, lead_time = dt.timedelta(days=365))
-	capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'StraightLine', payment_terms = 'LumpSumOrdered')
-        start_date = dt.datetime(2014,01,01)
-        capex1.calc_payment_schedule(date = start_date)
-        self.assertEqual(capex1.payment_schedule['payment'][start_date], 141000.0*1.4) 
+        capex1.calc_payment_schedule(order_date = start_date, schedule = schedule)
+        self.assertEqual(capex1.payment_schedule['payments'][dt.datetime(2014,01,31)], 141000.0*1.6*0.2)
+	self.assertEqual(capex1.payment_schedule['payments'][dt.datetime(2014,02,28)], 141000.0*1.6*0.3)        
+	self.assertEqual(capex1.payment_schedule['payments'][dt.datetime(2014,03,31)], 141000.0*1.6*0.1)
+	self.assertEqual(capex1.payment_schedule['payments'][dt.datetime(2014,04,30)], 141000.0*1.6*0.3)
+	self.assertEqual(capex1.payment_schedule['payments'][dt.datetime(2014,05,31)], 141000.0*1.6*0.1)
 
     def testCostLayoutScheduleFixedPeriodInterval(self):
         """Test that the Capex can calculate its own layout schedule (with no escalation) on a Fixed Interval"""
         IM = pf.FactoredInstallModel(1.6)
         QB = pf.QuoteBasis(price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaling_method = 'linear', installation_model = IM, lead_time = dt.timedelta(days=3*365))
 	
-        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'StraightLine', payment_terms = 'Monthly')
+        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'StraightLine', payment_terms = 'EqualPeriodic')
         start_date = dt.datetime(2014,01,01)
-        capex1.calc_payment_schedule(date = start_date)
-        self.assertEqual(capex1.payment_schedule['payment'][start_date+dt.timedelta(days=365)], 141000.0*1.4)        
+        capex1.calc_payment_schedule(order_date = start_date, freq = 'M')
+        self.assertEqual(capex1.payment_schedule['payments'][dt.datetime(2014,01,31)], 141000.0*1.6/36.0)
+	self.assertEqual(capex1.payment_schedule['payments'][dt.datetime(2014,05,31)], 141000.0*1.6/36.0)        
 
-	QB = pf.QuoteBasis(price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaling_method = 'linear', installation_model = IM, lead_time = dt.timedelta(days=3*365))
-	capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'StraightLine', payment_terms = 'Annual')
-        start_date = dt.datetime(2014,01,01)
-        capex1.calc_payment_schedule(date = start_date)
-        self.assertEqual(capex1.payment_schedule['payment'][start_date], 141000.0*1.4)   
+	capex1.calc_payment_schedule(order_date = start_date, freq = 'D')
+        self.assertEqual(capex1.payment_schedule['payments'][start_date], 141000.0*1.6/1096.0)
+	self.assertEqual(capex1.payment_schedule['payments'][dt.datetime(2015,05,23)], 141000.0*1.6/1096.0)      
+	 
 
     def testBadCapitalCostScheduleInput(self):
         """Test that we get the appropriate errors when inputs are invalid or underdefined"""
 	        
-	self.assertEqual(0,1)
+	IM = pf.FactoredInstallModel(1.6)
+        QB = pf.QuoteBasis(price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaling_method = 'linear', installation_model = IM, lead_time = dt.timedelta(days=3*365))
+	
+        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'StraightLine', payment_terms = 'LumpSumOrdered')
+	kwargs = {'order_date':34.0}
+        self.assertRaises(pf.BadCapitalPaymentInput, capex1.calc_payment_schedule, **kwargs)
+	
+        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'StraightLine', payment_terms = 'FractionalSchedule')
+	dates = pd.date_range(dt.datetime(2012,01,01), periods = 5, freq = 'M')
+        data = {'payments':np.array([.2,.3,.1,.3,.1])}
+        schedule = pd.DataFrame(data = data)
+        kwargs = {'order_date':dt.datetime(2012,01,01), 'schedule':schedule}
+	self.assertRaises(pf.BadCapitalPaymentInput, capex1.calc_payment_schedule, **kwargs)
+        schedule = pd.DataFrame(index = dates, data = {'payments':np.ones(5)})
+	self.assertRaises(pf.BadCapitalPaymentInput, capex1.calc_payment_schedule, **kwargs)
+        schedule = pd.DataFrame(index = dates, data = {'foop':np.array([.2,.2,.2,.2,.2])})
+	self.assertRaises(pf.BadCapitalPaymentInput, capex1.calc_payment_schedule, **kwargs)
+	capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'StraightLine', payment_terms = 'FixedSchedule')
+        schedule = pd.DataFrame(index = dates, data = data)
+        self.assertRaises(pf.BadCapitalPaymentInput, capex1.calc_payment_schedule, **kwargs)
 
     def testBadCapitalDepreciationScheduleInput(self):
 	"""Test that we get the appropriate errors when inputs are invalid or undefined on a Schedule for capital depreciation"""

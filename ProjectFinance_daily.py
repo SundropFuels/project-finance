@@ -50,6 +50,12 @@ class BadValue(ProjFinError):
 class MissingInfoError(ProjFinError):
     pass
 
+class BadCapitalPaymentInput(ProjFinError):
+    pass
+
+class BadCapitalPaymentTerms(ProjFinError):
+    pass
+
 class ProjAnalyzer:
     """Base class for analyzing a single project"""
     def __init__(self):
@@ -468,12 +474,8 @@ class QuoteBasis:
             raise QuoteBasisBadInput, "The installation model must be an InstallModel object"
 
         if lead_time is not None:
-	    try:
-                if lead_time <= 0:
-                    raise QuoteBasisBadInput, "The lead time must be positive"
-                b = 1.0/lead_time
-            except TypeError:
-                raise QuoteBasisBadInput, "The lead time must be numeric"
+	    if not isinstance(lead_time, dt.timedelta):
+                raise QuoteBasisBadInput, "The lead time must be a timedelta"
 
            
 
@@ -618,15 +620,19 @@ class NoEscalationEscalator(Escalator):
 
 class InflationRateEscalator(Escalator):
     """Uses a fixed inflation rate (annual, effective) to determine the final cost"""
-    def escalate(self, rate, **kwargs):
+    def __init__(self, rate = None):
+        Escalator.__init__(self)
+        self.rate = rate
+
+    def escalate(self, **kwargs):
 
         try:
-	    c = 1/rate
-            if rate < 0:
+	    c = 1/self.rate
+            if self.rate < 0:
                 raise BadValue, "The rate must be positive"
-            dpr = np.power(1+rate, 1/365.0)-1
+            dpr = np.power(1+self.rate, 1/365.0)-1
             n = (kwargs['new_date']-kwargs['basis_date']).days	#number of days between intervening periods
-            print n
+            
             self.factor = (1+dpr)**n
             return Escalator.escalate(self, **kwargs)
         except KeyError:
@@ -748,7 +754,7 @@ class ScheduleDepreciationSchedule(DepreciationSchedule):
     """A fixed schedule of fractional write-downs should be passed in"""
     def __init__(self, starting_period=None, length=None, schedule=None):
 	DepreciationSchedule.__init__(self, starting_period, length)
-	if not isinstance(schedule, pd.DataFrame) or not isinstance(schedule.index, pd.DatetimeIndex):
+	if not isinstance(schedule, pd.DataFrame) or not isinstance(schedule.index, pd.tseries.index.DatetimeIndex):
 	    raise BadCapitalDepreciationInput, "The schedule must be a pandas dataframe with a timeseries index"
         if schedule.index[0] < starting_period:
             raise BadCapitalDepreciationInput, "The schedule starts before the given starting period"
@@ -766,7 +772,7 @@ class CapitalExpense:
     
     gl_add_info = OrderedDict([('name',('Name',str)),('uninstalled_cost',('Uninstalled cost',float)),('installation_factor',('Installation factor',float))])
 
-    def __init__(self, tag, name, description = None, quote_basis = None, escalation_type = None, depreciation_type = 'StraightLine'):
+    def __init__(self, tag, name, description = None, quote_basis = None, escalation_type = None, depreciation_type = 'StraightLine', payment_terms = None):
         self.name = name
         self.tag = tag
         self.description = description
@@ -778,7 +784,7 @@ class CapitalExpense:
         self.set_depreciation_type(depreciation_type)
         self.set_escalator(escalation_type)
         self.comments = []
-
+        self.payment_terms = payment_terms
     
     def set_quote_basis(self, quote_basis):
         if not isinstance(quote_basis, QuoteBasis):
@@ -804,6 +810,8 @@ class CapitalExpense:
         else:
             raise BadEscalatorTypeError, "%s is not a supported escalator type" % esc_type
 
+    def set_inflation_rate(self, rate):
+        self.escalator.rate = rate  #This only really does anything if it is an inflation escalator -- there is probably a better overall way to handle this, but I do not care
 
     
     def add_comment(self, comment):
@@ -829,6 +837,67 @@ class CapitalExpense:
         self.depreciation_schedule = globals()["%sDepreciationSchedule" % self.depreciation_type](starting_period = starting_period, length = length, **kwargs)
        
         self.depreciation_schedule.build(cost = self.TIC(starting_period))
+
+    def calc_payment_schedule(self, **kwargs):
+	accepted_terms = ['LumpSumDelivered','LumpSumOrdered','EqualPeriodic','FractionalSchedule','FixedSchedule']
+        if self.payment_terms not in accepted_terms:
+            raise BadCapitalPaymentTerms, "%s is not a supported set of payment terms" % self.payment_terms
+        
+
+        getattr(self, "_calc_payment_schedule_%s" % self.payment_terms)(**kwargs)
+        
+
+    def _calc_payment_schedule_LumpSumOrdered(self, order_date = None):
+        if not isinstance(order_date, dt.datetime):
+            raise BadCapitalPaymentInput, "order_date must be datetime.datetime; got %s instead)" % type(order_date)
+        dates = [order_date]
+        data = {'payments':np.array([self.TIC(order_date)])}
+        self.payment_schedule = pd.DataFrame(index = dates, data = data)
+
+    def _calc_payment_schedule_LumpSumDelivered(self, order_date = None):
+        if not isinstance(order_date, dt.datetime):
+            raise BadCapitalPaymentInput, "order_date must be datetime.datetime, got %s instead)" % type(order_date)
+        dates = [order_date + self.quote_basis.lead_time]
+	data = {'payments':np.array([self.TIC(order_date)])}
+        self.payment_schedule = pd.DataFrame(index = dates, data = data)
+
+    def _calc_payment_schedule_EqualPeriodic(self, order_date = None, freq = 'M'):
+        if not isinstance(order_date, dt.datetime):
+            raise BadCapitalPaymentInput, "order_date must be datetime.datetime, got %s instead)" % type(order_date)
+        dates = pd.date_range(start = order_date, end = order_date + self.quote_basis.lead_time, freq = freq)
+	pmts = np.ones(len(dates))
+	pmts *= self.TIC(order_date)/len(pmts)
+        data = {'payments':pmts}
+	self.payment_schedule = pd.DataFrame(index = dates, data = data)
+	
+	
+
+    def _calc_payment_schedule_FractionalSchedule(self, order_date = None, schedule = None):
+        if not isinstance(order_date, dt.datetime):
+            raise BadCapitalPaymentInput, "order_date must be datetime.datetime, got %s instead)" % type(order_date)
+	if not isinstance(schedule, pd.DataFrame) or not isinstance(schedule.index, pd.tseries.index.DatetimeIndex):
+            raise BadCapitalPaymentInput, "schedule must be a pandas DataFrame with a DatetimeIndex"
+        if not 'payments' in schedule.columns:
+            raise BadCapitalPaymentInput, "schedule must have a 'payments' column"
+        
+        if not abs(sum(schedule['payments'])-1.0) < 0.0001:
+            raise BadCapitalPaymentInput, "The schedule payments column must sum to 1.0"
+
+        schedule['payments']*=self.TIC(order_date)
+        self.payment_schedule = schedule
+
+    def _calc_payment_schedule_FixedSchedule(self, order_date = None, schedule = None):
+        if not isinstance(order_date, dt.datetime):
+            raise BadCapitalPaymentInput, "order_date must be datetime.datetime, got %s instead)" % type(order_date)
+	if not isinstance(schedule, pd.DataFrame) or not isinstance(schedule.index, pd.tseries.index.DatetimeIndex):
+            raise BadCapitalPaymentInput, "schedule must be a pandas DataFrame with a DatetimeIndex"
+        if not 'payments' in schedule.columns:
+            raise BadCapitalPaymentInput, "schedule must have a 'payments' column"
+
+        if not sum(schedule['payments']) == self.TIC(order_date):
+            raise BadCapitalPaymentInput, "The schedule payments column must sum to the total installed cost (escalated)"
+        
+        self.payment_schedule = schedule
                
 
     def __eq__(self, other):

@@ -445,14 +445,15 @@ class FinancialParameters:
 
 class QuoteBasis:
     """This is the class for holding quotation information that a capital item will require to scale"""
-    def __init__(self, price = None, date = None, size_basis = None, source = None, scaling_method = None, installation_model = None, **kwargs):
+    def __init__(self, price = None, date = None, size_basis = None, source = None, scaling_method = None, installation_model = None, lead_time = None, **kwargs):
         if price == None or date == None or size_basis == None:
             raise QuoteBasisBadInput, "QuoteBasis is underspecified"
         try:
-            if price < 0:
+            if price <= 0:
                 raise QuoteBasisBadInput, "price must be greater than zero"
-        except ValueError:
-                raise QuoteBasisBadInput, "price must be numeric"
+	    b = 1.0/price
+        except TypeError:
+            raise QuoteBasisBadInput, "price must be numeric"
 
         if not isinstance(date, dt.datetime):
             raise QuoteBasisBadInput, "date must be a datetime.datetime object"
@@ -466,6 +467,16 @@ class QuoteBasis:
         if installation_model is not None and not isinstance(installation_model, InstallModel):
             raise QuoteBasisBadInput, "The installation model must be an InstallModel object"
 
+        if lead_time is not None:
+	    try:
+                if lead_time <= 0:
+                    raise QuoteBasisBadInput, "The lead time must be positive"
+                b = 1.0/lead_time
+            except TypeError:
+                raise QuoteBasisBadInput, "The lead time must be numeric"
+
+           
+
         self.price = price
         self.date = date
         self.size_basis = size_basis 
@@ -478,7 +489,7 @@ class QuoteBasis:
             self.scale_exponent = kwargs['exponent']
      
         self.install_model = installation_model
-
+        self.lead_time = lead_time
 
     def __eq__(self, other):
         if not isinstance(other, QuoteBasis):

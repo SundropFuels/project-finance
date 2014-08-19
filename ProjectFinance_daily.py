@@ -12,49 +12,7 @@ import pandas as pd
 import datetime as dt
 import pandas.tseries.offsets as offs
 from pandas.tseries.offsets import DateOffset
-
-class ProjFinError(Exception):
-    def __init__(self,value):
-        self.value = value
-
-    def __str__(self):
-        return repr(self.value)
-
-class BadDateError(ProjFinError):
-    pass
-
-class BadEscalatorTypeError(ProjFinError):
-    pass
-
-class BadScalingMethodError(ProjFinError):
-    pass
-
-class NoScalingExponentError(ProjFinError):
-    pass
-
-class BadCapitalCostInput(ProjFinError):
-    pass
-
-class BadCapitalDepreciationInput(ProjFinError):
-    pass
-
-class BadCapitalTICInput(ProjFinError):
-    pass
-
-class QuoteBasisBadInput(ProjFinError):
-    pass
-
-class BadValue(ProjFinError):
-    pass
-
-class MissingInfoError(ProjFinError):
-    pass
-
-class BadCapitalPaymentInput(ProjFinError):
-    pass
-
-class BadCapitalPaymentTerms(ProjFinError):
-    pass
+from pf_errors import *
 
 class ProjAnalyzer:
     """Base class for analyzing a single project"""
@@ -554,6 +512,42 @@ class QuoteBasis:
            source = self.source
 	return QuoteBasis(price = price, date=self.date, scale_basis = new_scale, installation_model = self.installation_model, scaling_method = self.scaling_method, source = "%s_scaled_exponent_%s" % (source, self.scale_exponent), exponent = self.scale_exponent)
 
+class IndirectQuoteBasis:
+
+    def __init__(self, base_cost = None, date =None, method = None, **kwargs):
+        try:
+            if self.base_cost <= 0:
+                raise QuoteBasisBadInput, "The base_cost must be positive"
+            a = 23.0/self.base_cost
+        except TypeError:
+	    raise QuoteBasisBadInput, "The base_cost must be numeric"
+        self.base_cost = base_cost
+        methods = ['fixed', 'fractional']
+        if method not in methods:
+            raise QuoteBasisBadInput, "%s is not a valid method" % method
+        self.method = method
+        if not isinstance(date, dt.datetime):
+            raise QuoteBasisBadInput, "date must be a datetime.datetime object"
+        self.date = date
+
+
+        for item in kwargs:
+            setattr(self, item, kwargs[item])
+
+
+
+    def installed_cost(self):
+        return getattr(self, "_calc_installed_cost_%s" % self.method)()
+
+    def _calc_installed_cost_fixed(self):
+        return self.base_cost
+
+    def _calc_installed_cost_fractional(self):
+        return self.base_cost*self.fraction
+    
+                   
+
+	
 class InstallModel:
     """Class to hold models for installed cost"""
     def __init__(self):
@@ -919,6 +913,15 @@ class CapitalExpense:
         return CapitalExpense(tag, name, description = self.description, installation_model = self.installation_model, size_basis = self.size_basis, quote_basis = newQB, escalation_type = self.escalation_type, depreciation_type = self.depreciation_type)
               
 
+class IndirectCapitalExpense(CapitalExpense):
+
+    def set_quote_basis(self, quote_basis):
+        if not isinstance(quote_basis, IndirectQuoteBasis):
+            raise BadCapitalCostInput, "The quote_basis must be of type QuoteBasis"
+        self.quote_basis = quote_basis
+
+
+
 class CapitalCosts:
     
 
@@ -934,141 +937,41 @@ class CapitalCosts:
     """Holds (and calculates) all depreciable and non-depreciable capex for the project"""
     def __init__(self):
         self.direct_capital = []
-        self.indirect_deprec_capital = {}
-        self.indirect_nondeprec_capital = {}
-        self._setup_depreciable_capex_dict()
-        self._setup_nondeprec_capex_dict()        
+        self.indirect_capital = []
+              
+
+    def add_direct_capital_item(self, capital_item):
+        """Adds a capital item to the direct_capital list"""
+        if not isinstance(capital_item, CapitalExpense):
+            raise BadDirectCapitalItem, "Only capital expenses can be added to the capital expense list"
+
+        self.direct_capital.append(capital_item)
+
+    def add_indirect_capital_item(self, indirect_capital_item):
+        """Adds an indirect capital item to the indirect_capital list"""
+        if not isinstance(indirect_capital_item, IndirectCapitalExpense):
+            raise BadIndirectCapitalItem, "Only indirect capital expenses can be added to the indirect capital expense list"
+
+        self.indirect_capital.append(indirect_capital_item)
 
 
+    def build_capex_schedule(self):
+        """Calculates all of the payments and depreciation and aggregates these into a pandas dataframe"""
+	#DataFrame will be self.frame -- use accessors to get the columns of the frame?
+        pass
+
+
+
+    ##############################################
+    """
     def _setup_depreciable_capex_dict(self):
         items = ['site_prep', 'engineering_and_design', 'process_contingency', 'project_contingency', 'other', 'one-time_licensing_fees', 'up-front_permitting_costs']
         for item in items:
             self.indirect_deprec_capital[item] = 0
-
-    def _setup_nondeprec_capex_dict(self):
-        self.indirect_nondeprec_capital['Land'] = 0
-
-
-    def set_base_scale(self, base_scale):
-        self.base_scale = base_scale                    #This must be a (value, units) tuple
-        for capex in self.direct_capital:
-            capex.set_base_scale(base_scale)
-
-    def add_capital_item(self, capital_item):
-        """Adds a capital item to the direct_capital list"""
-        if not isinstance(capital_item, CapitalExpense):
-            raise ProjFinError, "Only capital expenses can be added to the capital expense list"
-
-        self.direct_capital.append(capital_item)
-
-    def c_direct_capital(self):
-        direct_cap_list = []
-        for cap_item in self.direct_capital:
-            direct_cap_list.append(cap_item.installed_cost)
-        return sum(direct_cap_list)
-
-    def c_indirect_deprec_capital(self):
-        idc_list = []
-        for key in self.indirect_deprec_capital.keys():
-            idc_list.append(self.indirect_deprec_capital[key])
-        return sum(idc_list)
-
-    def c_deprec_capital(self):
-        return self.c_direct_capital() + self.c_indirect_deprec_capital()
-
-    def c_indirect_nondeprec_capital(self):
-        idnc_list = []
-        for key in self.indirect_nondeprec_capital.keys():
-            idnc_list.append(self.indirect_nondeprec_capital[key])
-        return sum(idnc_list)
-
-    def c_total_capital(self):
-        return self.c_deprec_capital() + self.c_indirect_nondeprec_capital()
-
-    def build_capex_schedule(self, starting_period, expense_breakdown):
-        """Creates a schedule of capital expenditures.  Modes: simple = proportional annual schedule for total capex layout
-           categorical = proportional annual schedule for direct, indirect non_deprec, and indirect_deprec -- NOT IMPLEMENTED YET
-           full = annual cash layout for each specific capital item -- NOT IMPLEMENTED YET
-           returns the plant startup year
-        """
-        if isinstance(expense_breakdown, list):
-            mode = "simple"
-
-        elif isinstance(expense_breakdown, dict):
-            mode = "categorical"
-
-        elif isinstance(expense_breakdown, pd.DataFrame):
-            mode = "full"
-
-        else:
-            raise ProjFinError, "This type of expense breakdown is not recognized"
-
-
-        if mode == "simple":
-            try:
-                if sum(expense_breakdown) != 1:
-                    raise ProjFinError, "The expense_breakdown must sum to 1"
-            except ValueError:
-                raise ProjFinError, "The expense_breakdown list must be filled with numbers"
-
-            
-            
-            
-            dates = pd.date_range(starting_period, starting_period + (len(expense_breakdown))*DateOffset(years=1)-DateOffset(days=1), freq = 'D')		#OVER BY ONE?
-            
-            capcosts = np.ones(len(dates)) * self.c_total_capital()
-            self.capex_schedule = pd.DataFrame(data = {'capex':capcosts}, index = dates)
-            #The current behavior is to take the annual capital expenditure and divide it evenly over all the days; with pandas date capability, this can easily be extended to weekly, monthly, etc. charge behavior
-            for y in range(0,len(expense_breakdown)):
-                
-                capital_factor = expense_breakdown[y]/len(self.capex_schedule[starting_period + y*DateOffset(years=1):starting_period + (y+1)*DateOffset(years=1)-DateOffset(days=1)])
-                self.capex_schedule[starting_period + y*DateOffset(years=1):starting_period + (y+1)*DateOffset(years=1)-DateOffset(days=1)]['capex'] *= capital_factor
-                           
-            return starting_period + len(expense_breakdown)*DateOffset(years=1)
-
-
-        if mode == "categorical":
-            pass
-
-        if mode == "full":
-            pass
+    #SAVE THIS FOR THE OVERALL PROJECT AS "TYPICAL" ITEMS 
+    """
 
     
-    def build_depreciation_schedule(self, starting_period, length, method):
-        """Fills out the depreciation capex schedule based on the type of depreciation (straight-line, MACRS, etc.)"""
-               
-        #set up the schedule Dataframe
-               
-
-        if method == "straight-line":
-            #all of the days will be the same - this can easily be extended to allow for various frequencies
-            dates = pd.date_range(starting_period, starting_period + length*DateOffset(years=1) - DateOffset(days=1), freq = 'D')
-            
-            d = {'depreciation':np.ones(len(dates))}
-            self.depreciation_schedule = pd.DataFrame(data = d, index = dates)
-            #!!!#This is not actually correct -- need to adjust this for leap years.  Do this annually, like in the MACRS schedule below
-            deprec_value_daily = self.c_deprec_capital()/len(dates)
-            self.depreciation_schedule['depreciation'] *= deprec_value_daily
-            
-        elif method == "MACRS":
-            
-            dates = pd.date_range(starting_period, starting_period + (length+1)*DateOffset(years=1)-DateOffset(days=1), freq = 'D')
-            d = {'depreciation': np.ones(len(dates))}
-            self.depreciation_schedule = pd.DataFrame(data = d, index = dates)
-            for y in range(0,length+1):
-                
-                dep_factor = CapitalCosts.MACRS['%s' % (length)][y]/len(self.depreciation_schedule[starting_period + y*DateOffset(years=1):starting_period+(y+1)*DateOffset(years=1)-DateOffset(days=1)])
-                self.depreciation_schedule[starting_period+y*DateOffset(years=1):starting_period+(y+1)*DateOffset(years=1)-DateOffset(days=1)]['depreciation'] *= dep_factor                
- 
-            self.depreciation_schedule['depreciation'] *= self.c_deprec_capital()
-            
-
-        else:
-            raise ProjFinError, "Unknown depreciation method %s" % method
-               
-
-
-
     def costs_and_depreciation(self, period):
         """Accessor method to hide the internal baseball of the capital costs object -- all I really want from this thing, at this point, are the costs for a given day"""
         capex = 0.0
@@ -1090,20 +993,7 @@ class CapitalCosts:
 
 
     def scale(self, new_scale):
-        new_capcosts = CapitalCosts()
-
-        for capex in self.direct_capital:
-            new_capcosts.add_capital_item(capex.scale(new_scale))
-
-        converter = uc.UnitConverter()
-        scaled = converter.convert_units(new_scale[0], new_scale[1], self.base_scale[1])
-
-        #indirects scale linearly, as they are usually percentages of total capital
-        for key, cost in self.indirect_deprec_capital.items():
-            new_capcosts.indirect_deprec_capital[key] = cost * scaled/self.base_scale[0]
-
-        for key, cost in self.indirect_nondeprec_capital.items():
-            new_capcosts.indirect_nondeprec_capital[key] = cost * scaled/self.base_scale[0]
+        pass
 
 class FixedCosts:
     gl_add_info = OrderedDict([('project_staff',('Project staff',float)),('g_and_a',('General and Administrative',float)),('prop_tax_and_insurance',('Property tax and insurance',float)),('rent_or_lease',('Rent or Lease',float)),('licensing_permits_fees',('Licensing, permits, and fees',float)),('mat_cost_maint_repair',('Material costs for maintenance and repairs',float)),('other_fees',('Other fees',float)),('other_fixed_op_and_maint',('Other fixed operational and maintenance costs',float))])

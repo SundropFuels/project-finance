@@ -466,6 +466,26 @@ class CapitalExpenseTests(unittest.TestCase):
 	kwargs = {'schedule':pd.DataFrame(index = rng, data = {'depreciation1':np.zeros(10*365)})}
 	self.assertRaises(pf.BadCapitalDepreciationInput, capex1.build_depreciation_schedule, year1, 10, **kwargs)
 
+class CapitalCostsTests(unittest.TestCase):
+
+    def testBadDirectCapitalItem(self):
+        """Adding an item that is not a direct capital expense should raise an error"""
+        costs = pf.CapitalCosts()
+        self.assertRaises(pf.BadDirectCapitalItem, costs.add_direct_capital_item, "ninja")
+        
+
+    def testBadIndirectCapitalItem(self):
+        """Adding an item that is not an indirect capital expense should raise an error"""
+	costs = pf.CapitalCosts()
+        self.assertRaises(pf.BadIndirectCapitalItem, costs.add_indirect_capital_item, "ninja")
+
+    def testAggregateCorrectly(self):
+        """CapitalCosts must correctly build the capital schedule, including total direct and indirect costs as well as depreciation"""
+        self.assertEqual(0,1)
+
+    
+
+
 
 if __name__ == "__main__":
     unittest.main()

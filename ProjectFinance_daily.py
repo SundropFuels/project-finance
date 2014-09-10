@@ -12,13 +12,7 @@ import pandas as pd
 import datetime as dt
 import pandas.tseries.offsets as offs
 from pandas.tseries.offsets import DateOffset
-
-class ProjFinError(Exception):
-    def __init__(self,value):
-        self.value = value
-
-    def __str__(self):
-        return repr(self.value)
+from pf_errors import *
 
 class ProjAnalyzer:
     """Base class for analyzing a single project"""
@@ -413,68 +407,317 @@ class FinancialParameters:
     def __ne__(self, other):
         return not self.__eq__(other)
 
-class CapitalExpense:
-    """Container class for capital expenditures"""
-    
-    gl_add_info = OrderedDict([('name',('Name',str)),('uninstalled_cost',('Uninstalled cost',float)),('installation_factor',('Installation factor',float))])
+class QuoteBasis:
+    """This is the class for holding quotation information that a capital item will require to scale"""
+    def __init__(self, price = None, date = None, size_basis = None, source = None, scaling_method = None, installation_model = None, lead_time = None, **kwargs):
+        if price == None or date == None or size_basis == None:
+            raise QuoteBasisBadInput, "QuoteBasis is underspecified"
+        try:
+            if price <= 0:
+                raise QuoteBasisBadInput, "price must be greater than zero"
+	    b = 1.0/price
+        except TypeError:
+            raise QuoteBasisBadInput, "price must be numeric"
 
+        if not isinstance(date, dt.datetime):
+            raise QuoteBasisBadInput, "date must be a datetime.datetime object"
 
-    def __init__(self, name, uninstalled_cost = None, installation_factor = None):
-        self.name = name
-        self.uninstalled_cost = uninstalled_cost
-        self.installation_factor = installation_factor
-        if self.uninstalled_cost is not None and installation_factor is not None:
-            self.installed_cost = self.uninstalled_cost * installation_factor
+        if source is not None and not isinstance(source, basestring):
+            raise QuoteBasisBadInput, "The source must be a string"
 
-        self.comments = []
+        if not isinstance(size_basis, uv.UnitVal):
+            raise QuoteBasisBadInput, "The size basis must be a UnitVal"
 
-    def set_cost(self, uninstalled_cost, installation_factor):
-        self.uninstalled_cost = uninstalled_cost
-        self.installation_factor = installation_factor
-        self.installed_cost = self.uninstalled_cost * self.installation_factor
+        if installation_model is not None and not isinstance(installation_model, InstallModel):
+            raise QuoteBasisBadInput, "The installation model must be an InstallModel object"
 
-
-    def add_comment(self, comment):
-        if type(comment) is not str:
-            raise ProjFinError, "Comments must be strings"
-        self.comments.append(comment)
-
-    def __eq__(self, other):
-        return isinstance(other, self.__class__) and self.name == other.name and self.uninstalled_cost == other.uninstalled_cost and self.installation_factor == other.installation_factor and self.comments == other.comments
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-    
-    def set_base_scale(self, scale):
-        if not isinstance(scale, tuple):
-            raise pf.ProfFinError, "scale must be a tuple of the form (value, units)"
-
-        self.scale = scale                 #scale should be a (value, units) tuple
-
-    def set_scale_type(self, scale_type):
-        self.scale_type = scale_type
-
-    def scale(self, new_scale):
-        new_capex = CapitalExpense(name = self.name)
-        new_cost = self.scale_function(new_scale, self.scale, self.uninstalled_cost)
-        new_capex.set_cost(new_cost, self.installation_factor)
-        new_capex.comments = self.comments
-        return new_capex
-
-    def scale_function(self, new_scale, old_scale, cost):
-        #convert the scales to the same basis
-        converter = uc.UnitConverter()
-        scaled = converter.convert(new_scale[0], new_scale[1], old_scale[1])
-        if self.scale_type == 'linear':
-            return cost * scaled/old_scale[0]
-        elif self.scale_type == 'six_tenths':
-            return cost * np.power(scaled/old_scale[0],0.6)
-        else:
-            return cost * scaled/old_scale[0]   #default to linear
+        if lead_time is not None:
+	    if not isinstance(lead_time, dt.timedelta):
+                raise QuoteBasisBadInput, "The lead time must be a timedelta"
 
            
 
-class CapitalCosts:
+        self.price = price
+        self.date = date
+        self.size_basis = size_basis 
+        scaling_methods = ['linear', 'exponent', None]
+        if scaling_method not in scaling_methods:
+            raise BadScalingMethodError, "%s is not a valid scaling method" % scaling_method
+        self.scaling_method = scaling_method
+
+        if 'exponent' in kwargs:
+            self.scale_exponent = kwargs['exponent']
+     
+        self.install_model = installation_model
+        self.lead_time = lead_time
+
+    def __eq__(self, other):
+        if not isinstance(other, QuoteBasis):
+            raise TypeError, "Cannot compare %s to QuoteBasis" % type(other)
+        val = True
+        l = ['price', 'date', 'size_basis', 'scaling_method', 'install_model']
+        for att in l:
+            val = val and (getattr(self, att) == getattr(other,att))
+        return val
+
+    def scale(self, new_scale=None):
+        """Scales the existing cost to a new basis and returns the value"""
+        if new_scale is None:
+            raise QuoteBasisBadInput, "A new scale to price to is missing"
+        if not isinstance(new_scale, uv.UnitVal):
+            raise QuoteBasisBadInput, "The new scale must be a unit value"
+
+        if not new_scale.value > 0:
+            raise QuoteBasisBadInput, "The new scale must be positive in value"
+
+        if self.scaling_method is None:
+            if self.source is None:
+                source = "No source"
+            else:
+                source = self.source
+            return QuoteBasis(price = self.price, date=self.date, scale_basis = self.scale_basis, installation_model = self.installation_model, scaling_method = self.scaling_method, source = "%s_no_scaling" % source)
+
+        try:
+            return getattr(self, '_%s_scale' % self.scaling_method, new_scale)
+
+        except AttributeError:
+            raise QuoteBasisBadInput, "%s is not a valid scaling method" % method
+
+    def installed_cost(self):
+        if self.install_model is None:
+            print "Warning: No install model specified for this quote -- returning base cost"
+            return self.price
+
+        else:
+            return self.install_model.calc_installed_cost(self.price)
+
+    def _linear_scale(self, new_scale, exponent):  #this may be a good place for **kwargs
+        """Linear price scaling"""
+        price = self.price * new_scale/self.scale_basis
+        if self.source is None:
+           source = "No source"
+        else:
+           source = self.source
+        return QuoteBasis(price = price, date=self.date, scale_basis = new_scale, installation_model = self.installation_model, scaling_method = self.scaling_method, source = "%s_scaled_linearly" % source)
+
+    def _exponent_scale(self, new_scale, exponent):
+        """Exponential price scaling"""
+        try:
+            price = self.price * (new_scale/self.scale_basis)**self.scale_exponent
+        except AttributeError:
+            raise NoScaleExponentError, "There was an attribute error on exponential scaling; check to make sure you set the scaling exponent"
+        if self.source is None:
+           source = "No source"
+        else:
+           source = self.source
+	return QuoteBasis(price = price, date=self.date, scale_basis = new_scale, installation_model = self.installation_model, scaling_method = self.scaling_method, source = "%s_scaled_exponent_%s" % (source, self.scale_exponent), exponent = self.scale_exponent)
+
+class IndirectQuoteBasis:
+
+    def __init__(self, base_cost = None, date =None, method = None, **kwargs):
+        try:
+            if self.base_cost <= 0:
+                raise QuoteBasisBadInput, "The base_cost must be positive"
+            a = 23.0/self.base_cost
+        except TypeError:
+	    raise QuoteBasisBadInput, "The base_cost must be numeric"
+        self.base_cost = base_cost
+        methods = ['fixed', 'fractional']
+        if method not in methods:
+            raise QuoteBasisBadInput, "%s is not a valid method" % method
+        self.method = method
+        if not isinstance(date, dt.datetime):
+            raise QuoteBasisBadInput, "date must be a datetime.datetime object"
+        self.date = date
+
+
+        for item in kwargs:
+            setattr(self, item, kwargs[item])
+
+
+
+    def installed_cost(self):
+        return getattr(self, "_calc_installed_cost_%s" % self.method)()
+
+    def _calc_installed_cost_fixed(self):
+        return self.base_cost
+
+    def _calc_installed_cost_fractional(self):
+        return self.base_cost*self.fraction
+    
+                   
+
+	
+class InstallModel:
+    """Class to hold models for installed cost"""
+    def __init__(self):
+        pass
+
+    def calc_installed_cost(self):
+        pass
+
+    def __eq__(self, other):
+        if not isinstance(other, InstallModel):
+            raise TypeError, "Cannot compare %s to InstallModel" % type(other)
+
+class FactoredInstallModel(InstallModel):
+    def __init__(self, factor):
+        self.factor = factor
+
+    def calc_installed_cost(self, base_cost):
+        return self.factor * base_cost
+
+    def __eq__(self, other):
+        InstallModel.__eq__(self, other)
+        return self.factor == other.factor
+
+class FixedInstallModel(InstallModel):
+    def __init__(self, fixed_amt):
+        self.fixed = fixed_amt
+
+    def calc_installed_cost(self, base_cost):
+        return self.fixed + base_cost
+
+    def __eq__(self, other):
+        InstallModel.__eq__(self, other)
+        return self.fixed == other.fixed
+
+
+class Escalator:
+    """The cost escalation class.  It takes an input date and escalates to a future date based on a variety of subclasses"""
+
+    def __init__(self):
+        self.factor = 1.0			#When it comes down to it, all escalators increase their underlying values by a given factor
+
+    def escalate(self, cost, basis_date, new_date):
+        #do checking on the basis date and the new date
+        if not isinstance(basis_date, dt.datetime) or not isinstance(new_date, dt.datetime):
+            raise BadDateError, "The basis date and the new date both need to be of class datetime.datetime"
+
+        #test for validity of cost
+        try:
+            if cost < 0:
+                raise BadValue, "The cost must be a non-negative number"
+            if cost != 0:
+                a = 23.0/cost
+        except TypeError:
+            raise BadValue, "The cost must be numeric"
+
+        return self.factor * cost
+
+class NoEscalationEscalator(Escalator):
+    """Scales to a constant value"""
+    def escalate(self, **kwargs):
+        self.factor = 1.0
+        return Escalator.escalate(self, **kwargs)    
+
+
+class InflationRateEscalator(Escalator):
+    """Uses a fixed inflation rate (annual, effective) to determine the final cost"""
+    def __init__(self, rate = None):
+        Escalator.__init__(self)
+        self.rate = rate
+
+    def escalate(self, **kwargs):
+
+        try:
+	    c = 1/self.rate
+            if self.rate < 0:
+                raise BadValue, "The rate must be positive"
+            dpr = np.power(1+self.rate, 1/365.0)-1
+            n = (kwargs['new_date']-kwargs['basis_date']).days	#number of days between intervening periods
+            
+            self.factor = (1+dpr)**n
+            return Escalator.escalate(self, **kwargs)
+        except KeyError:
+            raise MissingInfoError, "We are missing some data from the escalate function"
+        except TypeError or ValueError:
+            raise BadValue, "The values used for the inflation rate are invalid"
+
+class CPIindexEscalator(Escalator):
+    """Uses the CPI index to determine the final cost"""
+    #Need a pandas timeseries with values of the CPI index hardcoded
+
+    def escalate(self):
+        #Determine the basis CPI Index
+        
+        #Determine the new CPI Index using interpolation (linear, or spline???)
+
+        #Calculate a factor
+        pass
+        
+class DepreciationSchedule:
+    """A timeseries-indexed dataframe that holds the depreciation schedule"""
+
+    def __init__(self, starting_period, length):
+	#create an empty dataframe, if nothing else
+	self.check_inputs(starting_period, length)
+	self.length = length
+	self.starting_period = starting_period
+
+	#Any creation of an actual schedule will require creation of the DataFrame in the __init__ member function
+
+    def build(self):
+        """Fills in the depreciation schedule"""
+	pass
+
+    def check_inputs(self, starting_period, length):
+        if not isinstance(starting_period, dt.datetime):
+            raise BadCapitalDepreciationInput, "starting_period must be a datetime.datetime object; found %s instead" % type(starting_period)
+
+        try:
+            f = 9.3/length
+            if length < 0:
+                raise BadCapitalDepreciationInput, "length must be positive"
+        except TypeError or ValueError:
+            raise BadCapitalDepreciationInput, "length must be numeric and positive"    
+        
+    def __getitem__(self, key):
+        return self.frame[key]
+
+    def __setitem__(self, key, val):
+        self.frame[key] = val
+
+    def value(self, date):
+	return self.frame.loc[date]['depreciation']
+
+
+
+class NonDepreciableDepreciationSchedule(DepreciationSchedule):
+    def __init__(self, starting_period=None, length=None, **kwargs):
+        
+        DepreciationSchedule.__init__(self, starting_period, length)
+        dates = pd.date_range(self.starting_period, self.starting_period + self.length*DateOffset(years=1) - DateOffset(days=1), freq = 'D')
+	d = {'depreciation':np.zeros(len(dates))}
+	self.frame = pd.DataFrame(index = dates, data = d)
+        
+	
+
+
+    def build(self, cost):
+        """Nothing to do here -- the schedule should be filled with zeros"""
+        pass
+
+    
+
+class StraightLineDepreciationSchedule(DepreciationSchedule):
+
+    def __init__(self, starting_period=None, length=None,**kwargs):
+        
+        DepreciationSchedule.__init__(self, starting_period, length)
+        dates = pd.date_range(self.starting_period, self.starting_period + self.length*DateOffset(years=1) - DateOffset(days=1), freq = 'D')
+        d = {'depreciation':np.zeros(len(dates))}
+        self.frame = pd.DataFrame(index = dates, data = d)
+	
+
+    def build(self, cost):
+        """Fills out a straight-line depreciation schedule"""
+        self['depreciation'] += 1.0
+        deprec_value_daily = cost/len(self.frame.index)
+        self['depreciation'] *= deprec_value_daily
+
+
+class MACRSDepreciationSchedule(DepreciationSchedule):
     MACRS = {}
     MACRS['3'] = np.array([0.3333, 0.4445, 0.1481, 0.0741])
     MACRS['5'] = np.array([0.2, 0.32, 0.1920, 0.1152, 0.1152, 0.0576])
@@ -483,6 +726,204 @@ class CapitalCosts:
     MACRS['15'] = np.array([0.05, 0.095, 0.0855, 0.0770, 0.0693, 0.0623, 0.0590, 0.0590, 0.0591, 0.0590, 0.0591, 0.0590, 0.0591, 0.0590, 0.0591, 0.0295])
     MACRS['20'] = np.array([0.0375, 0.07219, 0.06677, 0.06177, 0.05713, 0.05285, 0.04888, 0.04522, 0.04462, 0.04461, 0.04462, 0.044610, 0.04462, 0.04461, 0.04462, 0.04461, 0.04462, 0.04461, 0.04462, 0.04461, 0.02231])
    
+    def __init__(self, starting_period=None, length=None,**kwargs):
+        DepreciationSchedule.__init__(self, starting_period, length)
+        
+        dates = pd.date_range(self.starting_period, self.starting_period + (self.length+1)*DateOffset(years=1)-DateOffset(days=1), freq = 'D')
+        d = {'depreciation': np.zeros(len(dates))}
+        self.frame = pd.DataFrame(index = dates, data = d)
+	
+
+    def build(self, cost):
+        self['depreciation'] += 1.0
+        for y in range(0,self.length+1):
+                
+            dep_factor = MACRSDepreciationSchedule.MACRS['%s' % (self.length)][y]/len(self[self.starting_period + y*DateOffset(years=1):self.starting_period+(y+1)*DateOffset(years=1)-DateOffset(days=1)])
+            self[self.starting_period+y*DateOffset(years=1):self.starting_period+(y+1)*DateOffset(years=1)-DateOffset(days=1)]['depreciation'] *= dep_factor                
+ 
+        self['depreciation'] *= cost
+
+
+class ScheduleDepreciationSchedule(DepreciationSchedule):
+    """A fixed schedule of fractional write-downs should be passed in"""
+    def __init__(self, starting_period=None, length=None, schedule=None):
+	DepreciationSchedule.__init__(self, starting_period, length)
+	if not isinstance(schedule, pd.DataFrame) or not isinstance(schedule.index, pd.tseries.index.DatetimeIndex):
+	    raise BadCapitalDepreciationInput, "The schedule must be a pandas dataframe with a timeseries index"
+        if schedule.index[0] < starting_period:
+            raise BadCapitalDepreciationInput, "The schedule starts before the given starting period"
+
+        if 'depreciation' not in schedule.columns:
+            raise BadCapitalDepreciationInput, "The depreciation schedule must have a 'depreciation' column"
+
+        self.frame = pd.DataFrame(schedule)
+
+    def build(self, cost):
+        self['depreciation'] *= cost
+
+class CapitalExpense:
+    """Container class for capital expenditures"""
+    
+    gl_add_info = OrderedDict([('name',('Name',str)),('uninstalled_cost',('Uninstalled cost',float)),('installation_factor',('Installation factor',float))])
+
+    def __init__(self, tag, name, description = None, quote_basis = None, escalation_type = None, depreciation_type = 'StraightLine', payment_terms = None):
+        self.name = name
+        self.tag = tag
+        self.description = description
+        if quote_basis is not None:
+            self.set_quote_basis(quote_basis)
+        else:
+           self.quote_basis = None
+        
+        self.set_depreciation_type(depreciation_type)
+        self.set_escalator(escalation_type)
+        self.comments = []
+        self.payment_terms = payment_terms
+    
+    def set_quote_basis(self, quote_basis):
+        if not isinstance(quote_basis, QuoteBasis):
+            raise BadCapitalCostInput, "The quote_basis must be of type QuoteBasis"
+        self.quote_basis = quote_basis
+
+    def set_depreciation_type(self, dep_type):
+        dep_types = ['StraightLine','MACRS', 'Schedule', 'NonDepreciable']
+        if dep_type is None:
+            dep_type = 'NonDepreciable'
+        if dep_type not in dep_types:
+            raise BadCapitalCostInput, "%s is not a supported depreciation type" % dep_type
+        self.depreciation_type = dep_type
+
+    def set_escalator(self, esc_type):
+        esc_types = ['InflationRate','CPIindex']
+        if esc_type is None:
+            self.escalator = NoEscalationEscalator()
+
+        elif esc_type in esc_types:
+            self.escalator = globals()["%sEscalator" % esc_type]()
+
+        else:
+            raise BadEscalatorTypeError, "%s is not a supported escalator type" % esc_type
+
+    def set_inflation_rate(self, rate):
+        self.escalator.rate = rate  #This only really does anything if it is an inflation escalator -- there is probably a better overall way to handle this, but I do not care
+
+    
+    def add_comment(self, comment):
+        if type(comment) is not str:
+            raise ProjFinError, "Comments must be strings"
+        self.comments.append(comment)
+
+    def TIC(self, date, **kwargs):
+        """Returns the total installed cost for the given date, applying the internal escalator and inflation functions"""
+        if self.quote_basis is None:
+            raise BadCapitalTICInput, "A quote basis must be defined to give a total installed cost"
+        base_cost = self.quote_basis.installed_cost()
+        return self.escalator.escalate(cost = base_cost, basis_date = self.quote_basis.date, new_date = date, **kwargs)
+ 
+
+    def build_depreciation_schedule(self, starting_period, length, **kwargs):
+        """Fills out the depreciation capex schedule based on the type of depreciation (straight-line, MACRS, etc.)"""
+        dep_methods = ['StraightLine', 'MACRS', 'Schedule', 'NonDepreciable']       #Need non-deprec and schedule
+        #set up the schedule Dataframe
+        if self.depreciation_type not in dep_methods:
+            raise BadCapitalDepreciationInput, "No depreciation method selected"
+        
+        self.depreciation_schedule = globals()["%sDepreciationSchedule" % self.depreciation_type](starting_period = starting_period, length = length, **kwargs)
+       
+        self.depreciation_schedule.build(cost = self.TIC(starting_period))
+
+    def calc_payment_schedule(self, **kwargs):
+	accepted_terms = ['LumpSumDelivered','LumpSumOrdered','EqualPeriodic','FractionalSchedule','FixedSchedule']
+        if self.payment_terms not in accepted_terms:
+            raise BadCapitalPaymentTerms, "%s is not a supported set of payment terms" % self.payment_terms
+        
+
+        getattr(self, "_calc_payment_schedule_%s" % self.payment_terms)(**kwargs)
+        
+
+    def _calc_payment_schedule_LumpSumOrdered(self, order_date = None):
+        if not isinstance(order_date, dt.datetime):
+            raise BadCapitalPaymentInput, "order_date must be datetime.datetime; got %s instead)" % type(order_date)
+        dates = [order_date]
+        data = {'payments':np.array([self.TIC(order_date)])}
+        self.payment_schedule = pd.DataFrame(index = dates, data = data)
+
+    def _calc_payment_schedule_LumpSumDelivered(self, order_date = None):
+        if not isinstance(order_date, dt.datetime):
+            raise BadCapitalPaymentInput, "order_date must be datetime.datetime, got %s instead)" % type(order_date)
+        dates = [order_date + self.quote_basis.lead_time]
+	data = {'payments':np.array([self.TIC(order_date)])}
+        self.payment_schedule = pd.DataFrame(index = dates, data = data)
+
+    def _calc_payment_schedule_EqualPeriodic(self, order_date = None, freq = 'M'):
+        if not isinstance(order_date, dt.datetime):
+            raise BadCapitalPaymentInput, "order_date must be datetime.datetime, got %s instead)" % type(order_date)
+        dates = pd.date_range(start = order_date, end = order_date + self.quote_basis.lead_time, freq = freq)
+	pmts = np.ones(len(dates))
+	pmts *= self.TIC(order_date)/len(pmts)
+        data = {'payments':pmts}
+	self.payment_schedule = pd.DataFrame(index = dates, data = data)
+	
+	
+
+    def _calc_payment_schedule_FractionalSchedule(self, order_date = None, schedule = None):
+        if not isinstance(order_date, dt.datetime):
+            raise BadCapitalPaymentInput, "order_date must be datetime.datetime, got %s instead)" % type(order_date)
+	if not isinstance(schedule, pd.DataFrame) or not isinstance(schedule.index, pd.tseries.index.DatetimeIndex):
+            raise BadCapitalPaymentInput, "schedule must be a pandas DataFrame with a DatetimeIndex"
+        if not 'payments' in schedule.columns:
+            raise BadCapitalPaymentInput, "schedule must have a 'payments' column"
+        
+        if not abs(sum(schedule['payments'])-1.0) < 0.0001:
+            raise BadCapitalPaymentInput, "The schedule payments column must sum to 1.0"
+
+        schedule['payments']*=self.TIC(order_date)
+        self.payment_schedule = schedule
+
+    def _calc_payment_schedule_FixedSchedule(self, order_date = None, schedule = None):
+        if not isinstance(order_date, dt.datetime):
+            raise BadCapitalPaymentInput, "order_date must be datetime.datetime, got %s instead)" % type(order_date)
+	if not isinstance(schedule, pd.DataFrame) or not isinstance(schedule.index, pd.tseries.index.DatetimeIndex):
+            raise BadCapitalPaymentInput, "schedule must be a pandas DataFrame with a DatetimeIndex"
+        if not 'payments' in schedule.columns:
+            raise BadCapitalPaymentInput, "schedule must have a 'payments' column"
+
+        if not sum(schedule['payments']) == self.TIC(order_date):
+            raise BadCapitalPaymentInput, "The schedule payments column must sum to the total installed cost (escalated)"
+        
+        self.payment_schedule = schedule
+               
+
+    def __eq__(self, other):
+        if not isinstance(other, CapitalExpense):
+            raise TypeError, "Cannot compare CapitalExpense with %s" % type(other)
+        l = ['tag', 'name', 'description', 'quote_basis', 'escalation_type', 'depreciation_type']
+        val = True
+        for att in l:
+            val = val and getattr(self, att) == getattr(other, att)
+        return val
+        
+    def __ne__(self, other):
+        return not self.__eq__(other)
+    
+    
+    def scale(self, tag, name, new_scale):
+        """Returns a new CapitalExpense, scaled from the current capital expense using the scaling method in the quote basis"""
+        newQB = self.quote_basis.scale(new_scale)
+        return CapitalExpense(tag, name, description = self.description, installation_model = self.installation_model, size_basis = self.size_basis, quote_basis = newQB, escalation_type = self.escalation_type, depreciation_type = self.depreciation_type)
+              
+
+class IndirectCapitalExpense(CapitalExpense):
+
+    def set_quote_basis(self, quote_basis):
+        if not isinstance(quote_basis, IndirectQuoteBasis):
+            raise BadCapitalCostInput, "The quote_basis must be of type QuoteBasis"
+        self.quote_basis = quote_basis
+
+
+
+class CapitalCosts:
+    
 
     #Stuff for GUI
     id_labels = {'site_prep':'Site preparation', 'engineering_and_design':'Engineering and design', 'process_contingency':'Process contingency', 'project_contingency':'Project contingency', 'other':'Other', 'one-time_licensing_fees':'One time licensing fees', 'up-front_permitting_costs':'Up-front permitting costs'}
@@ -496,141 +937,41 @@ class CapitalCosts:
     """Holds (and calculates) all depreciable and non-depreciable capex for the project"""
     def __init__(self):
         self.direct_capital = []
-        self.indirect_deprec_capital = {}
-        self.indirect_nondeprec_capital = {}
-        self._setup_depreciable_capex_dict()
-        self._setup_nondeprec_capex_dict()        
+        self.indirect_capital = []
+              
+
+    def add_direct_capital_item(self, capital_item):
+        """Adds a capital item to the direct_capital list"""
+        if not isinstance(capital_item, CapitalExpense):
+            raise BadDirectCapitalItem, "Only capital expenses can be added to the capital expense list"
+
+        self.direct_capital.append(capital_item)
+
+    def add_indirect_capital_item(self, indirect_capital_item):
+        """Adds an indirect capital item to the indirect_capital list"""
+        if not isinstance(indirect_capital_item, IndirectCapitalExpense):
+            raise BadIndirectCapitalItem, "Only indirect capital expenses can be added to the indirect capital expense list"
+
+        self.indirect_capital.append(indirect_capital_item)
 
 
+    def build_capex_schedule(self):
+        """Calculates all of the payments and depreciation and aggregates these into a pandas dataframe"""
+	#DataFrame will be self.frame -- use accessors to get the columns of the frame?
+        pass
+
+
+
+    ##############################################
+    """
     def _setup_depreciable_capex_dict(self):
         items = ['site_prep', 'engineering_and_design', 'process_contingency', 'project_contingency', 'other', 'one-time_licensing_fees', 'up-front_permitting_costs']
         for item in items:
             self.indirect_deprec_capital[item] = 0
-
-    def _setup_nondeprec_capex_dict(self):
-        self.indirect_nondeprec_capital['Land'] = 0
-
-
-    def set_base_scale(self, base_scale):
-        self.base_scale = base_scale                    #This must be a (value, units) tuple
-        for capex in self.direct_capital:
-            capex.set_base_scale(base_scale)
-
-    def add_capital_item(self, capital_item):
-        """Adds a capital item to the direct_capital list"""
-        if not isinstance(capital_item, CapitalExpense):
-            raise ProjFinError, "Only capital expenses can be added to the capital expense list"
-
-        self.direct_capital.append(capital_item)
-
-    def c_direct_capital(self):
-        direct_cap_list = []
-        for cap_item in self.direct_capital:
-            direct_cap_list.append(cap_item.installed_cost)
-        return sum(direct_cap_list)
-
-    def c_indirect_deprec_capital(self):
-        idc_list = []
-        for key in self.indirect_deprec_capital.keys():
-            idc_list.append(self.indirect_deprec_capital[key])
-        return sum(idc_list)
-
-    def c_deprec_capital(self):
-        return self.c_direct_capital() + self.c_indirect_deprec_capital()
-
-    def c_indirect_nondeprec_capital(self):
-        idnc_list = []
-        for key in self.indirect_nondeprec_capital.keys():
-            idnc_list.append(self.indirect_nondeprec_capital[key])
-        return sum(idnc_list)
-
-    def c_total_capital(self):
-        return self.c_deprec_capital() + self.c_indirect_nondeprec_capital()
-
-    def build_capex_schedule(self, starting_period, expense_breakdown):
-        """Creates a schedule of capital expenditures.  Modes: simple = proportional annual schedule for total capex layout
-           categorical = proportional annual schedule for direct, indirect non_deprec, and indirect_deprec -- NOT IMPLEMENTED YET
-           full = annual cash layout for each specific capital item -- NOT IMPLEMENTED YET
-           returns the plant startup year
-        """
-        if isinstance(expense_breakdown, list):
-            mode = "simple"
-
-        elif isinstance(expense_breakdown, dict):
-            mode = "categorical"
-
-        elif isinstance(expense_breakdown, pd.DataFrame):
-            mode = "full"
-
-        else:
-            raise ProjFinError, "This type of expense breakdown is not recognized"
-
-
-        if mode == "simple":
-            try:
-                if sum(expense_breakdown) != 1:
-                    raise ProjFinError, "The expense_breakdown must sum to 1"
-            except ValueError:
-                raise ProjFinError, "The expense_breakdown list must be filled with numbers"
-
-            
-            
-            
-            dates = pd.date_range(starting_period, starting_period + (len(expense_breakdown))*DateOffset(years=1)-DateOffset(days=1), freq = 'D')		#OVER BY ONE?
-            
-            capcosts = np.ones(len(dates)) * self.c_total_capital()
-            self.capex_schedule = pd.DataFrame(data = {'capex':capcosts}, index = dates)
-            #The current behavior is to take the annual capital expenditure and divide it evenly over all the days; with pandas date capability, this can easily be extended to weekly, monthly, etc. charge behavior
-            for y in range(0,len(expense_breakdown)):
-                
-                capital_factor = expense_breakdown[y]/len(self.capex_schedule[starting_period + y*DateOffset(years=1):starting_period + (y+1)*DateOffset(years=1)-DateOffset(days=1)])
-                self.capex_schedule[starting_period + y*DateOffset(years=1):starting_period + (y+1)*DateOffset(years=1)-DateOffset(days=1)]['capex'] *= capital_factor
-                           
-            return starting_period + len(expense_breakdown)*DateOffset(years=1)
-
-
-        if mode == "categorical":
-            pass
-
-        if mode == "full":
-            pass
+    #SAVE THIS FOR THE OVERALL PROJECT AS "TYPICAL" ITEMS 
+    """
 
     
-    def build_depreciation_schedule(self, starting_period, length, method):
-        """Fills out the depreciation capex schedule based on the type of depreciation (straight-line, MACRS, etc.)"""
-               
-        #set up the schedule Dataframe
-               
-
-        if method == "straight-line":
-            #all of the days will be the same - this can easily be extended to allow for various frequencies
-            dates = pd.date_range(starting_period, starting_period + length*DateOffset(years=1) - DateOffset(days=1), freq = 'D')
-            
-            d = {'depreciation':np.ones(len(dates))}
-            self.depreciation_schedule = pd.DataFrame(data = d, index = dates)
-            #!!!#This is not actually correct -- need to adjust this for leap years.  Do this annually, like in the MACRS schedule below
-            deprec_value_daily = self.c_deprec_capital()/len(dates)
-            self.depreciation_schedule['depreciation'] *= deprec_value_daily
-            
-        elif method == "MACRS":
-            
-            dates = pd.date_range(starting_period, starting_period + (length+1)*DateOffset(years=1)-DateOffset(days=1), freq = 'D')
-            d = {'depreciation': np.ones(len(dates))}
-            self.depreciation_schedule = pd.DataFrame(data = d, index = dates)
-            for y in range(0,length+1):
-                
-                dep_factor = CapitalCosts.MACRS['%s' % (length)][y]/len(self.depreciation_schedule[starting_period + y*DateOffset(years=1):starting_period+(y+1)*DateOffset(years=1)-DateOffset(days=1)])
-                self.depreciation_schedule[starting_period+y*DateOffset(years=1):starting_period+(y+1)*DateOffset(years=1)-DateOffset(days=1)]['depreciation'] *= dep_factor                
- 
-            self.depreciation_schedule['depreciation'] *= self.c_deprec_capital()
-            
-
-        else:
-            raise ProjFinError, "Unknown depreciation method %s" % method
-               
-
-
-
     def costs_and_depreciation(self, period):
         """Accessor method to hide the internal baseball of the capital costs object -- all I really want from this thing, at this point, are the costs for a given day"""
         capex = 0.0
@@ -652,20 +993,7 @@ class CapitalCosts:
 
 
     def scale(self, new_scale):
-        new_capcosts = CapitalCosts()
-
-        for capex in self.direct_capital:
-            new_capcosts.add_capital_item(capex.scale(new_scale))
-
-        converter = uc.UnitConverter()
-        scaled = converter.convert_units(new_scale[0], new_scale[1], self.base_scale[1])
-
-        #indirects scale linearly, as they are usually percentages of total capital
-        for key, cost in self.indirect_deprec_capital.items():
-            new_capcosts.indirect_deprec_capital[key] = cost * scaled/self.base_scale[0]
-
-        for key, cost in self.indirect_nondeprec_capital.items():
-            new_capcosts.indirect_nondeprec_capital[key] = cost * scaled/self.base_scale[0]
+        pass
 
 class FixedCosts:
     gl_add_info = OrderedDict([('project_staff',('Project staff',float)),('g_and_a',('General and Administrative',float)),('prop_tax_and_insurance',('Property tax and insurance',float)),('rent_or_lease',('Rent or Lease',float)),('licensing_permits_fees',('Licensing, permits, and fees',float)),('mat_cost_maint_repair',('Material costs for maintenance and repairs',float)),('other_fees',('Other fees',float)),('other_fixed_op_and_maint',('Other fixed operational and maintenance costs',float))])

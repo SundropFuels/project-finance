@@ -536,7 +536,53 @@ class CapitalCostsTests(unittest.TestCase):
 
     def testAggregateCorrectly(self):
         """CapitalCosts must correctly build the capital schedule, including total direct and indirect costs as well as depreciation"""
-        self.assertEqual(0,1)
+
+	#The test will take two directs, an indirect, and a Capital Costs group and make sure the aggregated cash sheet makes sense
+
+        costs = pf.CapitalCosts()
+	IM = pf.FactoredInstallModel(1.0)
+        QB = pf.QuoteBasis(price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaling_method = 'linear', installation_model = IM, lead_time = dt.timedelta(days=3*365))
+	IQB = pf.IndirectQuoteBasis(base_cost = 282000.0, date = dt.datetime(2012,01,01), method = 'fractional', fraction = 0.1)
+	
+        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'MACRS', payment_terms='FixedSchedule')
+	capex2 = pf.CapitalExpense(tag = "F-1402", name = "Feeder 2", description = "Biomass feeder 2", quote_basis = QB, depreciation_type = 'MACRS', payment_terms='FixedSchedule')
+	capex3 = pf.CapitalExpense(tag = "F-1403", name = "Feeder 3", description = "Biomass feeder 3", quote_basis = QB, depreciation_type = 'MACRS', payment_terms='FixedSchedule')
+	capex4 = pf.CapitalExpense(tag = "F-1404", name = "Feeder 4", description = "Biomass feeder 4", quote_basis = QB, depreciation_type = 'MACRS', payment_terms='FixedSchedule')
+
+	icapex1 = pf.CapitalExpense(tag = "I1", name = "Indirect_1", description = "Indirect_1", quote_basis = IQB)
+
+	subcosts = pf.CapitalCosts()
+	subcosts.add_direct_capital_item(capex3)
+	subcosts.add_direct_capital_item(capex4)
+        subcosts.add_indirect_capital_item(icapex1)
+
+	costs.add_direct_capital_item(capex1)
+	costs.add_direct_capital_item(capex2)
+	costs.add_indirect_capital_item(icapex1)
+	costs.add_direct_capital_item(subcosts)		#This is new functionality for the CapitalCosts object -- allows it to recursively contain itself
+
+
+	costs.build_capex_schedule()
+
+        self.assertEqual(costs.total_schedule['direct'][dt.datetime(2012,01,31)], 141000.0*0.2*4)
+        self.assertEqual(costs.total_schedule['indirect'][dt.datetime(2012,01,31)], 141000.0*.2*0.1*2)		#Right now, the indirect is tied to the same schedule -- this needs to be adapted with the scheduler
+	self.assertEqual(costs.total_schedule['depreciation'][dt.datetime(2012,01,31)], 0.0)
+
+	self.assertEqual(costs.total_schedule['direct'][dt.datetime(2012,02,28)], 141000.0*0.3*4)
+	self.assertEqual(costs.total_schedule['indirect'][dt.datetime(2012,02,28)], 141000.0*0.3*0.1*2)
+	self.assertEqual(costs.total_schedule['depreciation'][dt.datetime(2012,02,28)], 0.0)
+        
+	self.assertEqual(costs.total_schedule['direct'][dt.datetime(2012,03,31)], 141000.0*0.1*4)
+	self.assertEqual(costs.total_schedule['indirect'][dt.datetime(2012,03,31)], 141000.0*0.1*0.1*2)
+	self.assertEqual(costs.total_schedule['depreciation'][dt.datetime(2012,03,31)], 0.0)
+
+	self.assertEqual(costs.total_schedule['direct'][dt.datetime(2012,04,30)], 141000.0*0.3*4)
+	self.assertEqual(costs.total_schedule['indirect'][dt.datetime(2012,04,30)], 141000.0*0.3*0.1*2)
+	self.assertEqual(costs.total_schedule['depreciation'][dt.datetime(2012,04,30)], 0.0)
+
+	self.assertEqual(costs.total_schedule['direct'][dt.datetime(2012,05,31)], 141000.0*0.1*4)
+	self.assertEqual(costs.total_schedule['indirect'][dt.datetime(2012,05,31)], 141000.0*0.1*0.1*2)
+	self.assertEqual(costs.total_schedule['depreciation'][dt.datetime(2012,04,30)], 0.0)
 
     
 

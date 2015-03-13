@@ -363,13 +363,13 @@ class CapitalExpenseTests(unittest.TestCase):
         capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'StraightLine', payment_terms = 'LumpSumDelivered')
         start_date = dt.datetime(2014,01,01)
         capex1.calc_payment_schedule(order_date = start_date)
-        self.assertEqual(capex1.payment_schedule['payments'][start_date+dt.timedelta(days=365)], 141000.0*1.6)        
+        self.assertEqual(capex1.payment_schedule['direct_costs'][start_date+dt.timedelta(days=365)], 141000.0*1.6)        
 
 	QB = pf.QuoteBasis(price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaling_method = 'linear', installation_model = IM, lead_time = dt.timedelta(days=365))
 	capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'StraightLine', payment_terms = 'LumpSumOrdered')
         start_date = dt.datetime(2014,01,01)
         capex1.calc_payment_schedule(order_date = start_date)
-        self.assertEqual(capex1.payment_schedule['payments'][start_date], 141000.0*1.6)   
+        self.assertEqual(capex1.payment_schedule['direct_costs'][start_date], 141000.0*1.6)   
 
 	
     def testCostLayoutScheduleFixedSchedule(self): 
@@ -377,34 +377,34 @@ class CapitalExpenseTests(unittest.TestCase):
         IM = pf.FactoredInstallModel(1.6)
         QB = pf.QuoteBasis(price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaling_method = 'linear', installation_model = IM, lead_time = dt.timedelta(days=3*365))
 	dates = pd.date_range(dt.datetime(2014,01,01), periods = 5, freq = 'M')
-        data = {'payments':np.array([141000*1.6*0.2,141000*1.6*0.3,141000*1.6*0.1,141000*1.6*.3,141000*1.6*.1])}
+        data = {'direct_costs':np.array([141000*1.6*0.2,141000*1.6*0.3,141000*1.6*0.1,141000*1.6*.3,141000*1.6*.1])}
 	schedule = pd.DataFrame(index = dates, data = data)
 	
         capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'StraightLine', payment_terms = 'FixedSchedule')
         start_date = dt.datetime(2014,01,01)
         capex1.calc_payment_schedule(order_date = start_date, schedule = schedule)
-        self.assertEqual(capex1.payment_schedule['payments'][dt.datetime(2014,01,31)], 141000.0*1.6*0.2)
-	self.assertEqual(capex1.payment_schedule['payments'][dt.datetime(2014,02,28)], 141000.0*1.6*0.3)        
-	self.assertEqual(capex1.payment_schedule['payments'][dt.datetime(2014,03,31)], 141000.0*1.6*0.1)
-	self.assertEqual(capex1.payment_schedule['payments'][dt.datetime(2014,04,30)], 141000.0*1.6*0.3)
-	self.assertEqual(capex1.payment_schedule['payments'][dt.datetime(2014,05,31)], 141000.0*1.6*0.1)  
+        self.assertEqual(capex1.payment_schedule['direct_costs'][dt.datetime(2014,01,31)], 141000.0*1.6*0.2)
+	self.assertEqual(capex1.payment_schedule['direct_costs'][dt.datetime(2014,02,28)], 141000.0*1.6*0.3)        
+	self.assertEqual(capex1.payment_schedule['direct_costs'][dt.datetime(2014,03,31)], 141000.0*1.6*0.1)
+	self.assertEqual(capex1.payment_schedule['direct_costs'][dt.datetime(2014,04,30)], 141000.0*1.6*0.3)
+	self.assertEqual(capex1.payment_schedule['direct_costs'][dt.datetime(2014,05,31)], 141000.0*1.6*0.1)  
 
     def testCostLayoutScheduleFixedFraction(self):
         """Test that the Capex can calculate its own layout schedule (with no escalation) on a Fixed Schedule"""
         IM = pf.FactoredInstallModel(1.6)
         QB = pf.QuoteBasis(price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaling_method = 'linear', installation_model = IM, lead_time = dt.timedelta(days=3*365))
 	dates = pd.date_range(dt.datetime(2014,01,01), periods = 5, freq = 'M')
-        data = {'payments':np.array([.2,.3,.1,.3,.1])}
+        data = {'direct_costs':np.array([.2,.3,.1,.3,.1])}
 	schedule = pd.DataFrame(index = dates, data = data)
-	print sum(schedule['payments'])
+	print sum(schedule['direct_costs'])
         capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'StraightLine', payment_terms = 'FractionalSchedule')
         start_date = dt.datetime(2014,01,01)
         capex1.calc_payment_schedule(order_date = start_date, schedule = schedule)
-        self.assertEqual(capex1.payment_schedule['payments'][dt.datetime(2014,01,31)], 141000.0*1.6*0.2)
-	self.assertEqual(capex1.payment_schedule['payments'][dt.datetime(2014,02,28)], 141000.0*1.6*0.3)        
-	self.assertEqual(capex1.payment_schedule['payments'][dt.datetime(2014,03,31)], 141000.0*1.6*0.1)
-	self.assertEqual(capex1.payment_schedule['payments'][dt.datetime(2014,04,30)], 141000.0*1.6*0.3)
-	self.assertEqual(capex1.payment_schedule['payments'][dt.datetime(2014,05,31)], 141000.0*1.6*0.1)
+        self.assertEqual(capex1.payment_schedule['direct_costs'][dt.datetime(2014,01,31)], 141000.0*1.6*0.2)
+	self.assertEqual(capex1.payment_schedule['direct_costs'][dt.datetime(2014,02,28)], 141000.0*1.6*0.3)        
+	self.assertEqual(capex1.payment_schedule['direct_costs'][dt.datetime(2014,03,31)], 141000.0*1.6*0.1)
+	self.assertEqual(capex1.payment_schedule['direct_costs'][dt.datetime(2014,04,30)], 141000.0*1.6*0.3)
+	self.assertEqual(capex1.payment_schedule['direct_costs'][dt.datetime(2014,05,31)], 141000.0*1.6*0.1)
 
     def testCostLayoutScheduleFixedPeriodInterval(self):
         """Test that the Capex can calculate its own layout schedule (with no escalation) on a Fixed Interval"""
@@ -414,12 +414,12 @@ class CapitalExpenseTests(unittest.TestCase):
         capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'StraightLine', payment_terms = 'EqualPeriodic')
         start_date = dt.datetime(2014,01,01)
         capex1.calc_payment_schedule(order_date = start_date, freq = 'M')
-        self.assertEqual(capex1.payment_schedule['payments'][dt.datetime(2014,01,31)], 141000.0*1.6/36.0)
-	self.assertEqual(capex1.payment_schedule['payments'][dt.datetime(2014,05,31)], 141000.0*1.6/36.0)        
+        self.assertEqual(capex1.payment_schedule['direct_costs'][dt.datetime(2014,01,31)], 141000.0*1.6/36.0)
+	self.assertEqual(capex1.payment_schedule['direct_costs'][dt.datetime(2014,05,31)], 141000.0*1.6/36.0)        
 
 	capex1.calc_payment_schedule(order_date = start_date, freq = 'D')
-        self.assertEqual(capex1.payment_schedule['payments'][start_date], 141000.0*1.6/1096.0)
-	self.assertEqual(capex1.payment_schedule['payments'][dt.datetime(2015,05,23)], 141000.0*1.6/1096.0)      
+        self.assertEqual(capex1.payment_schedule['direct_costs'][start_date], 141000.0*1.6/1096.0)
+	self.assertEqual(capex1.payment_schedule['direct_costs'][dt.datetime(2015,05,23)], 141000.0*1.6/1096.0)      
 	 
 
     def testBadCapitalCostScheduleInput(self):
@@ -434,11 +434,11 @@ class CapitalExpenseTests(unittest.TestCase):
 	
         capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'StraightLine', payment_terms = 'FractionalSchedule')
 	dates = pd.date_range(dt.datetime(2012,01,01), periods = 5, freq = 'M')
-        data = {'payments':np.array([.2,.3,.1,.3,.1])}
+        data = {'direct_costs':np.array([.2,.3,.1,.3,.1])}
         schedule = pd.DataFrame(data = data)
         kwargs = {'order_date':dt.datetime(2012,01,01), 'schedule':schedule}
 	self.assertRaises(pf.BadCapitalPaymentInput, capex1.calc_payment_schedule, **kwargs)
-        schedule = pd.DataFrame(index = dates, data = {'payments':np.ones(5)})
+        schedule = pd.DataFrame(index = dates, data = {'direct_costs':np.ones(5)})
 	self.assertRaises(pf.BadCapitalPaymentInput, capex1.calc_payment_schedule, **kwargs)
         schedule = pd.DataFrame(index = dates, data = {'foop':np.array([.2,.2,.2,.2,.2])})
 	self.assertRaises(pf.BadCapitalPaymentInput, capex1.calc_payment_schedule, **kwargs)
@@ -485,7 +485,7 @@ class CapitalExpenseTests(unittest.TestCase):
 
 	#Payment check dates
 	dates = pd.date_range(dt.datetime(2012,01,01), periods = 5, freq = 'M')
-        data = {'payments':np.array([141000*0.2,141000*0.3,141000*0.1,141000*0.3,141000*0.1])}
+        data = {'direct_costs':np.array([141000*0.2,141000*0.3,141000*0.1,141000*0.3,141000*0.1])}
 	schedule = pd.DataFrame(index = dates, data = data)
 
         #Check accounting rules, but depreciation should not begin until construction is complete
@@ -497,19 +497,19 @@ class CapitalExpenseTests(unittest.TestCase):
         
         #now we need to put in the checks
 
-        self.assertEqual(capex1.total_schedule['payments'][dt.datetime(2012,01,31)], 141000.0*0.2)
+        self.assertEqual(capex1.total_schedule['direct_costs'][dt.datetime(2012,01,31)], 141000.0*0.2)
 	self.assertEqual(capex1.total_schedule['depreciation'][dt.datetime(2012,01,31)], 0.0)
 
-	self.assertEqual(capex1.total_schedule['payments'][dt.datetime(2012,02,29)], 141000.0*0.3)
+	self.assertEqual(capex1.total_schedule['direct_costs'][dt.datetime(2012,02,29)], 141000.0*0.3)
 	self.assertEqual(capex1.total_schedule['depreciation'][dt.datetime(2012,02,29)], 0.0)
         
-	self.assertEqual(capex1.total_schedule['payments'][dt.datetime(2012,03,31)], 141000.0*0.1)
+	self.assertEqual(capex1.total_schedule['direct_costs'][dt.datetime(2012,03,31)], 141000.0*0.1)
 	self.assertEqual(capex1.total_schedule['depreciation'][dt.datetime(2012,03,31)], 0.0)
 
-	self.assertEqual(capex1.total_schedule['payments'][dt.datetime(2012,04,30)], 141000.0*0.3)
+	self.assertEqual(capex1.total_schedule['direct_costs'][dt.datetime(2012,04,30)], 141000.0*0.3)
 	self.assertEqual(capex1.total_schedule['depreciation'][dt.datetime(2012,04,30)], 0.0)
 
-	self.assertEqual(capex1.total_schedule['payments'][dt.datetime(2012,05,31)], 141000.0*0.1)
+	self.assertEqual(capex1.total_schedule['direct_costs'][dt.datetime(2012,05,31)], 141000.0*0.1)
 	self.assertEqual(capex1.total_schedule['depreciation'][dt.datetime(2012,04,30)], 0.0)
 
 	
@@ -518,7 +518,7 @@ class CapitalExpenseTests(unittest.TestCase):
 
         for date, v in zip(dates,values):
             self.assertAlmostEqual(capex1.total_schedule['depreciation'][date],v,4)
-	    self.assertAlmostEqual(capex1.total_schedule['payments'][date],0.0,4)
+	    self.assertAlmostEqual(capex1.total_schedule['direct_costs'][date],0.0,4)
 
 
 class CapitalCostsTests(unittest.TestCase):

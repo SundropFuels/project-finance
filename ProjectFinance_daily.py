@@ -852,14 +852,14 @@ class CapitalExpense:
         if not isinstance(order_date, dt.datetime):
             raise BadCapitalPaymentInput, "order_date must be datetime.datetime; got %s instead)" % type(order_date)
         dates = [order_date]
-        data = {'payments':np.array([self.TIC(order_date)])}
+        data = {'direct_costs':np.array([self.TIC(order_date)])}
         self.payment_schedule = pd.DataFrame(index = dates, data = data)
 
     def _calc_payment_schedule_LumpSumDelivered(self, order_date = None):
         if not isinstance(order_date, dt.datetime):
             raise BadCapitalPaymentInput, "order_date must be datetime.datetime, got %s instead)" % type(order_date)
         dates = [order_date + self.quote_basis.lead_time]
-	data = {'payments':np.array([self.TIC(order_date)])}
+	data = {'direct_costs':np.array([self.TIC(order_date)])}
         self.payment_schedule = pd.DataFrame(index = dates, data = data)
 
     def _calc_payment_schedule_EqualPeriodic(self, order_date = None, freq = 'M'):
@@ -868,7 +868,7 @@ class CapitalExpense:
         dates = pd.date_range(start = order_date, end = order_date + self.quote_basis.lead_time, freq = freq)
 	pmts = np.ones(len(dates))
 	pmts *= self.TIC(order_date)/len(pmts)
-        data = {'payments':pmts}
+        data = {'direct_costs':pmts}
 	self.payment_schedule = pd.DataFrame(index = dates, data = data)
 	
 	
@@ -878,13 +878,13 @@ class CapitalExpense:
             raise BadCapitalPaymentInput, "order_date must be datetime.datetime, got %s instead)" % type(order_date)
 	if not isinstance(schedule, pd.DataFrame) or not isinstance(schedule.index, pd.tseries.index.DatetimeIndex):
             raise BadCapitalPaymentInput, "schedule must be a pandas DataFrame with a DatetimeIndex"
-        if not 'payments' in schedule.columns:
-            raise BadCapitalPaymentInput, "schedule must have a 'payments' column"
+        if not 'direct_costs' in schedule.columns:
+            raise BadCapitalPaymentInput, "schedule must have a 'direct_costs' column"
         
-        if not abs(sum(schedule['payments'])-1.0) < 0.0001:
+        if not abs(sum(schedule['direct_costs'])-1.0) < 0.0001:
             raise BadCapitalPaymentInput, "The schedule payments column must sum to 1.0"
 
-        schedule['payments']*=self.TIC(order_date)
+        schedule['direct_costs']*=self.TIC(order_date)
         self.payment_schedule = schedule
 
     def _calc_payment_schedule_FixedSchedule(self, order_date = None, schedule = None):
@@ -892,10 +892,10 @@ class CapitalExpense:
             raise BadCapitalPaymentInput, "order_date must be datetime.datetime, got %s instead)" % type(order_date)
 	if not isinstance(schedule, pd.DataFrame) or not isinstance(schedule.index, pd.tseries.index.DatetimeIndex):
             raise BadCapitalPaymentInput, "schedule must be a pandas DataFrame with a DatetimeIndex"
-        if not 'payments' in schedule.columns:
-            raise BadCapitalPaymentInput, "schedule must have a 'payments' column"
+        if not 'direct_costs' in schedule.columns:
+            raise BadCapitalPaymentInput, "schedule must have a 'direct_costs' column"
 
-        if not sum(schedule['payments']) == self.TIC(order_date):
+        if not sum(schedule['direct_costs']) == self.TIC(order_date):
             raise BadCapitalPaymentInput, "The schedule payments column must sum to the total installed cost (escalated)"
         
         self.payment_schedule = schedule

@@ -986,7 +986,7 @@ class CapitalCosts:
         return (capex, deprec)
 
     def __eq__(self, other):
-        return isinstance(other, self.__class__) and self.direct_capital == other.direct_capital and self.indirect_deprec_capital == other.indirect_deprec_capital and self.indirect_nondeprec_capital == other.indirect_nondeprec_capital
+        return isinstance(other, self.__class__) and self.direct_capital == other.direct_capital and self.indirect_capital == other.indirect_capital
 
     def __ne__(self, other):
         return not self.__eq__(other)

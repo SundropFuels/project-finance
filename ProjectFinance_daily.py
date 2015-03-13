@@ -821,6 +821,12 @@ class CapitalExpense:
         base_cost = self.quote_basis.installed_cost()
         return self.escalator.escalate(cost = base_cost, basis_date = self.quote_basis.date, new_date = date, **kwargs)
  
+    def aggregate_costs(self):
+        """Aggregates the payment schedule and depreciation schedule into the total_schedule dataframe"""
+		
+	#Let's use the merge SQL-like feature of the pandas dataframe to do this
+	self.total_schedule = self.depreciation_schedule.frame.join(self.payment_schedule, how = 'outer').fillna(0.0)
+
 
     def build_depreciation_schedule(self, starting_period, length, **kwargs):
         """Fills out the depreciation capex schedule based on the type of depreciation (straight-line, MACRS, etc.)"""

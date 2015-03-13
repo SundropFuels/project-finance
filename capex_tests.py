@@ -484,24 +484,25 @@ class CapitalExpenseTests(unittest.TestCase):
 	date13 = dt.datetime(2021,04,03)
 
 	#Payment check dates
-	dates = pd.date_range(dt.datetime(2014,01,01), periods = 5, freq = 'M')
+	dates = pd.date_range(dt.datetime(2012,01,01), periods = 5, freq = 'M')
         data = {'payments':np.array([141000*0.2,141000*0.3,141000*0.1,141000*0.3,141000*0.1])}
 	schedule = pd.DataFrame(index = dates, data = data)
 
         #Check accounting rules, but depreciation should not begin until construction is complete
-        capex1.calc_payment_schedule(order_date = year1, freq = 'M')
+        capex1.calc_payment_schedule(order_date = year1, schedule=schedule)
 	#This is where a Scheduler class is critical -- probably need to implement this sooner than later -- we would just use a Scheduler.install_completion_date() function
 	capex1.build_depreciation_schedule(starting_period = year1+dt.timedelta(days=3*365), length=length)  #The time start on this is a hack -- we have to be really careful on the depreciation start date
 
 	capex1.aggregate_costs()		#This is the new function to aggregate all of the costs together
-
+        print capex1.total_schedule.index
+	print capex1.total_schedule.columns
         #now we need to put in the checks
 
         self.assertEqual(capex1.total_schedule['payments'][dt.datetime(2012,01,31)], 141000.0*0.2)
 	self.assertEqual(capex1.total_schedule['depreciation'][dt.datetime(2012,01,31)], 0.0)
 
-	self.assertEqual(capex1.total_schedule['payments'][dt.datetime(2012,02,28)], 141000.0*0.3)
-	self.assertEqual(capex1.total_schedule['depreciation'][dt.datetime(2012,02,28)], 0.0)
+	self.assertEqual(capex1.total_schedule['payments'][dt.datetime(2012,02,29)], 141000.0*0.3)
+	self.assertEqual(capex1.total_schedule['depreciation'][dt.datetime(2012,02,29)], 0.0)
         
 	self.assertEqual(capex1.total_schedule['payments'][dt.datetime(2012,03,31)], 141000.0*0.1)
 	self.assertEqual(capex1.total_schedule['depreciation'][dt.datetime(2012,03,31)], 0.0)
@@ -513,12 +514,12 @@ class CapitalExpenseTests(unittest.TestCase):
 	self.assertEqual(capex1.total_schedule['depreciation'][dt.datetime(2012,04,30)], 0.0)
 
 	
-	dates = np.array([date1,date2, date3])
-	values = np.array([55.05163934, 67.56410959, 34.49671233])
+	dates = np.array([date11,date12, date13])
+	values = np.array([55.202465753, 67.56410959, 34.49671233])
 
         for date, v in zip(dates,values):
-            self.assertAlmostEqual(capex1.total_schedule['depreciation'],v,4)
-	    self.assertAlmostEqual(capex1.total_schedule['payments'],0.0,4)
+            self.assertAlmostEqual(capex1.total_schedule['depreciation'][date],v,4)
+	    self.assertAlmostEqual(capex1.total_schedule['payments'][date],0.0,4)
 
 
 class CapitalCostsTests(unittest.TestCase):

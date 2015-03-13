@@ -415,7 +415,7 @@ class QuoteBasis:
         try:
             if price <= 0:
                 raise QuoteBasisBadInput, "price must be greater than zero"
-	    b = 1.0/price
+	    b = 1.0/price				#is there a better way to test for numeric data?
         except TypeError:
             raise QuoteBasisBadInput, "price must be numeric"
 
@@ -470,6 +470,7 @@ class QuoteBasis:
         if not new_scale.value > 0:
             raise QuoteBasisBadInput, "The new scale must be positive in value"
 
+        
         if self.scaling_method is None:
             if self.source is None:
                 source = "No source"

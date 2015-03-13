@@ -466,6 +466,61 @@ class CapitalExpenseTests(unittest.TestCase):
 	kwargs = {'schedule':pd.DataFrame(index = rng, data = {'depreciation1':np.zeros(10*365)})}
 	self.assertRaises(pf.BadCapitalDepreciationInput, capex1.build_depreciation_schedule, year1, 10, **kwargs)
 
+    def testAggregateCorrectly_single(self):
+        """Each CapitalExpense must successfully aggregate itself"""
+
+        #Create the test capital expense
+        IM = pf.FactoredInstallModel(1.0)
+        QB = pf.QuoteBasis(price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaling_method = 'linear', installation_model = IM, lead_time = dt.timedelta(days=3*365))
+	
+        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'MACRS', payment_terms='FixedSchedule')
+        
+        year1 = dt.datetime(2012,1,1)
+        length = 7
+
+        #MACRS check dates
+	date11 = dt.datetime(2015,01,01)
+	date12 = dt.datetime(2017,06,05)
+	date13 = dt.datetime(2021,04,03)
+
+	#Payment check dates
+	dates = pd.date_range(dt.datetime(2014,01,01), periods = 5, freq = 'M')
+        data = {'payments':np.array([141000*0.2,141000*0.3,141000*0.1,141000*0.3,141000*0.1])}
+	schedule = pd.DataFrame(index = dates, data = data)
+
+        #Check accounting rules, but depreciation should not begin until construction is complete
+        capex1.calc_payment_schedule(order_date = year1, freq = 'M')
+	#This is where a Scheduler class is critical -- probably need to implement this sooner than later -- we would just use a Scheduler.install_completion_date() function
+	capex1.build_depreciation_schedule(starting_period = year1+dt.timedelta(days=3*365), length=length)  #The time start on this is a hack -- we have to be really careful on the depreciation start date
+
+	capex1.aggregate_costs()		#This is the new function to aggregate all of the costs together
+
+        #now we need to put in the checks
+
+        self.assertEqual(capex1.total_schedule['payments'][dt.datetime(2012,01,31)], 141000.0*0.2)
+	self.assertEqual(capex1.total_schedule['depreciation'][dt.datetime(2012,01,31)], 0.0)
+
+	self.assertEqual(capex1.total_schedule['payments'][dt.datetime(2012,02,28)], 141000.0*0.3)
+	self.assertEqual(capex1.total_schedule['depreciation'][dt.datetime(2012,02,28)], 0.0)
+        
+	self.assertEqual(capex1.total_schedule['payments'][dt.datetime(2012,03,31)], 141000.0*0.1)
+	self.assertEqual(capex1.total_schedule['depreciation'][dt.datetime(2012,03,31)], 0.0)
+
+	self.assertEqual(capex1.total_schedule['payments'][dt.datetime(2012,04,30)], 141000.0*0.3)
+	self.assertEqual(capex1.total_schedule['depreciation'][dt.datetime(2012,04,30)], 0.0)
+
+	self.assertEqual(capex1.total_schedule['payments'][dt.datetime(2012,05,31)], 141000.0*0.1)
+	self.assertEqual(capex1.total_schedule['depreciation'][dt.datetime(2012,04,30)], 0.0)
+
+	
+	dates = np.array([date1,date2, date3])
+	values = np.array([55.05163934, 67.56410959, 34.49671233])
+
+        for date, v in zip(dates,values):
+            self.assertAlmostEqual(capex1.total_schedule['depreciation'],v,4)
+	    self.assertAlmostEqual(capex1.total_schedule['payments'],0.0,4)
+
+
 class CapitalCostsTests(unittest.TestCase):
 
     def testBadDirectCapitalItem(self):

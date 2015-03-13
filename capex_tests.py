@@ -493,7 +493,7 @@ class CapitalExpenseTests(unittest.TestCase):
 	#This is where a Scheduler class is critical -- probably need to implement this sooner than later -- we would just use a Scheduler.install_completion_date() function
 	capex1.build_depreciation_schedule(starting_period = year1+dt.timedelta(days=3*365), length=length)  #The time start on this is a hack -- we have to be really careful on the depreciation start date
 
-	capex1.aggregate_costs()		#This is the new function to aggregate all of the costs together
+	capex1.build_capex_schedule()		#This is the new function to aggregate all of the costs together
         
         #now we need to put in the checks
 

@@ -821,7 +821,7 @@ class CapitalExpense:
         base_cost = self.quote_basis.installed_cost()
         return self.escalator.escalate(cost = base_cost, basis_date = self.quote_basis.date, new_date = date, **kwargs)
  
-    def aggregate_costs(self):
+    def build_capex_schedule(self):
         """Aggregates the payment schedule and depreciation schedule into the total_schedule dataframe"""
 		
 	#Let's use the merge SQL-like feature of the pandas dataframe to do this
@@ -964,7 +964,20 @@ class CapitalCosts:
 
     def build_capex_schedule(self):
         """Calculates all of the payments and depreciation and aggregates these into a pandas dataframe"""
-	#DataFrame will be self.frame -- use accessors to get the columns of the frame?
+	#Call the aggregation functions on all of the directs
+	self.total_schedule = pd.DataFrame()
+        for dc in self.direct_capital:
+	    dc.build_capex_schedule()		#if some of these items are CapitalCosts, then the schedule will contain indirects -- this handles itself seamlessly
+	    self.total_schedule = self.total_schedule.join(dc.total_schedule, how = 'outer').fillna(0.0)
+
+
+	for ic in self.indirect_capital:
+	    ic.build_capex_schedule()
+	    self.total_schedule = self.total_schedule.join(ic.total_schedule, how = 'outer').fillna(0.0)
+
+	
+
+
         pass
 
 

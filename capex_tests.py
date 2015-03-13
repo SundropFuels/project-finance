@@ -494,8 +494,7 @@ class CapitalExpenseTests(unittest.TestCase):
 	capex1.build_depreciation_schedule(starting_period = year1+dt.timedelta(days=3*365), length=length)  #The time start on this is a hack -- we have to be really careful on the depreciation start date
 
 	capex1.aggregate_costs()		#This is the new function to aggregate all of the costs together
-        print capex1.total_schedule.index
-	print capex1.total_schedule.columns
+        
         #now we need to put in the checks
 
         self.assertEqual(capex1.total_schedule['payments'][dt.datetime(2012,01,31)], 141000.0*0.2)

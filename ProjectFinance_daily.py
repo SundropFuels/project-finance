@@ -516,6 +516,10 @@ class QuoteBasis:
 class IndirectQuoteBasis:
 
     def __init__(self, base_cost = None, date =None, method = None, **kwargs):
+        #should we allow None type base_costs?
+
+        self.base_cost = base_cost
+
         try:
             if self.base_cost <= 0:
                 raise QuoteBasisBadInput, "The base_cost must be positive"
@@ -780,7 +784,12 @@ class CapitalExpense:
         self.set_escalator(escalation_type)
         self.comments = []
         self.payment_terms = payment_terms
-    
+	self.payment_label = 'direct_costs'
+	self.depreciation_args = {}		#allow for the schedule generation to be automated
+	self.payment_args = {}			#allows for the schedule generation to be automated    
+
+
+
     def set_quote_basis(self, quote_basis):
         if not isinstance(quote_basis, QuoteBasis):
             raise BadCapitalCostInput, "The quote_basis must be of type QuoteBasis"
@@ -823,7 +832,11 @@ class CapitalExpense:
  
     def build_capex_schedule(self):
         """Aggregates the payment schedule and depreciation schedule into the total_schedule dataframe"""
-		
+	#Need to build the depreciation and payment schedules -- use the internal dictionaries of arguments for these, which must be set up first
+	self.build_depreciation_schedule(**self.depreciation_args)
+	self.calc_payment_schedule(**self.payment_args)
+
+
 	#Let's use the merge SQL-like feature of the pandas dataframe to do this
 	self.total_schedule = self.depreciation_schedule.frame.join(self.payment_schedule, how = 'outer').fillna(0.0)
 
@@ -852,14 +865,14 @@ class CapitalExpense:
         if not isinstance(order_date, dt.datetime):
             raise BadCapitalPaymentInput, "order_date must be datetime.datetime; got %s instead)" % type(order_date)
         dates = [order_date]
-        data = {'direct_costs':np.array([self.TIC(order_date)])}
+        data = {self.payment_label:np.array([self.TIC(order_date)])}
         self.payment_schedule = pd.DataFrame(index = dates, data = data)
 
     def _calc_payment_schedule_LumpSumDelivered(self, order_date = None):
         if not isinstance(order_date, dt.datetime):
             raise BadCapitalPaymentInput, "order_date must be datetime.datetime, got %s instead)" % type(order_date)
         dates = [order_date + self.quote_basis.lead_time]
-	data = {'direct_costs':np.array([self.TIC(order_date)])}
+	data = {self.payment_label:np.array([self.TIC(order_date)])}
         self.payment_schedule = pd.DataFrame(index = dates, data = data)
 
     def _calc_payment_schedule_EqualPeriodic(self, order_date = None, freq = 'M'):
@@ -868,7 +881,7 @@ class CapitalExpense:
         dates = pd.date_range(start = order_date, end = order_date + self.quote_basis.lead_time, freq = freq)
 	pmts = np.ones(len(dates))
 	pmts *= self.TIC(order_date)/len(pmts)
-        data = {'direct_costs':pmts}
+        data = {self.payment_label:pmts}
 	self.payment_schedule = pd.DataFrame(index = dates, data = data)
 	
 	
@@ -878,13 +891,13 @@ class CapitalExpense:
             raise BadCapitalPaymentInput, "order_date must be datetime.datetime, got %s instead)" % type(order_date)
 	if not isinstance(schedule, pd.DataFrame) or not isinstance(schedule.index, pd.tseries.index.DatetimeIndex):
             raise BadCapitalPaymentInput, "schedule must be a pandas DataFrame with a DatetimeIndex"
-        if not 'direct_costs' in schedule.columns:
-            raise BadCapitalPaymentInput, "schedule must have a 'direct_costs' column"
+        if not self.payment_label in schedule.columns:
+            raise BadCapitalPaymentInput, "schedule must have a '%s' column" % self.payment_label
         
-        if not abs(sum(schedule['direct_costs'])-1.0) < 0.0001:
+        if not abs(sum(schedule[self.payment_label])-1.0) < 0.0001:
             raise BadCapitalPaymentInput, "The schedule payments column must sum to 1.0"
 
-        schedule['direct_costs']*=self.TIC(order_date)
+        schedule[self.payment_label]*=self.TIC(order_date)
         self.payment_schedule = schedule
 
     def _calc_payment_schedule_FixedSchedule(self, order_date = None, schedule = None):
@@ -892,10 +905,10 @@ class CapitalExpense:
             raise BadCapitalPaymentInput, "order_date must be datetime.datetime, got %s instead)" % type(order_date)
 	if not isinstance(schedule, pd.DataFrame) or not isinstance(schedule.index, pd.tseries.index.DatetimeIndex):
             raise BadCapitalPaymentInput, "schedule must be a pandas DataFrame with a DatetimeIndex"
-        if not 'direct_costs' in schedule.columns:
-            raise BadCapitalPaymentInput, "schedule must have a 'direct_costs' column"
+        if not self.payment_label in schedule.columns:
+            raise BadCapitalPaymentInput, "schedule must have a '%s' column" % self.payment_label
 
-        if not sum(schedule['direct_costs']) == self.TIC(order_date):
+        if not sum(schedule[self.payment_label]) == self.TIC(order_date):
             raise BadCapitalPaymentInput, "The schedule payments column must sum to the total installed cost (escalated)"
         
         self.payment_schedule = schedule
@@ -922,10 +935,23 @@ class CapitalExpense:
 
 class IndirectCapitalExpense(CapitalExpense):
 
+    def __init__(self, **kwargs):
+        CapitalExpense.__init__(self, **kwargs)
+	self.payment_label = 'indirect_costs'
+
+
     def set_quote_basis(self, quote_basis):
         if not isinstance(quote_basis, IndirectQuoteBasis):
             raise BadCapitalCostInput, "The quote_basis must be of type QuoteBasis"
         self.quote_basis = quote_basis
+
+    def calc_payment_schedule(self, **kwargs):
+	accepted_terms = ['FixedSchedule']
+        if self.payment_terms not in accepted_terms:
+            raise BadCapitalPaymentTerms, "%s is not a supported set of payment terms" % self.payment_terms
+        
+
+        getattr(self, "_calc_payment_schedule_%s" % self.payment_terms)(**kwargs)
 
 
 
@@ -949,7 +975,7 @@ class CapitalCosts:
 
     def add_direct_capital_item(self, capital_item):
         """Adds a capital item to the direct_capital list"""
-        if not isinstance(capital_item, CapitalExpense):
+        if not isinstance(capital_item, CapitalExpense) and not isinstance(capital_item, CapitalCosts):
             raise BadDirectCapitalItem, "Only capital expenses can be added to the capital expense list"
 
         self.direct_capital.append(capital_item)
@@ -965,7 +991,10 @@ class CapitalCosts:
     def build_capex_schedule(self):
         """Calculates all of the payments and depreciation and aggregates these into a pandas dataframe"""
 	#Call the aggregation functions on all of the directs
-	self.total_schedule = pd.DataFrame()
+
+
+
+        self.total_schedule = pd.DataFrame()
         for dc in self.direct_capital:
 	    dc.build_capex_schedule()		#if some of these items are CapitalCosts, then the schedule will contain indirects -- this handles itself seamlessly
 	    self.total_schedule = self.total_schedule.join(dc.total_schedule, how = 'outer').fillna(0.0)
@@ -975,10 +1004,6 @@ class CapitalCosts:
 	    ic.build_capex_schedule()
 	    self.total_schedule = self.total_schedule.join(ic.total_schedule, how = 'outer').fillna(0.0)
 
-	
-
-
-        pass
 
 
 

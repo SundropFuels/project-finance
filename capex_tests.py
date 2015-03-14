@@ -488,10 +488,16 @@ class CapitalExpenseTests(unittest.TestCase):
         data = {'direct_costs':np.array([141000*0.2,141000*0.3,141000*0.1,141000*0.3,141000*0.1])}
 	schedule = pd.DataFrame(index = dates, data = data)
 
+	capex1.payment_args['order_date'] = year1
+	capex1.payment_args['schedule'] = schedule
+
+	capex1.depreciation_args['starting_period'] = year1+dt.timedelta(days=3*365)
+	capex1.depreciation_args['length'] = length
+
         #Check accounting rules, but depreciation should not begin until construction is complete
-        capex1.calc_payment_schedule(order_date = year1, schedule=schedule)
+        #capex1.calc_payment_schedule(order_date = year1, schedule=schedule)
 	#This is where a Scheduler class is critical -- probably need to implement this sooner than later -- we would just use a Scheduler.install_completion_date() function
-	capex1.build_depreciation_schedule(starting_period = year1+dt.timedelta(days=3*365), length=length)  #The time start on this is a hack -- we have to be really careful on the depreciation start date
+	#capex1.build_depreciation_schedule(starting_period = year1+dt.timedelta(days=3*365), length=length)  #The time start on this is a hack -- we have to be really careful on the depreciation start date
 
 	capex1.build_capex_schedule()		#This is the new function to aggregate all of the costs together
         
@@ -549,7 +555,7 @@ class CapitalCostsTests(unittest.TestCase):
 	capex3 = pf.CapitalExpense(tag = "F-1403", name = "Feeder 3", description = "Biomass feeder 3", quote_basis = QB, depreciation_type = 'MACRS', payment_terms='FixedSchedule')
 	capex4 = pf.CapitalExpense(tag = "F-1404", name = "Feeder 4", description = "Biomass feeder 4", quote_basis = QB, depreciation_type = 'MACRS', payment_terms='FixedSchedule')
 
-	icapex1 = pf.CapitalExpense(tag = "I1", name = "Indirect_1", description = "Indirect_1", quote_basis = IQB)
+	icapex1 = pf.IndirectCapitalExpense(tag = "I1", name = "Indirect_1", description = "Indirect_1", quote_basis = IQB)
 
 	subcosts = pf.CapitalCosts()
 	subcosts.add_direct_capital_item(capex3)

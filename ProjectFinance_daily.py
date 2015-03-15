@@ -945,6 +945,10 @@ class IndirectCapitalExpense(CapitalExpense):
             raise BadCapitalCostInput, "The quote_basis must be of type QuoteBasis"
         self.quote_basis = quote_basis
 
+    #def build_depreciation_schedule(self):
+    #    self.depreciation_schedule = pd.DataFrame()		#for indirect costs, which are not (??) depreciable -- check this, actually -- we create an empty dataframe
+
+
     def calc_payment_schedule(self, **kwargs):
 	accepted_terms = ['FixedSchedule']
         if self.payment_terms not in accepted_terms:
@@ -992,18 +996,52 @@ class CapitalCosts:
         """Calculates all of the payments and depreciation and aggregates these into a pandas dataframe"""
 	#Call the aggregation functions on all of the directs
 
-
-
         self.total_schedule = pd.DataFrame()
+	
         for dc in self.direct_capital:
 	    dc.build_capex_schedule()		#if some of these items are CapitalCosts, then the schedule will contain indirects -- this handles itself seamlessly
-	    self.total_schedule = self.total_schedule.join(dc.total_schedule, how = 'outer').fillna(0.0)
+	    #shit, now we need to actually deal with the data mismatch problems -- going to do this the brute force way
+	    if len(self.total_schedule) == 0:	#base case
+	        self.total_schedule = self.total_schedule.join(dc.total_schedule, how = 'outer').fillna(0.0)
+		#print self.total_schedule
+	    else:
+		self.total_schedule = self.total_schedule.add(dc.total_schedule, fill_value = 0.0)
+	        #tmin = self.total_schedule.index[0]
+	        #if dc.total_schedule.index[0] < tmin:
+                #    tmin = dc.total_schedule.index[0]
+                #tmax = self.total_schedule.index[-1]
+                #if dc.total_schedule.index[-1] > tmax:
+                #    tmax = dc.total_schedule.index[-1]
+		
+                #create a dataframe with the right length to join to
+                #dates = pd.date_range(tmin, tmax, freq = 'D')		#this should contain all of the days in both of the dataframe
+		#print dates
+		#dummy = pd.DataFrame(index = dates)
+		#self.total_schedule = self.total_schedule.join(dummy, how = 'outer').fillna(0.0)
+	        
+                #self.total_schedule = (self.total_schedule + dc.total_schedule).fillna(0.0)
+		#print self.total_schedule
 
+	#create the indirect costs column, if it is not already there
+	if 'indirect_costs' not in self.total_schedule.columns:
+	    self.total_schedule['indirect_costs'] = np.zeros(len(self.total_schedule.index))
 
 	for ic in self.indirect_capital:
+            
 	    ic.build_capex_schedule()
-	    self.total_schedule = self.total_schedule.join(ic.total_schedule, how = 'outer').fillna(0.0)
+	    self.total_schedule = self.total_schedule.add(ic.total_schedule, fill_value = 0.0)
 
+            #tmin = self.total_schedule.index[0]
+	    #if ic.total_schedule.index[0] < tmin:
+            #    tmin = ic.total_schedule.index[0]
+            #tmax = self.total_schedule.index[-1]
+            #if ic.total_schedule.index[-1] > tmax:
+            #    tmax = ic.total_schedule.index[-1]
+            #create a dataframe with the right length to join to
+            #dates = pd.date_range(tmin, tmax, freq = 'D')		#this should contain all of the days in both of the dataframes
+	    #dummy = pd.DataFrame(index = dates)
+	    #self.total_schedule = self.total_schedule.join(dummy, how = 'outer').fillna(0.0)
+            #self.total_schedule = (self.total_schedule + ic.total_schedule).fillna(0.0)
 
 
 

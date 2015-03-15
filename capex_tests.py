@@ -550,12 +550,55 @@ class CapitalCostsTests(unittest.TestCase):
         QB = pf.QuoteBasis(price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaling_method = 'linear', installation_model = IM, lead_time = dt.timedelta(days=3*365))
 	IQB = pf.IndirectQuoteBasis(base_cost = 282000.0, date = dt.datetime(2012,01,01), method = 'fractional', fraction = 0.1)
 	
-        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'MACRS', payment_terms='FixedSchedule')
-	capex2 = pf.CapitalExpense(tag = "F-1402", name = "Feeder 2", description = "Biomass feeder 2", quote_basis = QB, depreciation_type = 'MACRS', payment_terms='FixedSchedule')
-	capex3 = pf.CapitalExpense(tag = "F-1403", name = "Feeder 3", description = "Biomass feeder 3", quote_basis = QB, depreciation_type = 'MACRS', payment_terms='FixedSchedule')
-	capex4 = pf.CapitalExpense(tag = "F-1404", name = "Feeder 4", description = "Biomass feeder 4", quote_basis = QB, depreciation_type = 'MACRS', payment_terms='FixedSchedule')
+	year1 = dt.datetime(2012,1,1)
+	length = 7
 
-	icapex1 = pf.IndirectCapitalExpense(tag = "I1", name = "Indirect_1", description = "Indirect_1", quote_basis = IQB)
+	dates = pd.date_range(dt.datetime(2012,01,01), periods = 5, freq = 'M')
+        data = {'direct_costs':np.array([141000*0.2,141000*0.3,141000*0.1,141000*0.3,141000*0.1])}
+	schedule = pd.DataFrame(index = dates, data = data)
+
+	idata = {'indirect_costs':np.array([282000*0.1*0.2, 282000*0.1*0.3, 282000*0.1*0.1, 282000*0.3*.1, 282000*.1*.1])}
+
+	ischedule = pd.DataFrame(index = dates, data = idata)
+
+
+
+        capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'MACRS', payment_terms='FixedSchedule')
+	capex1.payment_args['order_date'] = year1
+	capex1.payment_args['schedule'] = schedule
+
+	capex1.depreciation_args['starting_period'] = year1+dt.timedelta(days=3*365)
+	capex1.depreciation_args['length'] = length
+
+
+
+	capex2 = pf.CapitalExpense(tag = "F-1402", name = "Feeder 2", description = "Biomass feeder 2", quote_basis = QB, depreciation_type = 'MACRS', payment_terms='FixedSchedule')
+	capex2.payment_args['order_date'] = year1
+	capex2.payment_args['schedule'] = schedule
+
+	capex2.depreciation_args['starting_period'] = year1+dt.timedelta(days=3*365)
+	capex2.depreciation_args['length'] = length
+
+	capex3 = pf.CapitalExpense(tag = "F-1403", name = "Feeder 3", description = "Biomass feeder 3", quote_basis = QB, depreciation_type = 'MACRS', payment_terms='FixedSchedule')
+	capex3.payment_args['order_date'] = year1
+	capex3.payment_args['schedule'] = schedule
+
+	capex3.depreciation_args['starting_period'] = year1+dt.timedelta(days=3*365)
+	capex3.depreciation_args['length'] = length
+
+	capex4 = pf.CapitalExpense(tag = "F-1404", name = "Feeder 4", description = "Biomass feeder 4", quote_basis = QB, depreciation_type = 'MACRS', payment_terms='FixedSchedule')
+	capex4.payment_args['order_date'] = year1
+	capex4.payment_args['schedule'] = schedule
+
+	capex4.depreciation_args['starting_period'] = year1+dt.timedelta(days=3*365)
+	capex4.depreciation_args['length'] = length
+
+	icapex1 = pf.IndirectCapitalExpense(tag = "I1", name = "Indirect_1", description = "Indirect_1", quote_basis = IQB, payment_terms = 'FixedSchedule', depreciation_type = 'NonDepreciable')
+	icapex1.payment_args['order_date'] = year1
+	icapex1.payment_args['schedule'] = ischedule
+
+	icapex1.depreciation_args['starting_period'] = year1+dt.timedelta(days=3*365)
+	icapex1.depreciation_args['length'] = length
 
 	subcosts = pf.CapitalCosts()
 	subcosts.add_direct_capital_item(capex3)
@@ -570,24 +613,26 @@ class CapitalCostsTests(unittest.TestCase):
 
 	costs.build_capex_schedule()
 
-        self.assertEqual(costs.total_schedule['direct'][dt.datetime(2012,01,31)], 141000.0*0.2*4)
-        self.assertEqual(costs.total_schedule['indirect'][dt.datetime(2012,01,31)], 141000.0*.2*0.1*2)		#Right now, the indirect is tied to the same schedule -- this needs to be adapted with the scheduler
+
+
+        self.assertEqual(costs.total_schedule['direct_costs'][dt.datetime(2012,01,31)], 141000.0*0.2*4)
+        self.assertEqual(costs.total_schedule['indirect_costs'][dt.datetime(2012,01,31)], 282000.0*.2*0.1*2)		#Right now, the indirect is tied to the same schedule -- this needs to be adapted with the scheduler
 	self.assertEqual(costs.total_schedule['depreciation'][dt.datetime(2012,01,31)], 0.0)
 
-	self.assertEqual(costs.total_schedule['direct'][dt.datetime(2012,02,28)], 141000.0*0.3*4)
-	self.assertEqual(costs.total_schedule['indirect'][dt.datetime(2012,02,28)], 141000.0*0.3*0.1*2)
-	self.assertEqual(costs.total_schedule['depreciation'][dt.datetime(2012,02,28)], 0.0)
+	self.assertEqual(costs.total_schedule['direct_costs'][dt.datetime(2012,02,29)], 141000.0*0.3*4)
+	self.assertEqual(costs.total_schedule['indirect_costs'][dt.datetime(2012,02,29)], 282000.0*0.3*0.1*2)
+	self.assertEqual(costs.total_schedule['depreciation'][dt.datetime(2012,02,29)], 0.0)
         
-	self.assertEqual(costs.total_schedule['direct'][dt.datetime(2012,03,31)], 141000.0*0.1*4)
-	self.assertEqual(costs.total_schedule['indirect'][dt.datetime(2012,03,31)], 141000.0*0.1*0.1*2)
+	self.assertEqual(costs.total_schedule['direct_costs'][dt.datetime(2012,03,31)], 141000.0*0.1*4)
+	self.assertEqual(costs.total_schedule['indirect_costs'][dt.datetime(2012,03,31)], 282000.0*0.1*0.1*2)
 	self.assertEqual(costs.total_schedule['depreciation'][dt.datetime(2012,03,31)], 0.0)
 
-	self.assertEqual(costs.total_schedule['direct'][dt.datetime(2012,04,30)], 141000.0*0.3*4)
-	self.assertEqual(costs.total_schedule['indirect'][dt.datetime(2012,04,30)], 141000.0*0.3*0.1*2)
+	self.assertEqual(costs.total_schedule['direct_costs'][dt.datetime(2012,04,30)], 141000.0*0.3*4)
+	self.assertEqual(costs.total_schedule['indirect_costs'][dt.datetime(2012,04,30)], 282000.0*0.3*0.1*2)
 	self.assertEqual(costs.total_schedule['depreciation'][dt.datetime(2012,04,30)], 0.0)
 
-	self.assertEqual(costs.total_schedule['direct'][dt.datetime(2012,05,31)], 141000.0*0.1*4)
-	self.assertEqual(costs.total_schedule['indirect'][dt.datetime(2012,05,31)], 141000.0*0.1*0.1*2)
+	self.assertEqual(costs.total_schedule['direct_costs'][dt.datetime(2012,05,31)], 141000.0*0.1*4)
+	self.assertEqual(costs.total_schedule['indirect_costs'][dt.datetime(2012,05,31)], 282000.0*0.1*0.1*2)
 	self.assertEqual(costs.total_schedule['depreciation'][dt.datetime(2012,04,30)], 0.0)
 
     

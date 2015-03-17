@@ -407,6 +407,110 @@ class FinancialParameters:
     def __ne__(self, other):
         return not self.__eq__(other)
 
+class Scaler:
+    """This is the abstract implementation of a helper class for scaling prices from one size to another"""
+
+    def __init__(self):
+        self.factor = 1.0
+        
+    def scale(self, base_scale, new_scale, base_price):
+        """Abstract implementation simply does value checking"""
+        if not isinstance(base_scale, uv.UnitVal):
+	    raise BadScaleInput, "Base scale is of type %s; must be of type UnitVal" % type(base_scale)
+        if not isinstance(new_scale, uv.UnitVal):
+            raise BadScaleInput, "New scale is of type %s; must be of type UnitVal" % type(new_scale)
+	try:
+	    self.base_scale.value/1.5
+            if base_scale.value <= 0.0:
+                raise BadScaleInput, "Base scale must be positive"
+
+	except TypeError:
+	    raise BadScaleInput, "Base scale must be numeric"
+
+        try:
+            self.new_scale.value/1.5
+            if new_scale.value <= 0.0:
+                raise BadScaleInput, "New scale must be positive"
+
+        except TypeError:
+            raise BadScaleInput, "New scale must be numeric"
+
+        try:
+            self.factor = new_scale/base_scale
+            self.base_price = base_price
+        except ValueError:
+            raise BadScaleInput, "The units between the base scale (%s) and the new scale (%s) are not compatible." % (base_scale.units, new_scale.units)
+
+class LinearScaler(Scaler):
+    """Scales prices by the simple ratio of sizes"""
+    def scale(self, **kwargs):
+        """Scale the price from base_size to new_size linearly"""
+        Scaler.scale(self, **kwargs)
+        return self.base_price * self.factor
+
+class ExponentialScaler(Scaler):
+
+    def __init__(self, exponent = 1.0):
+        """Scales prices by the ratio of sizes to the specified exponent"""
+        Scaler.__init__(self)
+        try:
+            exponent/1.5
+            if exponent < 0.0:
+                raise BadScalerInitialization, "Exponent must be non-negative"
+
+
+        except TypeError:
+            raise BadScalerInitialization, "Exponent must be numeric"
+
+        self.exponent = exponent
+
+    def scale(self, **kwargs):
+	"""Scale the price from base_size to new_size exponentially"""
+        Scaler.scale(self, **kwargs)
+        return self.base_price * (self.factor ** self.exponent)
+
+class NoneScaler(Scaler):
+    """Scaler that always returns the base_price"""
+    def scale(self, **kwargs):
+        """Scale the price from the base_price to the new_price by returning the base_price"""
+        Scaler.scale(self, **kwargs)
+        return self.base_price
+
+class SteppedScaler(Scaler):
+    """Scaler that uses a piecewise function on price ratio to give the scaling ratio"""
+    def __init__(self, steps):
+        if not isinstance(steps, dict):
+            raise BadScalerInitialization, "steps must be a dictionary"
+        for val in steps.values():
+            try:
+                val/1.5
+                if val <= 0.0:
+                    raise BadScalerInitialization, "All of the scaling steps must be positive"
+            except TypeError:
+                raise BadScalerInitialization, "All of the scaling steps must be numeric"
+
+        for key in steps:
+            try:
+                val/1.5
+                if np.isfinite(val) and val <= 0.0:
+                    raise BadScalerInitialization, "All of the scaling breakpoints must be positive"
+
+            except TypeError:
+                raise BadScalerInitialization, "All of the breakpoints must be numeric"
+
+        Scaler.__init__(self)
+        self.steps = steps
+
+    def scale(self, **kwargs):
+        """Scales according the the given piecewise ratio"""
+        Scaler.scale(self, **kwargs)
+        sorted_keys = sorted(self.steps)
+        #find the right position
+        N = 0
+        while self.factor > sorted_keys[N]:
+            N += 1
+        return self.factor * self.steps[sorted_keys[N-1]]
+
 class QuoteBasis:
     """This is the class for holding quotation information that a capital item will require to scale"""
     def __init__(self, price = None, date = None, size_basis = None, source = None, scaling_method = None, installation_model = None, lead_time = None, **kwargs):

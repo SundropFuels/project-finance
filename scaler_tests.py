@@ -129,7 +129,7 @@ class SteppedScalerTests(unittest.TestCase):
 	self.assertRaises(pf.BadScalerInitialization, pf.SteppedScaler, pw)
 
     def testCorrectScale(self):
-	pw = {-np.Inf:1.0, 1.5:1.1, 2.0:1.5}
+	pw = {-np.inf:1.0, 1.5:1.1, 2.0:1.5}
         sc = pf.SteppedScaler(steps = pw)
         self.assertEqual(1.0, sc.scale(base_scale = 1.0, new_scale = 1.3, base_price = 1.0))
 	self.assertEqual(1.0, sc.scale(base_scale = 1.0, new_scale = 0.4, base_price = 1.0))
@@ -138,8 +138,6 @@ class SteppedScalerTests(unittest.TestCase):
 	self.assertEqual(1.0*1.5, sc.scale(base_scale = 1.0, new_scale = 2.2, base_price = 1.0))
 	self.assertEqual(1.0*1.5, sc.scale(base_scale = 1.0, new_scale = 2.0, base_price = 1.0))
 
-    def testBadInput(self):
-	self.assertEqual(0,1)
 
     
 if __name__ == "__main__":

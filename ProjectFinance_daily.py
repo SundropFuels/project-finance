@@ -412,6 +412,12 @@ class Scaler:
 
     def __init__(self):
         self.factor = 1.0
+
+    def __eq__(self, other):
+        if not isinstance(other, Scaler):
+            raise TypeError, "Cannot compare %s to Scaler" % type(other)
+        return self.__class__ == other.__class__	#for the scaler, only the sub-class matters for most of these; will be overridden and checked on parameters for subclasses
+
         
     def scale(self, base_scale, new_scale, base_price):
         """Abstract implementation simply does value checking"""
@@ -472,6 +478,12 @@ class ExponentialScaler(Scaler):
 
         self.exponent = exponent
 
+    def __eq__(self, other):
+        if not isinstance(other, ExponentialScaler):
+	    raise TypeError, "Cannot compare %s to ExponentialScaler" % type(other)
+        return Scaler.__eq__(self, other) and self.exponent == other.exponent
+
+
     def scale(self, **kwargs):
 	"""Scale the price from base_size to new_size exponentially"""
         Scaler.scale(self, **kwargs)
@@ -509,6 +521,11 @@ class SteppedScaler(Scaler):
         Scaler.__init__(self)
         self.steps = steps
 
+    def __eq__(self, other):
+        if not isinstance(other, SteppedScaler):
+            raise TypeError, "Cannot compare %s to SteppedScaler" % type(other)
+        return Scaler.__eq__(self, other) and self.steps == other.steps
+
     def scale(self, **kwargs):
         """Scales according the the given piecewise ratio"""
         Scaler.scale(self, **kwargs)
@@ -521,11 +538,11 @@ class SteppedScaler(Scaler):
 
 class QuoteBasis:
     """This is the class for holding quotation information that a capital item will require to scale"""
-    def __init__(self, price = None, date = None, size_basis = None, source = None, scaling_method = None, installation_model = None, lead_time = None, **kwargs):
+    def __init__(self, base_price = None, date = None, size_basis = None, source = None, scaler = NoneScaler(), **kwargs):
         if price == None or date == None or size_basis == None:
             raise QuoteBasisBadInput, "QuoteBasis is underspecified"
         try:
-            if price <= 0:
+            if base_price <= 0:
                 raise QuoteBasisBadInput, "price must be greater than zero"
 	    b = 1.0/price				#is there a better way to test for numeric data?
         except TypeError:
@@ -549,17 +566,14 @@ class QuoteBasis:
 
            
 
-        self.price = price
+        self.base_price = base_price
         self.date = date
         self.size_basis = size_basis 
-        scaling_methods = ['linear', 'exponent', None]
-        if scaling_method not in scaling_methods:
-            raise BadScalingMethodError, "%s is not a valid scaling method" % scaling_method
-        self.scaling_method = scaling_method
-
-        if 'exponent' in kwargs:
-            self.scale_exponent = kwargs['exponent']
-     
+        
+        if not isinstance(scaler, Scaler):
+            raise BadScalingMethodError, "The provided scaler is of type %s, must be a sub-class of Scaler", % type(scaler)
+        self.scaler = scaler
+             
         self.install_model = installation_model
         self.lead_time = lead_time
 
@@ -567,7 +581,7 @@ class QuoteBasis:
         if not isinstance(other, QuoteBasis):
             raise TypeError, "Cannot compare %s to QuoteBasis" % type(other)
         val = True
-        l = ['price', 'date', 'size_basis', 'scaling_method', 'install_model']
+        l = ['base_price', 'date', 'size_basis', 'source', 'scaler']
         for att in l:
             val = val and (getattr(self, att) == getattr(other,att))
         return val
@@ -576,91 +590,81 @@ class QuoteBasis:
         """Scales the existing cost to a new basis and returns the value"""
         if new_scale is None:
             raise QuoteBasisBadInput, "A new scale to price to is missing"
-        if not isinstance(new_scale, uv.UnitVal):
+        if not isinstance(new_scale, uv.UnitVal):				###!!!### This should actually be of type Production, or similar -- need to keep interface the same
             raise QuoteBasisBadInput, "The new scale must be a unit value"
+        try: 
+             new_price = self.scaler.scale(base_price = self.base_price, base_scale = self.size_basis, new_scale = new_scale)       
+             return self._returned_scaled_copy(new_price)
 
-        if not new_scale.value > 0:
-            raise QuoteBasisBadInput, "The new scale must be positive in value"
+        except BadScaleInput:
+            raise QuoteBasisBadInput, "There was an invalid parameter passed to the scaler" % method
 
+    def _returned_scaled_copy(self, new_price):
+        return QuoteBasis(base_price = new_price, date = self.date, size_basis = self.size_basis, scaler = self.scaler, source = "%s_scaled" % source)
+
+    def cost(self):
+
+        return self.base_price
+
+
+class CapitalExpenseQuoteBasis(QuoteBasis):
+    """This is the class for holding quotation information that a capital item will require to scale"""
+    def __init__(self, installation_model = None, lead_time = None, **kwargs):
         
-        if self.scaling_method is None:
-            if self.source is None:
-                source = "No source"
-            else:
-                source = self.source
-            return QuoteBasis(price = self.price, date=self.date, scale_basis = self.scale_basis, installation_model = self.installation_model, scaling_method = self.scaling_method, source = "%s_no_scaling" % source)
+        if installation_model is not None and not isinstance(installation_model, InstallModel):
+            raise QuoteBasisBadInput, "The installation model must be an InstallModel object"
 
-        try:
-            return getattr(self, '_%s_scale' % self.scaling_method, new_scale)
+        if lead_time is not None:
+	    if not isinstance(lead_time, dt.timedelta):
+                raise QuoteBasisBadInput, "The lead time must be a timedelta"
 
-        except AttributeError:
-            raise QuoteBasisBadInput, "%s is not a valid scaling method" % method
+	QuoteBasis.__init__(self, **kwargs)
+   
+        self.install_model = installation_model
+        self.lead_time = lead_time
 
-    def installed_cost(self):
+    def __eq__(self, other):
+        if not isinstance(other, QuoteBasis):
+            raise TypeError, "Cannot compare %s to QuoteBasis" % type(other)
+        val = True
+        l = ['install_model', 'lead_time']
+        for att in l:
+            val = val and (getattr(self, att) == getattr(other,att))
+        return val and QuoteBasis.__eq__(self, other)
+
+    def _return_scaled_copy(self, new_price):
+	"""Returns a scaled copy of itself, allowing delegation to the appropriate classes"""
+	return CapitalExpenseQuoteBasis(base_price = new_price, date = self.date, size_basis = self.size_basis, scaler = self.scaler, source = "%s_scaled" % source, install_model = self.installation_model, lead_time = self.lead_time)
+
+
+    def cost(self):
         if self.install_model is None:
             print "Warning: No install model specified for this quote -- returning base cost"
-            return self.price
+            return self.base_price
 
         else:
-            return self.install_model.calc_installed_cost(self.price)
+            return self.install_model.calc_installed_cost(self.base_price)
 
-    def _linear_scale(self, new_scale, exponent):  #this may be a good place for **kwargs
-        """Linear price scaling"""
-        price = self.price * new_scale/self.scale_basis
-        if self.source is None:
-           source = "No source"
-        else:
-           source = self.source
-        return QuoteBasis(price = price, date=self.date, scale_basis = new_scale, installation_model = self.installation_model, scaling_method = self.scaling_method, source = "%s_scaled_linearly" % source)
+    
+class IndirectCapitalExpenseQuoteBasis(QuoteBasis):
 
-    def _exponent_scale(self, new_scale, exponent):
-        """Exponential price scaling"""
-        try:
-            price = self.price * (new_scale/self.scale_basis)**self.scale_exponent
-        except AttributeError:
-            raise NoScaleExponentError, "There was an attribute error on exponential scaling; check to make sure you set the scaling exponent"
-        if self.source is None:
-           source = "No source"
-        else:
-           source = self.source
-	return QuoteBasis(price = price, date=self.date, scale_basis = new_scale, installation_model = self.installation_model, scaling_method = self.scaling_method, source = "%s_scaled_exponent_%s" % (source, self.scale_exponent), exponent = self.scale_exponent)
-
-class IndirectQuoteBasis:
-
-    def __init__(self, base_cost = None, date =None, method = None, **kwargs):
-        #should we allow None type base_costs?
-
-        self.base_cost = base_cost
-
-        try:
-            if self.base_cost <= 0:
-                raise QuoteBasisBadInput, "The base_cost must be positive"
-            a = 23.0/self.base_cost
-        except TypeError:
-	    raise QuoteBasisBadInput, "The base_cost must be numeric"
-        self.base_cost = base_cost
+    def __init__(self, method = None, **kwargs):
+        
+	QuoteBasis.__init__(self, **kwargs)
+      
         methods = ['fixed', 'fractional']
         if method not in methods:
             raise QuoteBasisBadInput, "%s is not a valid method" % method
         self.method = method
-        if not isinstance(date, dt.datetime):
-            raise QuoteBasisBadInput, "date must be a datetime.datetime object"
-        self.date = date
 
-
-        for item in kwargs:
-            setattr(self, item, kwargs[item])
-
-
-
-    def installed_cost(self):
+    def cost(self):
         return getattr(self, "_calc_installed_cost_%s" % self.method)()
 
     def _calc_installed_cost_fixed(self):
-        return self.base_cost
+        return self.base_price
 
     def _calc_installed_cost_fractional(self):
-        return self.base_cost*self.fraction
+        return self.base_price*self.fraction
     
                    
 
@@ -903,8 +907,8 @@ class CapitalExpense:
 
 
     def set_quote_basis(self, quote_basis):
-        if not isinstance(quote_basis, QuoteBasis):
-            raise BadCapitalCostInput, "The quote_basis must be of type QuoteBasis"
+        if not isinstance(quote_basis, CapitalExpenseQuoteBasis):
+            raise BadCapitalCostInput, "The quote_basis must be of type CapitalExpenseQuoteBasis"
         self.quote_basis = quote_basis
 
     def set_depreciation_type(self, dep_type):
@@ -939,7 +943,7 @@ class CapitalExpense:
         """Returns the total installed cost for the given date, applying the internal escalator and inflation functions"""
         if self.quote_basis is None:
             raise BadCapitalTICInput, "A quote basis must be defined to give a total installed cost"
-        base_cost = self.quote_basis.installed_cost()
+        base_cost = self.quote_basis.cost()
         return self.escalator.escalate(cost = base_cost, basis_date = self.quote_basis.date, new_date = date, **kwargs)
  
     def build_capex_schedule(self):
@@ -1053,8 +1057,8 @@ class IndirectCapitalExpense(CapitalExpense):
 
 
     def set_quote_basis(self, quote_basis):
-        if not isinstance(quote_basis, IndirectQuoteBasis):
-            raise BadCapitalCostInput, "The quote_basis must be of type QuoteBasis"
+        if not isinstance(quote_basis, IndirectCapitalExpenseQuoteBasis):
+            raise BadCapitalCostInput, "The quote_basis must be of type IndirectCapitalExpenseQuoteBasis"
         self.quote_basis = quote_basis
 
     #def build_depreciation_schedule(self):

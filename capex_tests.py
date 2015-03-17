@@ -88,7 +88,8 @@ class CapitalExpenseTests(unittest.TestCase):
     def testCreateCapitalExpense(self):
         """Testing correct setting of a capital expense"""
 	IM = pf.FactoredInstallModel(1.6)
-        QB = pf.QuoteBasis(price = 141000.0, date = dt.datetime(2010,01,01), source = "Vendor", scaling_method = 'linear', installation_model = IM, size_basis = uv.UnitVal(100, 'lb/hr') )
+	scaler = pf.LinearScaler()
+        QB = pf.CapitalExpenseQuoteBasis(base_price = 141000.0, date = dt.datetime(2010,01,01), source = "Vendor", scaler=scaler, installation_model = IM, size_basis = uv.UnitVal(100, 'lb/hr') )
 	
         capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'MACRS')
         self.assertEqual(capex1.name, "Feeder")
@@ -106,7 +107,8 @@ class CapitalExpenseTests(unittest.TestCase):
 	tag = 'a'
 	name = 'something'
 	IM = pf.FactoredInstallModel(1.6)
-	QB = pf.QuoteBasis(price = 141000.0, date = dt.datetime(2010,01,01), source = "Vendor", scaling_method = 'linear', installation_model = IM, size_basis = uv.UnitVal(100, 'lb/hr') )
+	scaler = pf.LinearScaler()
+	QB = pf.CapitalExpenseQuoteBasis(base_price = 141000.0, date = dt.datetime(2010,01,01), source = "Vendor", scaler=scaler, installation_model = IM, size_basis = uv.UnitVal(100, 'lb/hr') )
 	self.assertRaises(pf.BadCapitalCostInput, pf.CapitalExpense, tag, name, 'poop', 'jimmy', None, 'StraightLine') 
 
         self.assertRaises(pf.BadCapitalCostInput, pf.CapitalExpense, tag, name, 'poop', QB, None, 'MoFarter') 
@@ -120,7 +122,8 @@ class CapitalExpenseTests(unittest.TestCase):
         """Testing correct setting of quote basis"""
 	capex1 = pf.CapitalExpense(name = "feeder", tag = 'F-401')
 	IM = pf.FactoredInstallModel(1.6)
-        QB = pf.QuoteBasis(price = 141000.0, date = dt.datetime(2010,01,01), size_basis = uv.UnitVal(100, 'lb/hr'), source = "Vendor", scaling_method = 'linear', installation_model = IM)
+	scaler = pf.LinearScaler()
+        QB = pf.CapitalExpenseQuoteBasis(base_price = 141000.0, date = dt.datetime(2010,01,01), size_basis = uv.UnitVal(100, 'lb/hr'), source = "Vendor", scaler=scaler, installation_model = IM)
         capex1.set_quote_basis(QB)
         self.assertEqual(capex1.quote_basis, QB)
 
@@ -164,7 +167,8 @@ class CapitalExpenseTests(unittest.TestCase):
         """Testing if a straight-line depreciation sheet is correctly created"""
         
         IM = pf.FactoredInstallModel(1.6)
-        QB = pf.QuoteBasis(price = 141000.0, date = dt.datetime(2012,01,01), size_basis = uv.UnitVal(100, 'lb/hr'), source = "Vendor", scaling_method = 'linear', installation_model = IM )
+	scaler = pf.LinearScaler()
+        QB = pf.CapitalExpenseQuoteBasis(base_price = 141000.0, date = dt.datetime(2012,01,01), size_basis = uv.UnitVal(100, 'lb/hr'), source = "Vendor", scaler=scaler, installation_model = IM )
 	
         capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'StraightLine')
         
@@ -184,7 +188,8 @@ class CapitalExpenseTests(unittest.TestCase):
         """Testing if a MACRS depreciation sheet is correctly created"""
        
         IM = pf.FactoredInstallModel(1.0)
-        QB = pf.QuoteBasis(price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaling_method = 'linear', installation_model = IM )
+	scaler = pf.LinearScaler()
+        QB = pf.CapitalExpenseQuoteBasis(base_price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaler=scaler, installation_model = IM )
 	
         capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'MACRS')
         
@@ -248,7 +253,8 @@ class CapitalExpenseTests(unittest.TestCase):
         """Testing if a Schedule depreciation sheet is correctly created"""
        
         IM = pf.FactoredInstallModel(1.0)
-        QB = pf.QuoteBasis(price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaling_method = 'linear', installation_model = IM )
+	scaler = pf.LinearScaler()
+        QB = pf.CapitalExpenseQuoteBasis(base_price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaler=scaler, installation_model = IM )
 	
         capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'Schedule')
               
@@ -273,7 +279,8 @@ class CapitalExpenseTests(unittest.TestCase):
     def testBadDepreciationInputs(self):
         """Test that invalid inputs to the depreciation functions throw proper errors"""
         IM = pf.FactoredInstallModel(1.6)
-        QB = pf.QuoteBasis(price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaling_method = 'linear', installation_model = IM )
+	scaler = pf.LinearScaler()
+        QB = pf.CapitalExpenseQuoteBasis(base_price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaler=scaler, installation_model = IM )
 	
         capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'StraightLine')
         
@@ -293,7 +300,8 @@ class CapitalExpenseTests(unittest.TestCase):
         #Fail on underdefined inputs -- this will currently be broken
         
         IM = pf.FactoredInstallModel(1.6)
-        QB = pf.QuoteBasis(price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaling_method = 'linear', installation_model = IM )
+	scaler = pf.LinearScaler()
+        QB = pf.CapitalExpenseQuoteBasis(base_price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaler=scaler, installation_model = IM )
 	
         capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", depreciation_type = 'StraightLine')
        
@@ -303,14 +311,16 @@ class CapitalExpenseTests(unittest.TestCase):
     def testTICCorrectCalculation(self):
         """Test that TIC is correctly calculated for all supported methods"""
         IM = pf.FactoredInstallModel(1.6)
-        QB = pf.QuoteBasis(price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaling_method = 'linear', installation_model = IM )
+	scaler = pf.LinearScaler()
+        QB = pf.CapitalExpenseQuoteBasis(base_price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaler=scaler, installation_model = IM )
 	
         capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'StraightLine')
         
         self.assertEqual(capex1.TIC(dt.datetime(2014,01,01)), 141000.0*1.6)
 
         IM = pf.FixedInstallModel(100000.0)
-        QB = pf.QuoteBasis(price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaling_method = 'linear', installation_model = IM )
+	scaler = pf.LinearScaler()
+        QB = pf.CapitalExpenseQuoteBasis(base_price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaler=scaler, installation_model = IM )
 	
         capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'StraightLine')
         
@@ -319,7 +329,8 @@ class CapitalExpenseTests(unittest.TestCase):
         #Need one that tests escalation here
         
 	IM = pf.FactoredInstallModel(1.6)
-        QB = pf.QuoteBasis(price = 141000.0, date = dt.datetime(2009,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaling_method = 'linear', installation_model = IM)
+	scaler = pf.LinearScaler()
+        QB = pf.CapitalExpenseQuoteBasis(base_price = 141000.0, date = dt.datetime(2009,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaler=scaler, installation_model = IM)
 	
         capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'StraightLine', escalation_type = "InflationRate" )
         capex1.set_inflation_rate(0.05)
@@ -327,8 +338,9 @@ class CapitalExpenseTests(unittest.TestCase):
 
     def testTICUnderdefined(self):
         """Test that the Capex TIC function throws the proper errors when the Capital Expense is underdefined"""
-	IM = pf.FactoredInstallModel(1.6)        
-	QB = pf.QuoteBasis(price = 141000.0, date = dt.datetime(2010,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'))
+	IM = pf.FactoredInstallModel(1.6)
+	scaler = pf.LinearScaler()      
+	QB = pf.CapitalExpenseQuoteBasis(base_price = 141000.0, date = dt.datetime(2010,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'))
 	
         capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", depreciation_type = 'StraightLine')
         self.assertRaises(pf.BadCapitalTICInput, capex1.TIC, dt.datetime(2015,01,01))
@@ -344,11 +356,11 @@ class CapitalExpenseTests(unittest.TestCase):
 	self.assertRaises(pf.QuoteBasisBadInput, pf.QuoteBasis, '10.0', 64.0, uv.UnitVal(100.0, 'lb/hr'))
 	self.assertRaises(pf.QuoteBasisBadInput, pf.QuoteBasis, '10.0', dt.datetime(2012,01,01), 'moop')
 	kwargs = {'installation_model':5.6}
-	self.assertRaises(pf.QuoteBasisBadInput, pf.QuoteBasis, 1.0, dt.datetime(2012,01,01), uv.UnitVal(100, 'lb/hr'), **kwargs)
+	self.assertRaises(pf.QuoteBasisBadInput, pf.CapitalExpenseQuoteBasis, 1.0, dt.datetime(2012,01,01), uv.UnitVal(100, 'lb/hr'), **kwargs)
 	kwargs = {'lead_time':'a'}
-	self.assertRaises(pf.QuoteBasisBadInput, pf.QuoteBasis, 1.0, dt.datetime(2012,01,01), uv.UnitVal(100, 'lb/hr'), **kwargs)
+	self.assertRaises(pf.QuoteBasisBadInput, pf.CapitalExpenseQuoteBasis, 1.0, dt.datetime(2012,01,01), uv.UnitVal(100, 'lb/hr'), **kwargs)
 	kwargs = {'lead_time':-1.0}
-	self.assertRaises(pf.QuoteBasisBadInput, pf.QuoteBasis, 1.0, dt.datetime(2012,01,01), uv.UnitVal(100, 'lb/hr'), **kwargs)
+	self.assertRaises(pf.QuoteBasisBadInput, pf.CapitalExpenseQuoteBasis, 1.0, dt.datetime(2012,01,01), uv.UnitVal(100, 'lb/hr'), **kwargs)
 	kwargs = {'source':23.0}
 	self.assertRaises(pf.QuoteBasisBadInput, pf.QuoteBasis, 1.0, dt.datetime(2012,01,01), uv.UnitVal(100, 'lb/hr'), **kwargs)
 
@@ -358,14 +370,15 @@ class CapitalExpenseTests(unittest.TestCase):
         
         
 	IM = pf.FactoredInstallModel(1.6)
-        QB = pf.QuoteBasis(price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaling_method = 'linear', installation_model = IM, lead_time = dt.timedelta(days=365))
+	scaler = pf.LinearScaler()
+        QB = pf.CapitalExpenseQuoteBasis(base_price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaler=scaler, installation_model = IM, lead_time = dt.timedelta(days=365))
 	
         capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'StraightLine', payment_terms = 'LumpSumDelivered')
         start_date = dt.datetime(2014,01,01)
         capex1.calc_payment_schedule(order_date = start_date)
         self.assertEqual(capex1.payment_schedule['direct_costs'][start_date+dt.timedelta(days=365)], 141000.0*1.6)        
 
-	QB = pf.QuoteBasis(price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaling_method = 'linear', installation_model = IM, lead_time = dt.timedelta(days=365))
+	QB = pf.CapitalExpenseQuoteBasis(base_price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaler=scaler, installation_model = IM, lead_time = dt.timedelta(days=365))
 	capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'StraightLine', payment_terms = 'LumpSumOrdered')
         start_date = dt.datetime(2014,01,01)
         capex1.calc_payment_schedule(order_date = start_date)
@@ -375,7 +388,8 @@ class CapitalExpenseTests(unittest.TestCase):
     def testCostLayoutScheduleFixedSchedule(self): 
         """Test that the Capex can calculate its own layout schedule (with no escalation) on a Fixed Schedule"""
         IM = pf.FactoredInstallModel(1.6)
-        QB = pf.QuoteBasis(price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaling_method = 'linear', installation_model = IM, lead_time = dt.timedelta(days=3*365))
+	scaler = pf.LinearScaler()
+        QB = pf.CapitalExpenseQuoteBasis(base_price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaler=scaler, installation_model = IM, lead_time = dt.timedelta(days=3*365))
 	dates = pd.date_range(dt.datetime(2014,01,01), periods = 5, freq = 'M')
         data = {'direct_costs':np.array([141000*1.6*0.2,141000*1.6*0.3,141000*1.6*0.1,141000*1.6*.3,141000*1.6*.1])}
 	schedule = pd.DataFrame(index = dates, data = data)
@@ -392,7 +406,8 @@ class CapitalExpenseTests(unittest.TestCase):
     def testCostLayoutScheduleFixedFraction(self):
         """Test that the Capex can calculate its own layout schedule (with no escalation) on a Fixed Schedule"""
         IM = pf.FactoredInstallModel(1.6)
-        QB = pf.QuoteBasis(price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaling_method = 'linear', installation_model = IM, lead_time = dt.timedelta(days=3*365))
+	scaler = pf.LinearScaler()
+        QB = pf.CapitalExpenseQuoteBasis(base_price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaler=scaler, installation_model = IM, lead_time = dt.timedelta(days=3*365))
 	dates = pd.date_range(dt.datetime(2014,01,01), periods = 5, freq = 'M')
         data = {'direct_costs':np.array([.2,.3,.1,.3,.1])}
 	schedule = pd.DataFrame(index = dates, data = data)
@@ -409,7 +424,8 @@ class CapitalExpenseTests(unittest.TestCase):
     def testCostLayoutScheduleFixedPeriodInterval(self):
         """Test that the Capex can calculate its own layout schedule (with no escalation) on a Fixed Interval"""
         IM = pf.FactoredInstallModel(1.6)
-        QB = pf.QuoteBasis(price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaling_method = 'linear', installation_model = IM, lead_time = dt.timedelta(days=3*365))
+	scaler = pf.LinearScaler()
+        QB = pf.CapitalExpenseQuoteBasis(base_price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaler=scaler, installation_model = IM, lead_time = dt.timedelta(days=3*365))
 	
         capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'StraightLine', payment_terms = 'EqualPeriodic')
         start_date = dt.datetime(2014,01,01)
@@ -426,7 +442,8 @@ class CapitalExpenseTests(unittest.TestCase):
         """Test that we get the appropriate errors when inputs are invalid or underdefined"""
 	        
 	IM = pf.FactoredInstallModel(1.6)
-        QB = pf.QuoteBasis(price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaling_method = 'linear', installation_model = IM, lead_time = dt.timedelta(days=3*365))
+	scaler = pf.LinearScaler()
+        QB = pf.CapitalExpenseQuoteBasis(base_price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaler=scaler, installation_model = IM, lead_time = dt.timedelta(days=3*365))
 	
         capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'StraightLine', payment_terms = 'LumpSumOrdered')
 	kwargs = {'order_date':34.0}
@@ -449,7 +466,8 @@ class CapitalExpenseTests(unittest.TestCase):
     def testBadCapitalDepreciationScheduleInput(self):
 	"""Test that we get the appropriate errors when inputs are invalid or undefined on a Schedule for capital depreciation"""
         IM = pf.FactoredInstallModel(1.0)
-        QB = pf.QuoteBasis(price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaling_method = 'linear', installation_model = IM )
+	scaler = pf.LinearScaler()
+        QB = pf.CapitalExpenseQuoteBasis(base_price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaler=scaler, installation_model = IM )
 	
         capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'Schedule')
               
@@ -471,7 +489,8 @@ class CapitalExpenseTests(unittest.TestCase):
 
         #Create the test capital expense
         IM = pf.FactoredInstallModel(1.0)
-        QB = pf.QuoteBasis(price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaling_method = 'linear', installation_model = IM, lead_time = dt.timedelta(days=3*365))
+	scaler = pf.LinearScaler()
+        QB = pf.CapitalExpenseQuoteBasis(base_price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaler=scaler, installation_model = IM, lead_time = dt.timedelta(days=3*365))
 	
         capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'MACRS', payment_terms='FixedSchedule')
         
@@ -547,8 +566,9 @@ class CapitalCostsTests(unittest.TestCase):
 
         costs = pf.CapitalCosts()
 	IM = pf.FactoredInstallModel(1.0)
-        QB = pf.QuoteBasis(price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaling_method = 'linear', installation_model = IM, lead_time = dt.timedelta(days=3*365))
-	IQB = pf.IndirectQuoteBasis(base_cost = 282000.0, date = dt.datetime(2012,01,01), method = 'fractional', fraction = 0.1)
+	scaler = pf.LinearScaler()
+        QB = pf.CapitalExpenseQuoteBasis(base_price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaler = scaler, installation_model = IM, lead_time = dt.timedelta(days=3*365))
+	IQB = pf.IndirectCapitalExpenseQuoteBasis(base_cost = 282000.0, date = dt.datetime(2012,01,01), method = 'fractional', fraction = 0.1)
 	
 	year1 = dt.datetime(2012,1,1)
 	length = 7

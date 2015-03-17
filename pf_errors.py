@@ -47,3 +47,8 @@ class BadDirectCapitalItem(ProjFinError):
 class BadIndirectCapitalItem(ProjFinError):
     pass
 
+class BadScaleInput(ProjFinError):
+    pass
+
+class BadScaleInitialization(ProjFinError):
+    pass

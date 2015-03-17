@@ -53,8 +53,7 @@ class ScalerTests(unittest.TestCase):
 	self.assertRaises(pf.BadScaleInput, cs.scale, **kwargs)
 	kwargs = {'base_scale':uv.UnitVal(1.0, 'm'), 'new_scale':uv.UnitVal(2.0, 'm'), 'base_price':'poof'}
 	self.assertRaises(pf.BadScaleInput, cs.scale, **kwargs)
-	kwargs = {'base_scale':uv.UnitVal(1.0, 'm'), 'new_scale':uv.UnitVal(2.0, 'm'), 'base_price':0.0}
-	self.assertRaises(pf.BadScaleInput, cs.scale, **kwargs)
+	
 	kwargs = {'base_scale':uv.UnitVal(1.0, 'm'), 'new_scale':uv.UnitVal(2.0, 'm'), 'base_price':-1.0}
 	self.assertRaises(pf.BadScaleInput, cs.scale, **kwargs)
     
@@ -69,7 +68,7 @@ class LinearScalerTests(unittest.TestCase):
     def testCorrectScale(self):
 	sc = pf.LinearScaler()
 	ns = sc.scale(base_scale = uv.UnitVal(1.0, 'in'), new_scale = uv.UnitVal(3.0, 'ft'), base_price = 10.0)
-	self.assertEqual(ns, 3*12*10.0)
+	self.assertAlmostEqual(ns, 3*12*10.0)
 
     def testBadInput(self):
 	"""Spot check that derived class will throw the same error as the parent class"""

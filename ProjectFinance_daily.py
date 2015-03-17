@@ -436,6 +436,14 @@ class Scaler:
             raise BadScaleInput, "New scale must be numeric"
 
         try:
+            base_price/1.5
+            if base_price < 0.0:
+                raise BadScaleInput, "The base price must be positive"
+        except TypeError:
+            raise BadScaleInput, "The base price must be numeric"
+
+
+        try:
             self.factor = (new_scale/base_scale).value
             self.base_price = base_price
         except ValueError:

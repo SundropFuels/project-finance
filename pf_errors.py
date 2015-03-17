@@ -50,5 +50,5 @@ class BadIndirectCapitalItem(ProjFinError):
 class BadScaleInput(ProjFinError):
     pass
 
-class BadScaleInitialization(ProjFinError):
+class BadScalerInitialization(ProjFinError):
     pass

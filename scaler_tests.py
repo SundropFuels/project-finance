@@ -73,7 +73,7 @@ class LinearScalerTests(unittest.TestCase):
     def testBadInput(self):
 	"""Spot check that derived class will throw the same error as the parent class"""
 	sc = pf.LinearScaler()
-	kwargs = {'base_scale':uv.UnitVal(1.0, 'm'), 'new_scale':uv.UnitVal(2.0, 'm'), 'base_price':0.0}
+	kwargs = {'base_scale':uv.UnitVal(1.0, 'm'), 'new_scale':uv.UnitVal(2.0, 'm'), 'base_price':-1.0}
 	self.assertRaises(pf.BadScaleInput, sc.scale, **kwargs)
 
 class ExponentialScalerTests(unittest.TestCase):

@@ -499,8 +499,8 @@ class SteppedScaler(Scaler):
 
         for key in steps:
             try:
-                val/1.5
-                if np.isfinite(val) and val <= 0.0:
+                key/1.5
+                if np.isfinite(key) and key <= 0.0:
                     raise BadScalerInitialization, "All of the scaling breakpoints must be positive"
 
             except TypeError:

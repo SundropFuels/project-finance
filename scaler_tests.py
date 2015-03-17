@@ -68,11 +68,12 @@ class LinearScalerTests(unittest.TestCase):
 
     def testCorrectScale(self):
 	sc = pf.LinearScaler()
-	ns = sc.scale(base_scale = 1.0, new_scale = 3.0, base_price = 10.0)
-	self.assertEqual(ns, 30.0)
+	ns = sc.scale(base_scale = uv.UnitVal(1.0, 'in'), new_scale = uv.UnitVal(3.0, 'ft'), base_price = 10.0)
+	self.assertEqual(ns, 3*12*10.0)
 
     def testBadInput(self):
 	"""Spot check that derived class will throw the same error as the parent class"""
+	sc = pf.LinearScaler()
 	kwargs = {'base_scale':uv.UnitVal(1.0, 'm'), 'new_scale':uv.UnitVal(2.0, 'm'), 'base_price':0.0}
 	self.assertRaises(pf.BadScaleInput, sc.scale, **kwargs)
 
@@ -89,13 +90,13 @@ class ExponentialScalerTests(unittest.TestCase):
 	self.assertEqual(sc.exponent, 0.2)
 
     def testBadInitializationInput(self):
-	self.assertRaises(pf.BadScalerInitialization, sc.ExponentialScaler, -1.0)
-	self.assertRaises(pf.BadScalerInitialization, sc.ExponentialScaler, 'poof')
+	self.assertRaises(pf.BadScalerInitialization, pf.ExponentialScaler, -1.0)
+	self.assertRaises(pf.BadScalerInitialization, pf.ExponentialScaler, 'poof')
 
 
     def testCorrectScale(self):
 	sc = pf.ExponentialScaler(exponent = 0.6)
-	ns = sc.scale(base_scale = 1.0, new_scale = 3.0, base_price = 10.0)
+	ns = sc.scale(base_scale = uv.UnitVal(1.0, 'm'), new_scale = uv.UnitVal(3.0, 'm'), base_price = 10.0)
 	self.assertEqual(ns, 30.0*3**0.6)
 
 
@@ -109,7 +110,7 @@ class NoneScalerTests(unittest.TestCase):
 
     def testCorrectScale(self):
         sc = pf.NoneScaler()
-	self.assertEqual(10.0, sc.scale(base_scale = 1.0, new_scale = 3.0, base_price = 10.0))
+	self.assertEqual(10.0, sc.scale(base_scale = uv.UnitVal(1.0, 'm'), new_scale = uv.UnitVal(3.0, 'm'), base_price = 10.0))
 
 
 class SteppedScalerTests(unittest.TestCase):
@@ -131,12 +132,12 @@ class SteppedScalerTests(unittest.TestCase):
     def testCorrectScale(self):
 	pw = {-np.inf:1.0, 1.5:1.1, 2.0:1.5}
         sc = pf.SteppedScaler(steps = pw)
-        self.assertEqual(1.0, sc.scale(base_scale = 1.0, new_scale = 1.3, base_price = 1.0))
-	self.assertEqual(1.0, sc.scale(base_scale = 1.0, new_scale = 0.4, base_price = 1.0))
-	self.assertEqual(1.0*1.1, sc.scale(base_scale = 1.0, new_scale = 1.6, base_price = 1.0))
-	self.assertEqual(1.0*1.1, sc.scale(base_scale = 1.0, new_scale = 1.5, base_price = 1.0))
-	self.assertEqual(1.0*1.5, sc.scale(base_scale = 1.0, new_scale = 2.2, base_price = 1.0))
-	self.assertEqual(1.0*1.5, sc.scale(base_scale = 1.0, new_scale = 2.0, base_price = 1.0))
+        self.assertEqual(1.0, sc.scale(base_scale = uv.UnitVal(1.0, 'lb/hr'), new_scale = uv.UnitVal(1.3, 'lb/hr'), base_price = 1.0))
+	self.assertEqual(1.0, sc.scale(base_scale = uv.UnitVal(1.0, 'm'), new_scale = uv.UnitVal(0.4, 'm'), base_price = 1.0))
+	self.assertEqual(1.0*1.1, sc.scale(base_scale = uv.UnitVal(1.0, 'm'), new_scale = uv.UnitVal(1.6, 'm'), base_price = 1.0))
+	self.assertEqual(1.0*1.1, sc.scale(base_scale = uv.UnitVal(1.0, 'm'), new_scale = uv.UnitVal(1.5, 'm'), base_price = 1.0))
+	self.assertEqual(1.0*1.5, sc.scale(base_scale = uv.UnitVal(1.0, 'm'), new_scale = uv.UnitVal(2.2, 'm'), base_price = 1.0))
+	self.assertEqual(1.0*1.5, sc.scale(base_scale = uv.UnitVal(1.0, 'm'), new_scale = uv.UnitVal(2.0, 'm'), base_price = 1.0))
 
 
     

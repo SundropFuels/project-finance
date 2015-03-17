@@ -420,7 +420,7 @@ class Scaler:
         if not isinstance(new_scale, uv.UnitVal):
             raise BadScaleInput, "New scale is of type %s; must be of type UnitVal" % type(new_scale)
 	try:
-	    self.base_scale.value/1.5
+	    base_scale.value/1.5
             if base_scale.value <= 0.0:
                 raise BadScaleInput, "Base scale must be positive"
 
@@ -428,7 +428,7 @@ class Scaler:
 	    raise BadScaleInput, "Base scale must be numeric"
 
         try:
-            self.new_scale.value/1.5
+            new_scale.value/1.5
             if new_scale.value <= 0.0:
                 raise BadScaleInput, "New scale must be positive"
 
@@ -436,7 +436,7 @@ class Scaler:
             raise BadScaleInput, "New scale must be numeric"
 
         try:
-            self.factor = new_scale/base_scale
+            self.factor = (new_scale/base_scale).value
             self.base_price = base_price
         except ValueError:
             raise BadScaleInput, "The units between the base scale (%s) and the new scale (%s) are not compatible." % (base_scale.units, new_scale.units)

@@ -97,7 +97,7 @@ class ExponentialScalerTests(unittest.TestCase):
     def testCorrectScale(self):
 	sc = pf.ExponentialScaler(exponent = 0.6)
 	ns = sc.scale(base_scale = uv.UnitVal(1.0, 'm'), new_scale = uv.UnitVal(3.0, 'm'), base_price = 10.0)
-	self.assertEqual(ns, 30.0*3**0.6)
+	self.assertEqual(ns, 10.0*3**0.6)
 
 
 

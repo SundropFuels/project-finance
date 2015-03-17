@@ -539,12 +539,12 @@ class SteppedScaler(Scaler):
 class QuoteBasis:
     """This is the class for holding quotation information that a capital item will require to scale"""
     def __init__(self, base_price = None, date = None, size_basis = None, source = None, scaler = NoneScaler(), **kwargs):
-        if price == None or date == None or size_basis == None:
+        if base_price == None or date == None or size_basis == None:
             raise QuoteBasisBadInput, "QuoteBasis is underspecified"
         try:
             if base_price <= 0:
                 raise QuoteBasisBadInput, "price must be greater than zero"
-	    b = 1.0/price				#is there a better way to test for numeric data?
+	    b = 1.0/base_price				#is there a better way to test for numeric data?
         except TypeError:
             raise QuoteBasisBadInput, "price must be numeric"
 
@@ -557,26 +557,16 @@ class QuoteBasis:
         if not isinstance(size_basis, uv.UnitVal):
             raise QuoteBasisBadInput, "The size basis must be a UnitVal"
 
-        if installation_model is not None and not isinstance(installation_model, InstallModel):
-            raise QuoteBasisBadInput, "The installation model must be an InstallModel object"
-
-        if lead_time is not None:
-	    if not isinstance(lead_time, dt.timedelta):
-                raise QuoteBasisBadInput, "The lead time must be a timedelta"
-
-           
-
+        
         self.base_price = base_price
         self.date = date
         self.size_basis = size_basis 
+	self.source = source
         
         if not isinstance(scaler, Scaler):
-            raise BadScalingMethodError, "The provided scaler is of type %s, must be a sub-class of Scaler", % type(scaler)
+            raise BadScalingMethodError, "The provided scaler is of type %s, must be a sub-class of Scaler" % type(scaler)
         self.scaler = scaler
-             
-        self.install_model = installation_model
-        self.lead_time = lead_time
-
+      
     def __eq__(self, other):
         if not isinstance(other, QuoteBasis):
             raise TypeError, "Cannot compare %s to QuoteBasis" % type(other)
@@ -656,6 +646,9 @@ class IndirectCapitalExpenseQuoteBasis(QuoteBasis):
         if method not in methods:
             raise QuoteBasisBadInput, "%s is not a valid method" % method
         self.method = method
+
+	for kw in kwargs:
+            setattr(self, kw, kwargs[kw])
 
     def cost(self):
         return getattr(self, "_calc_installed_cost_%s" % self.method)()

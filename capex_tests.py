@@ -355,14 +355,16 @@ class CapitalExpenseTests(unittest.TestCase):
 	self.assertRaises(pf.QuoteBasisBadInput, pf.QuoteBasis, 'a', dt.datetime(2012,01,01), uv.UnitVal(100.0, 'lb/hr'))
 	self.assertRaises(pf.QuoteBasisBadInput, pf.QuoteBasis, '10.0', 64.0, uv.UnitVal(100.0, 'lb/hr'))
 	self.assertRaises(pf.QuoteBasisBadInput, pf.QuoteBasis, '10.0', dt.datetime(2012,01,01), 'moop')
-	kwargs = {'installation_model':5.6}
-	self.assertRaises(pf.QuoteBasisBadInput, pf.CapitalExpenseQuoteBasis, 1.0, dt.datetime(2012,01,01), uv.UnitVal(100, 'lb/hr'), **kwargs)
-	kwargs = {'lead_time':'a'}
-	self.assertRaises(pf.QuoteBasisBadInput, pf.CapitalExpenseQuoteBasis, 1.0, dt.datetime(2012,01,01), uv.UnitVal(100, 'lb/hr'), **kwargs)
-	kwargs = {'lead_time':-1.0}
-	self.assertRaises(pf.QuoteBasisBadInput, pf.CapitalExpenseQuoteBasis, 1.0, dt.datetime(2012,01,01), uv.UnitVal(100, 'lb/hr'), **kwargs)
-	kwargs = {'source':23.0}
-	self.assertRaises(pf.QuoteBasisBadInput, pf.QuoteBasis, 1.0, dt.datetime(2012,01,01), uv.UnitVal(100, 'lb/hr'), **kwargs)
+	kwargs = {'base_price':1.0, 'date':dt.datetime(2012,01,01), 'size_basis':uv.UnitVal(100,'lb/hr')}
+
+	IM = pf.FactoredInstallModel(1.6)
+	
+	self.assertRaises(pf.QuoteBasisBadInput, pf.CapitalExpenseQuoteBasis, 5.6, dt.timedelta(days=100) , **kwargs)
+	self.assertRaises(pf.QuoteBasisBadInput, pf.CapitalExpenseQuoteBasis, IM, 'a',**kwargs)
+	self.assertRaises(pf.QuoteBasisBadInput, pf.CapitalExpenseQuoteBasis, IM, -1.0,**kwargs)
+	kwargs['source'] = 23.0
+	
+	self.assertRaises(pf.QuoteBasisBadInput, pf.CapitalExpenseQuoteBasis, IM, dt.timedelta(days=100),**kwargs)
 
 
     def testCostLayoutScheduleLumpSum(self):
@@ -568,7 +570,7 @@ class CapitalCostsTests(unittest.TestCase):
 	IM = pf.FactoredInstallModel(1.0)
 	scaler = pf.LinearScaler()
         QB = pf.CapitalExpenseQuoteBasis(base_price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaler = scaler, installation_model = IM, lead_time = dt.timedelta(days=3*365))
-	IQB = pf.IndirectCapitalExpenseQuoteBasis(base_cost = 282000.0, date = dt.datetime(2012,01,01), method = 'fractional', fraction = 0.1)
+	IQB = pf.IndirectCapitalExpenseQuoteBasis(base_price = 282000.0, date = dt.datetime(2012,01,01), size_basis = uv.UnitVal(100, 'lb/hr'), method = 'fractional', fraction = 0.1)
 	
 	year1 = dt.datetime(2012,1,1)
 	length = 7

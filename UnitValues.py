@@ -22,7 +22,7 @@ class UnitVal:
             raise ValueError, "UnitVal cannot be added to %s" % type(other)
         conv = uc.UnitConverter()
         try:
-            rarg = conv.convert(other, other.units, self.units)
+            rarg = conv.convert_units(other, other.units, self.units)
             return UnitVal(self.value+rarg, self.units)
         except uc.InconsistentUnitError:
             raise ValueError, "Inconsistent units, %s, %s" % (other.units, self.units)
@@ -33,7 +33,7 @@ class UnitVal:
             raise ValueError, "UnitVal cannot be added to %s" % type(other)
         conv = uc.UnitConverter()
         try:
-            rarg = conv.convert(other, other.units, self.units)
+            rarg = conv.convert_units(other, other.units, self.units)
             return UnitVal(self.value-rarg, self.units)
         except uc.InconsistentUnitError:
             raise ValueError, "Inconsistent units, %s, %s" % (other.units, self.units)
@@ -44,7 +44,7 @@ class UnitVal:
             raise ValueError, "UnitVal cannot be added to %s" % type(other)
         conv = uc.UnitConverter()
         try:
-            rarg = conv.convert(self.value, self.units, other.units)
+            rarg = conv.convert_units(self.value, self.units, other.units)
             return UnitVal(other.value+rarg, self.units)
         except uc.InconsistentUnitError:
             raise ValueError, "Inconsistent units, %s, %s" % (other.units, self.units)
@@ -55,7 +55,7 @@ class UnitVal:
             raise ValueError, "UnitVal cannot be added to %s" % type(other)
         conv = uc.UnitConverter()
         try:
-            rarg = conv.convert(self.value, self.units, other.units)
+            rarg = conv.convert_units(self.value, self.units, other.units)
             return UnitVal(other.value-rarg, self.units)
         except uc.InconsistentUnitError:
             raise ValueError, "Inconsistent units, %s, %s" % (other.units, self.units)
@@ -66,7 +66,7 @@ class UnitVal:
         if isinstance(other, UnitVal):
             conv = uc.UnitConverter()
             try:
-                rarg = conv.convert(other.value, other.units, self.units)
+                rarg = conv.convert_units(other.value, other.units, self.units)
                 return UnitVal(self.value * rarg, self.units)
             except uc.InconsistentUnitError:
                 raise ValueError, "Inconsistent units, %s, %s" % (other.units, self.units)
@@ -84,7 +84,7 @@ class UnitVal:
         if isinstance(other, UnitVal): 
             conv = uc.UnitConverter()
             try:
-                divisor = conv.convert(other.value, other.units, self.units)
+                divisor = conv.convert_units(other.value, other.units, self.units)
                 if divisor == 0:
                     raise ValueError, "Divide by zero error"
                 return UnitVal(self.value/divisor, self.units)
@@ -105,7 +105,7 @@ class UnitVal:
         if isinstance(other, UnitVal):
             conv = uc.UnitConverter()
             try:
-                rarg = conv.convert(self.value, self.units, other.units)
+                rarg = conv.convert_units(self.value, self.units, other.units)
                 return UnitVal(other.value * rarg, other.units)
             except uc.InconsistentUnitError:
                 raise ValueError, "Inconsistent units, %s, %s" % (other.units, self.units)
@@ -123,7 +123,7 @@ class UnitVal:
         if isinstance(other, UnitVal): 
             conv = uc.UnitConverter()
             try:
-                divisor = conv.convert(self.value, self.units, other.units)
+                divisor = conv.convert_units(self.value, self.units, other.units)
                 if divisor == 0:
                     raise ValueError, "Divide by zero error"
                 return UnitVal(other.value/divisor, other.units)

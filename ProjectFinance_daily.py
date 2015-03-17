@@ -507,9 +507,9 @@ class SteppedScaler(Scaler):
         sorted_keys = sorted(self.steps)
         #find the right position
         N = 0
-        while self.factor > sorted_keys[N]:
+        while N < len(sorted_keys) and self.factor >= sorted_keys[N]:
             N += 1
-        return self.factor * self.steps[sorted_keys[N-1]]
+        return self.base_price * self.steps[sorted_keys[N-1]]
 
 class QuoteBasis:
     """This is the class for holding quotation information that a capital item will require to scale"""

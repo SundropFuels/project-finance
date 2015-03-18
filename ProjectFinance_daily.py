@@ -1383,6 +1383,36 @@ class DebtPortfolio:
             new_dpf.add_loan(loan.scale(new_scale))
         return new_dpf
 
+class Debt:
+    """Abstract class for all debt instruments"""
+
+    def __init__(self, name, principal = None, init_date = None, comment = None):
+	if name is not None and not isinstance(name, basestring):
+	    raise BadDebtInput, "name must be a string"
+
+	if principal is not None:
+	    try:
+		principal/23.5
+		if principal < 0.0:
+		    raise BadDebtInput, "principal must be non-negative"
+	    except TypeError:
+		    raise BadDebtInput, "principal must be numeric"
+
+	if init_date is not None and not isinstance(init_date, dt.datetime):
+	    raise BadDebtInput, "init_date of type %s, must be of type datetime.datetime" % type(init_date)
+
+	if comment is not None and not isinstance(comment, basestring):
+	    raise BadDebtInput, "comment must be of type basestring, got type %s" % type(comment)
+
+	self.name = name
+	self.principal = principal
+	self.init_date = init_date
+	self.comment = comment
+
+    def build_debt_schedule(self):
+        pass
+
+
 class Loan:
     """Container class for debt financing instruments"""
 

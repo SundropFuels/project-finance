@@ -52,3 +52,6 @@ class BadScaleInput(ProjFinError):
 
 class BadScalerInitialization(ProjFinError):
     pass
+
+class BadDebtInput(ProjFinError):
+    pass

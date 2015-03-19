@@ -1521,13 +1521,13 @@ class Debt:
 	#iterate through the rest of the rows
 	for i in all_but_first:
 
-	    if i in self.interest_dates:						###!!!###SPEED THIS UP
-	         self.schedule.loc[i]['interest'] = self.rate/self.pmt_freq*P
+	    if i in self.interest_dates:						
+	         self.schedule.loc[i,'interest'] = self.rate/self.pmt_freq*P
 
-	    self.schedule.loc[i]['principal'] = P + s.loc[i]['proceeds'] + self.schedule.loc[i]['interest'] - s.loc[i]['payments']
-	    self.schedule.loc[i]['principal_payment'] = s.loc[i]['payments'] - self.schedule.loc[i]['interest']
-	    self.schedule.loc[i]['cash_proceeds'] = s.loc[i]['proceeds']
-	    P = self.schedule.loc[i]['principal']
+	    self.schedule.loc[i,'principal'] = P + s.loc[i,'proceeds'] + self.schedule.loc[i,'interest'] - s.loc[i,'payments']
+	    self.schedule.loc[i,'principal_payment'] = s.loc[i,'payments'] - self.schedule.loc[i,'interest']
+	    self.schedule.loc[i,'cash_proceeds'] = s.loc[i,'proceeds']
+	    P = self.schedule.loc[i,'principal']
 
 	    if P <= 0:
 	        break		#stop when there is no principal left to pay

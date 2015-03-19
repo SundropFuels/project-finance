@@ -63,10 +63,90 @@ class DebtTests(unittest.TestCase):
 
 
 class LoanTests(unittest.TestCase):
-    def testBadInputs(self):
-        self.assertTrue(False)
 
-    #NEED TO HAVE A BUNCH OF CHECKS HERE FOR BAD INPUT INTO THE MODEL
+    def testCorrectInitialization(self):
+        kwargs = {}
+	kwargs['name'] = 'loan1'
+	kwargs['principal'] = 100000
+	kwargs['init_date'] = dt.datetime(2015,01,01)
+	kwargs['comment' ] ='new loan'
+	kwargs['term'] = dt.timedelta(days=365*20)
+	kwargs['rate'] = 0.05
+	kwargs['pmt_freq'] = 12
+
+	loan = pf.Loan(**kwargs)
+	for kw in kwargs:
+            self.assertEqual(getattr(loan, kw), kwargs[kw])
+
+    def testBadInputs(self):
+	kwargs = {}
+	kwargs['name'] = 25
+	kwargs['principal'] = 100000
+	kwargs['init_date'] = dt.datetime(2015,01,01)
+	kwargs['comment' ] ='new loan'
+	kwargs['term'] = dt.timedelta(days=365*20)
+	kwargs['rate'] = 0.05
+	kwargs['pmt_freq'] = 12
+
+	self.assertRaises(pf.BadDebtInput, pf.Loan, **kwargs)
+	kwargs['name'] = 'loan1'
+
+	kwargs['principal'] = 'a'
+	self.assertRaises(pf.BadDebtInput, pf.Loan, **kwargs)
+	kwargs['principal'] = -12
+	self.assertRaises(pf.BadDebtInput, pf.Loan, **kwargs)
+	kwargs['principal'] = 100000
+	
+	kwargs['init_date'] = 'a'
+	self.assertRaises(pf.BadDebtInput, pf.Loan, **kwargs)
+	kwargs['init_date'] = dt.datetime(2015,01,01)
+
+	kwargs['comment'] = 23
+	self.assertRaises(pf.BadDebtInput, pf.Loan, **kwargs)
+	kwargs['comment'] = 'new comment'
+
+	kwargs['term'] = 20
+	self.assertRaises(pf.BadDebtInput, pf.Loan, **kwargs)
+	kwargs['term'] = dt.timedelta(days=20*365)
+
+	kwargs['rate'] = 'a'
+	self.assertRaises(pf.BadDebtInput, pf.Loan, **kwargs)
+	kwargs['rate'] = -.235
+	self.assertRaises(pf.BadDebtInput, pf.Loan, **kwargs)
+	kwargs['rate'] = .025
+	
+	kwargs['pmt_freq'] = 'a'
+	self.assertRaises(pf.BadDebtInput, pf.Loan, **kwargs)
+	kwargs['pmt_freq'] = 12	
+
+    def testUnderdefinedLoanError(self):
+	kwargs = {}
+	kwargs['name'] = 'loan1'
+	kwargs['principal'] = None
+	kwargs['init_date'] = dt.datetime(2015,01,01)
+	kwargs['comment' ] ='new loan'
+	kwargs['term'] = dt.timedelta(days=365*20)
+	kwargs['rate'] = 0.05
+	kwargs['pmt_freq'] = 12
+
+	loan1 = pf.Loan(**kwargs)
+	self.assertRaises(pf.MissingInfoError, loan1.build_debt_schedule)
+
+	loan1.principal = 100000
+	loan1.init_date = None
+	self.assertRaises(pf.MissingInfoError, loan1.build_debt_schedule)
+
+	loan1.init_date = dt.datetime(2015,01,01)
+	loan1.term = None
+	self.assertRaises(pf.MissingInfoError, loan1.build_debt_schedule)
+
+	loan1.term = dt.timedelta(days=365*20)
+	loan1.rate = None
+	self.assertRaises(pf.MissingInfoError, loan1.build_debt_schedule)
+
+	loan1.rate = .05
+	loan1.pmt_freq = None
+	self.assertRaises(pf.MissingInfoError, loan1.build_debt_schedule)
 
 
     def testCorrectlyGenerateScheduleAnnual(self):

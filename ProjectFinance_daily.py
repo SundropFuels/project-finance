@@ -1481,11 +1481,14 @@ class Debt:
 	self.pmt_schedules = []
 	self.cash_schedules = []
 
-
-    def build_debt_schedule(self):
+    def check_defined(self):
 	for item in [self.principal, self.term, self.rate, self.pmt_freq, self.init_date]:
             if item == None:
-                raise ProjFinError, "You need to set %s before generating the debt schedule" % item        
+                raise MissingInfoError, "You need to set %s before generating the debt schedule" % item 
+
+
+    def build_debt_schedule(self):
+	self.check_defined()      
 
 	#create the schedule of interest accumulation/calculation -- works around the interspersed payments
 	
@@ -1523,7 +1526,7 @@ class Debt:
 	#iterate through the rest of the rows
 	for i in all_but_first:
 
-	    if i in self.interest_dates:
+	    if i in self.interest_dates:						###!!!###SPEED THIS UP
 	         self.schedule.loc[i]['interest'] = self.rate/self.pmt_freq*P
 
 	    self.schedule.loc[i]['principal'] = P + s.loc[i]['proceeds'] + self.schedule.loc[i]['interest'] - s.loc[i]['payments']
@@ -1535,7 +1538,7 @@ class Debt:
 	        break		#stop when there is no principal left to pay
 
           
-        print self.schedule  
+        
         self.scheduled = True
 
 
@@ -1554,6 +1557,7 @@ class Loan(Debt):
 
     def build_debt_schedule(self):
         """Generates the loan schedule from appropriate information"""
+	self.check_defined()
         #This is a normally amortized loan; if the payment schedules[] object contains an additional payment schedule, we'll add that in
         self.scheduler.pmt_normal_amortization(amt=self.principal, term=self.term, pmt_freq=self.pmt_freq, init_date = self.init_date, rate=self.rate)
 	nml_amt = self.scheduler.pmt_normal_amortization(amt = self.principal, term = self.term, pmt_freq = self.pmt_freq, init_date = self.init_date, rate = self.rate)

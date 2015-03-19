@@ -1391,17 +1391,17 @@ class DebtPmtScheduler:
     def __init__(self):
         pass
 
-    def pmt_normal_amortization(amt, term, pmt_freq, init_date, rate):
+    def pmt_normal_amortization(self, amt, term, pmt_freq, init_date, rate):
 
         #we work from annualized rates, so the term has to be worked from an annualized basis
 	#pmt_freq is number of payments annually
 	y = term.days/365	#The term is a timedelta, so we'll always work it in days, on a 365 annual basis.  Leap years will just have to deal
 	pmt = amt*(rate/pmt_freq)*np.power(1+rate/pmt_freq,y*pmt_freq)/(np.power(1+rate/pmt_freq,y*pmt_freq)-1)
 
-	if self.pmt_freq in DebtPmtScheduler.scheds:
-            sched = pd.date_range(init_date, periods = y*pmt_freq, freq = DebtPmtScheduler.scheds[self.pmt_freq])	
+	if pmt_freq in DebtPmtScheduler.scheds:
+            sched = pd.date_range(init_date, periods = y*pmt_freq, freq = DebtPmtScheduler.scheds[pmt_freq])	
 	    
-        elif self.pmt_freq == 2:
+        elif pmt_freq == 2:
             sched = pd.date_range(init_date, periods = y*pmt_freq*2, freq = 'Q')
             sched = sched[1::2] 
 
@@ -1411,19 +1411,20 @@ class DebtPmtScheduler:
 
 	#we really just want to return a schedule of payments -- the debt instrument will calculate the interest and principal contributions
 	frame = pd.DataFrame(index = sched)
-	frame['payment'] = np.ones(len(sched))*pmt
+	frame['payments'] = np.ones(len(sched))*pmt
 	return frame
 
-    def pmt_balloon(amt, term, init_date):
+    def pmt_balloon(self, amt, term, init_date):
 	sched = pd.date_range(init_date+term, periods = 1, freq = 'D')
 	frame = pd.DataFrame(index = sched)
-	frame['payment'] = np.ones(len(sched))*amt
+	frame['payments'] = np.ones(len(sched))*amt
 	return frame
 
-    def cash_upfront(amt, init_date):
+    def cash_upfront(self, amt, init_date):
 	sched = pd.date_range(init_date, periods = 1, freq = 'D')
 	frame = pd.DataFrame(index = sched)
 	frame['proceeds'] = np.ones(len(sched))*amt
+	return frame
 	
 
 class Debt:
@@ -1482,7 +1483,7 @@ class Debt:
 
 
     def build_debt_schedule(self):
-	for item in [self.principal, self.term, self.rate, self.pmt_freq, self.strt_period]:
+	for item in [self.principal, self.term, self.rate, self.pmt_freq, self.init_date]:
             if item == None:
                 raise ProjFinError, "You need to set %s before generating the debt schedule" % item        
 
@@ -1495,12 +1496,12 @@ class Debt:
 
 	for cs in self.cash_schedules:
 	    s = s.join(cs, how = 'outer').fillna(0.0)
-	       
+	
         self.schedule = pd.DataFrame(index = s.index)
         
         #Now we just need to step through the payment dates to calculate the schedule 
 
-
+	
 
         #set up the principal column
         self.schedule['principal'] = np.zeros(len(self.schedule))
@@ -1508,11 +1509,16 @@ class Debt:
 	self.schedule['cash_proceeds'] = np.zeros(len(self.schedule))
 	self.schedule['principal_payment'] = np.zeros(len(self.schedule))
 
+	
+
+
 	all_but_first = self.schedule.index[1:]
 
 	#do the first row
 	self.schedule['principal'][0] = s['proceeds'][0] - s['payments'][0]
 	P = self.schedule['principal'][0]
+	self.schedule['cash_proceeds'][0] = s['proceeds'][0]
+	self.schedule['principal_payment'][0] = s['payments'][0]
 	
 	#iterate through the rest of the rows
 	for i in all_but_first:
@@ -1520,7 +1526,7 @@ class Debt:
 	    if i in self.interest_dates:
 	         self.schedule.loc[i]['interest'] = self.rate/self.pmt_freq*P
 
-	    self.schedule.loc[i]['principal'] += s.loc[i]['proceeds'] + self.schedule.loc[i]['interest'] - s.loc[i]['payments']
+	    self.schedule.loc[i]['principal'] = P + s.loc[i]['proceeds'] + self.schedule.loc[i]['interest'] - s.loc[i]['payments']
 	    self.schedule.loc[i]['principal_payment'] = s.loc[i]['payments'] - self.schedule.loc[i]['interest']
 	    self.schedule.loc[i]['cash_proceeds'] = s.loc[i]['proceeds']
 	    P = self.schedule.loc[i]['principal']
@@ -1529,7 +1535,7 @@ class Debt:
 	        break		#stop when there is no principal left to pay
 
           
-          
+        print self.schedule  
         self.scheduled = True
 
 
@@ -1541,7 +1547,7 @@ class Loan(Debt):
     def __init__(self, **kwargs):
 	
 
-	Debt.__init__(**kwargs)
+	Debt.__init__(self,**kwargs)
 		
               
         self.scheduled = False
@@ -1549,13 +1555,13 @@ class Loan(Debt):
     def build_debt_schedule(self):
         """Generates the loan schedule from appropriate information"""
         #This is a normally amortized loan; if the payment schedules[] object contains an additional payment schedule, we'll add that in
-        
+        self.scheduler.pmt_normal_amortization(amt=self.principal, term=self.term, pmt_freq=self.pmt_freq, init_date = self.init_date, rate=self.rate)
 	nml_amt = self.scheduler.pmt_normal_amortization(amt = self.principal, term = self.term, pmt_freq = self.pmt_freq, init_date = self.init_date, rate = self.rate)
 	self.pmt_schedules.append(nml_amt)
-	self.cash_schedules.append(self.scheduler.cash_upfront(amt = self.principal, init_date = self.init_date)
+	self.cash_schedules.append(self.scheduler.cash_upfront(amt = self.principal, init_date = self.init_date))
         self.interest_dates = nml_amt.index
-
-	Debt.build_debt_schedule()
+	
+	Debt.build_debt_schedule(self)
 
 
 	

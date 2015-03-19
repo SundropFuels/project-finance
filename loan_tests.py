@@ -71,8 +71,8 @@ class LoanTests(unittest.TestCase):
 
     def testCorrectlyGenerateScheduleAnnual(self):
         """Testing correct loan schedule generation for annual coupon payments"""
-        loan = pf.Loan("loan1", principal = 686000, term = 20, rate = 0.085, pmt_freq = 1, strt_period = dt.datetime(2015,1,1))
-        loan.generate_schedule()
+        loan = pf.Loan("loan1", principal = 686000, term = dt.timedelta(days=365*20), rate = 0.085, pmt_freq = 1, strt_period = dt.datetime(2015,1,1))
+        loan.build_debt_schedule()
 
         dates = np.array(['2015-12-31','2016-12-31','2017-12-31', '2023-12-31', '2034-12-31'])
         principal = np.array([671819.7116, 656434.0987, 639740.7086, 505183.688, 0.0])
@@ -89,8 +89,8 @@ class LoanTests(unittest.TestCase):
 
     def testCorrectlyGenerateScheduleBiAnnual(self):
         """Testing correct loan schedule generation for bi-annual coupon payments"""
-        loan = pf.Loan("loan1", principal = 686000, term = 20, rate = 0.085, pmt_freq = 2, strt_period = dt.datetime(2012,1,1))
-        loan.generate_schedule()
+        loan = pf.Loan("loan1", principal = 686000, term = dt.timedelta(days=365*20), rate = 0.085, pmt_freq = 2, strt_period = dt.datetime(2012,1,1))
+        loan.build_debt_schedule()
 
         dates = np.array(['2012-06-30', '2012-12-31', '2013-06-30', '2016-06-30', '2021-12-31', '2027-06-30', '2031-12-31'])
         
@@ -110,7 +110,7 @@ class LoanTests(unittest.TestCase):
 class DebtPortfolioTests(unittest.TestCase):
     def testAddLoan(self):
         """DebtPortfolio must correctly add a loan to its set of loans"""
-	loan = pf.Loan("loan1", principal = 686000, term = 20, rate = 0.085, pmt_freq = 1, strt_period = dt.datetime(2015,2,27))
+	loan = pf.Loan("loan1", principal = 686000, term = dt.timedelta(days=365*20), rate = 0.085, pmt_freq = 1, strt_period = dt.datetime(2015,2,27))
 	dp = pf.DebtPortfolio()
         dp.add_loan(loan)
         self.assertEqual(dp.loans[0],loan)
@@ -123,24 +123,24 @@ class DebtPortfolioTests(unittest.TestCase):
     def testRepeatedLoan(self):
         """Repeating a loan in the add list should raise an error"""
         dp = pf.DebtPortfolio()
-        loan = pf.Loan("loan1", principal = 686000, term = 20, rate = 0.085, pmt_freq = 1, strt_period = dt.datetime(2015,1,1))
+        loan = pf.Loan("loan1", principal = 686000, term = dt.timedelta(days=365*20), rate = 0.085, pmt_freq = 1, strt_period = dt.datetime(2015,1,1))
 	dp.add_loan(loan)
 	self.assertRaises(pf.ProjFinError, dp.add_loan, loan)
 
     def testDelLoan(self):
         """DebtPortfolio must correctly remove a loan from its set of loans"""
-	loan = pf.Loan("loan1", principal = 686000, term = 20, rate = 0.085, pmt_freq = 1, strt_period = dt.datetime(2015,1,1))
+	loan = pf.Loan("loan1", principal = 686000, term = dt.timedelta(days=365*20), rate = 0.085, pmt_freq = 1, strt_period = dt.datetime(2015,1,1))
 	dp = pf.DebtPortfolio()
         dp.add_loan(loan)
-        loan2 = pf.Loan("loan2", principal = 750000, term = 15, rate = 0.134, pmt_freq = 2, strt_period = dt.datetime(2017,3,15))
+        loan2 = pf.Loan("loan2", principal = 750000, term = dt.timedelta(days=365*15), rate = 0.134, pmt_freq = 2, strt_period = dt.datetime(2017,3,15))
         dp.add_loan(loan2)
         dp.del_loan("loan1")
         self.assertEqual(dp.loans, [loan2])
 
     def testCIPcalc(self):
         """Must correctly calculate cash proceeds, interest, and principal for a loan"""
-        loan = pf.Loan("loan1", principal = 686000, term = 20, rate = 0.085, pmt_freq = 1, strt_period = dt.datetime(2012,1,1))
-        loan2 = pf.Loan("loan2", principal = 750000, term = 15, rate = 0.134, pmt_freq = 2, strt_period = dt.datetime(2012,1,1))
+        loan = pf.Loan("loan1", principal = 686000, term = dt.timedelta(days=365*20), rate = 0.085, pmt_freq = 1, strt_period = dt.datetime(2012,1,1))
+        loan2 = pf.Loan("loan2", principal = 750000, term = dt.timedelta(days=365*15), rate = 0.134, pmt_freq = 2, strt_period = dt.datetime(2012,1,1))
         #ensure correct cash, interest, principal in 2017 and in 2024
         #This test function needs to be completely re-written for the new CIP interface !!!
         r = pd.DatetimeIndex(['2012-01-01','2012-06-30','2012-12-31','2026-12-31','2028-06-30','2030-12-31'])

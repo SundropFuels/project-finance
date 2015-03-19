@@ -55,3 +55,6 @@ class BadScalerInitialization(ProjFinError):
 
 class BadDebtInput(ProjFinError):
     pass
+
+class UnderspecifiedError(MissingInfoError):
+    pass

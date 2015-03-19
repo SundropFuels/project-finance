@@ -1115,21 +1115,7 @@ class CapitalCosts:
 		#print self.total_schedule
 	    else:
 		self.total_schedule = self.total_schedule.add(dc.total_schedule, fill_value = 0.0)
-	        #tmin = self.total_schedule.index[0]
-	        #if dc.total_schedule.index[0] < tmin:
-                #    tmin = dc.total_schedule.index[0]
-                #tmax = self.total_schedule.index[-1]
-                #if dc.total_schedule.index[-1] > tmax:
-                #    tmax = dc.total_schedule.index[-1]
-		
-                #create a dataframe with the right length to join to
-                #dates = pd.date_range(tmin, tmax, freq = 'D')		#this should contain all of the days in both of the dataframe
-		#print dates
-		#dummy = pd.DataFrame(index = dates)
-		#self.total_schedule = self.total_schedule.join(dummy, how = 'outer').fillna(0.0)
 	        
-                #self.total_schedule = (self.total_schedule + dc.total_schedule).fillna(0.0)
-		#print self.total_schedule
 
 	#create the indirect costs column, if it is not already there
 	if 'indirect_costs' not in self.total_schedule.columns:
@@ -1140,20 +1126,7 @@ class CapitalCosts:
 	    ic.build_capex_schedule()
 	    self.total_schedule = self.total_schedule.add(ic.total_schedule, fill_value = 0.0)
 
-            #tmin = self.total_schedule.index[0]
-	    #if ic.total_schedule.index[0] < tmin:
-            #    tmin = ic.total_schedule.index[0]
-            #tmax = self.total_schedule.index[-1]
-            #if ic.total_schedule.index[-1] > tmax:
-            #    tmax = ic.total_schedule.index[-1]
-            #create a dataframe with the right length to join to
-            #dates = pd.date_range(tmin, tmax, freq = 'D')		#this should contain all of the days in both of the dataframes
-	    #dummy = pd.DataFrame(index = dates)
-	    #self.total_schedule = self.total_schedule.join(dummy, how = 'outer').fillna(0.0)
-            #self.total_schedule = (self.total_schedule + ic.total_schedule).fillna(0.0)
-
-
-
+            
     ##############################################
     """
     def _setup_depreciable_capex_dict(self):
@@ -1317,27 +1290,47 @@ class VariableCosts:
 class DebtPortfolio:
     """Holds all of the loans, bonds, etc. for a given project"""
     def __init__(self):
-        self.loans = []
+        self.debts = []
         self.loan_schedule_bit = False
-        self.bonds = []
 
-    def add_loan(self, loan):
+
+    def add_debt(self, debt):
         """Add a loan to the list of loans"""
-        if not isinstance(loan, Loan):
-            raise ProjFinError, "loan must be an instance of class Loan; it was not passed as such"
+        if not isinstance(debt, Debt):
+            raise ProjFinError, "New debt security must be an instance of class Debt; it was not passed as such"
 
-        for item in self.loans:
-            if item.name == loan.name:
-                raise ProjFinError, "%s is already a loan in the debt portfolio" % loan.name
+        for item in self.debts:
+            if item.name == debt.name:
+                raise ProjFinError, "%s is already a loan in the debt portfolio" % debt.name
 
-        self.loans.append(loan)
+        self.debts.append(debt)
         self.loan_schedule_bit = False
 
-    def del_loan(self, name):
+    def del_debt(self, name):
         """Removes the loan with the given name.  If the name is not in the list, does nothing."""
-        for loan in self.loans:
-            if loan.name == name:
-                self.loans.remove(loan)
+        for debt in self.debts:
+            if debt.name == name:
+                self.debts.remove(debt)
+
+	###!!!###Throw a warning if this is not in here
+
+    def build_debt_schedule(self):
+        """Rolls up the debt schedules for all of the given loans"""
+	self.schedule = pd.DataFrame()
+	
+        for d in self.debts:
+	    try:
+	        d.build_debt_schedule()		#if some of these items are CapitalCosts, then the schedule will contain indirects -- this handles itself seamlessly
+
+	    except MissingInfoError:
+		raise UnderspecifiedError, "Debt item %s is underspecified; cannot calculate its schedule" % d.name
+
+	    if len(self.schedule) == 0:	#base case
+	        self.schedule = self.schedule.join(d.schedule, how = 'outer').fillna(0.0)
+
+	    else:
+		self.schedule = self.schedule.add(d.schedule, fill_value = 0.0)
+
 
     def calculate_loans(self):
         """Calculates all the schedules for all of the given loans"""
@@ -1346,6 +1339,8 @@ class DebtPortfolio:
                 loan.generate_schedule()
 
         self.loan_schedule_bit = True
+
+    ###This is no longer relevant -- the general loan schedule already does this
 
     def CIP(self, date_range):
         """Calculates the cash proceeds, interest, and principal payment for all loans in the portfolio for a given date range"""
@@ -1542,6 +1537,18 @@ class Debt:
         self.scheduled = True
 
 
+    def __eq__(self, other):
+        verity = isinstance(other, self.__class__)
+        names = ['name', 'principal', 'term', 'rate', 'pmt_freq', 'init_date']
+        if verity:
+            for name in names:
+                verity = verity and getattr(self, name) == getattr(other, name)
+        return verity
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+
 class Loan(Debt):
     """Container class for debt financing instruments"""
 
@@ -1589,27 +1596,8 @@ class Loan(Debt):
 
     ###!!!###The function above should be eliminated -- it is ugly
 
-    def __eq__(self, other):
-        verity = isinstance(other, self.__class__)
-        names = ['name', 'principal', 'term', 'rate', 'pmt_freq', 'strt_period']
-        if verity:
-            for name in names:
-                verity = verity and getattr(self, name) == getattr(other, name)
-        return verity
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def set_base_scale(self, base_scale):
-        self.base_scale = base_scale
-
-    def scale(self, new_scale):
-        converter = uc.UnitConverter()
-        scaled = converter.convert_units(new_scale[0], new_scale[1], self.base_scale[1])
-        new_loan = Loan(name = self.name, term = self.term, rate = self.rate, pmt_freq = self.pmt_freq, strt_year = self.strt_year)
-        new_loan.principal = self.principal * scaled/self.base_scale[0]
-        return new_loan
-        
+    
+            
 class PF_FileLoader:
     """Reads the XML save file for a given project"""
     def __init__(self, source):

@@ -190,53 +190,91 @@ class LoanTests(unittest.TestCase):
 class DebtPortfolioTests(unittest.TestCase):
     def testAddLoan(self):
         """DebtPortfolio must correctly add a loan to its set of loans"""
-	loan = pf.Loan(name="loan1", principal = 686000, term = dt.timedelta(days=365*20), rate = 0.085, pmt_freq = 1, init_date = dt.datetime(2015,2,27))
+	kwargs = {}
+	kwargs['name'] = 'loan1'
+	kwargs['principal'] = 100000
+	kwargs['init_date'] = dt.datetime(2015,01,01)
+	kwargs['comment' ] ='new loan'
+	kwargs['term'] = dt.timedelta(days=365*20)
+	kwargs['rate'] = 0.05
+	kwargs['pmt_freq'] = 12
+
+	loan = pf.Loan(**kwargs)
+
 	dp = pf.DebtPortfolio()
-        dp.add_loan(loan)
-        self.assertEqual(dp.loans[0],loan)
+        dp.add_debt(loan)
+        self.assertEqual(dp.debts[0],loan)
 
     def testBadLoan(self):
         """Adding a non-loan object to a debt portfolio should raise an error"""
         dp = pf.DebtPortfolio()
-        self.assertRaises(pf.ProjFinError, dp.add_loan, "poop")
+        self.assertRaises(pf.ProjFinError, dp.add_debt, "poop")
 
     def testRepeatedLoan(self):
         """Repeating a loan in the add list should raise an error"""
         dp = pf.DebtPortfolio()
-        loan = pf.Loan(name = "loan1", principal = 686000, term = dt.timedelta(days=365*20), rate = 0.085, pmt_freq = 1, init_date = dt.datetime(2015,1,1))
-	dp.add_loan(loan)
-	self.assertRaises(pf.ProjFinError, dp.add_loan, loan)
+	kwargs = {}
+	kwargs['name'] = 'loan1'
+	kwargs['principal'] = 100000
+	kwargs['init_date'] = dt.datetime(2015,01,01)
+	kwargs['comment' ] ='new loan'
+	kwargs['term'] = dt.timedelta(days=365*20)
+	kwargs['rate'] = 0.05
+	kwargs['pmt_freq'] = 12
+
+	loan = pf.Loan(**kwargs)
+	dp.add_debt(loan)
+	self.assertRaises(pf.ProjFinError, dp.add_debt, loan)
 
     def testDelLoan(self):
         """DebtPortfolio must correctly remove a loan from its set of loans"""
-	loan = pf.Loan(name = "loan1", principal = 686000, term = dt.timedelta(days=365*20), rate = 0.085, pmt_freq = 1, init_date = dt.datetime(2015,1,1))
-	dp = pf.DebtPortfolio()
-        dp.add_loan(loan)
-        loan2 = pf.Loan("loan2", principal = 750000, term = dt.timedelta(days=365*15), rate = 0.134, pmt_freq = 2, init_date = dt.datetime(2017,3,15))
-        dp.add_loan(loan2)
-        dp.del_loan(name = "loan1")
-        self.assertEqual(dp.loans, [loan2])
+	kwargs = {}
+	kwargs['name'] = 'loan1'
+	kwargs['principal'] = 100000
+	kwargs['init_date'] = dt.datetime(2015,01,01)
+	kwargs['comment' ] ='new loan'
+	kwargs['term'] = dt.timedelta(days=365*20)
+	kwargs['rate'] = 0.05
+	kwargs['pmt_freq'] = 12
 
-    def testCIPcalc(self):
-        """Must correctly calculate cash proceeds, interest, and principal for a loan"""
+	loan = pf.Loan(**kwargs)
+	dp = pf.DebtPortfolio()
+        dp.add_debt(loan)
+	kwargs['name'] = 'loan2'
+	loan2 = pf.Loan(**kwargs)
+        dp.add_debt(loan2)
+        dp.del_debt(name = "loan1")
+        self.assertEqual(dp.debts, [loan2])
+
+    
+    def testRollUp(self):
+        """Must correctly roll up all costs"""
         loan = pf.Loan(name="loan1", principal = 686000, term = dt.timedelta(days=365*20), rate = 0.085, pmt_freq = 1, init_date = dt.datetime(2012,1,1))
         loan2 = pf.Loan(name="loan2", principal = 750000, term = dt.timedelta(days=365*15), rate = 0.134, pmt_freq = 2, init_date = dt.datetime(2012,1,1))
         #ensure correct cash, interest, principal in 2017 and in 2024
-        #This test function needs to be completely re-written for the new CIP interface !!!
-        r = pd.DatetimeIndex(['2012-01-01','2012-06-30','2012-12-31','2026-12-31','2028-06-30','2030-12-31'])
+
+        r = pd.DatetimeIndex(['2012-01-01','2012-06-30','2012-12-31','2026-12-31','2030-12-31'])
         dp = pf.DebtPortfolio()
-	dp.add_loan(loan)
-        dp.add_loan(loan2)
-        CIP = dp.CIP(r)
-        cash = [1436000.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        interest = [0.0, 50250.0, 107998.6255, 31739.18825, 0.0, 10913.02968]
-        pp = [0.0, 8378.723433, 23120.38631, 99379.8236, 0.0, 61577.2587308423]
+	dp.add_debt(loan)
+        dp.add_debt(loan2)
+	dp.build_debt_schedule()
+
+        cash = [1436000.0, 0.0, 0.0, 0.0, 0.0]
+        interest = [0.0, 50250.0, 107998.6255, 31739.18825, 10913.02968]
+        pp = [0.0, 8378.723433, 23120.38631, 99379.8236, 61577.2587308423]
 
         for d, c, i, p in zip(r, cash, interest, pp):
-            self.assertAlmostEqual(CIP.loc[d]['cash_proceeds'], c, 3)
-            self.assertAlmostEqual(CIP.loc[d]['interest'], i, 3)
-            self.assertAlmostEqual(CIP.loc[d]['principal_payment'],p,3) 
+            self.assertAlmostEqual(dp.schedule.loc[d]['cash_proceeds'], c, 3)
+            self.assertAlmostEqual(dp.schedule.loc[d]['interest'], i, 3)
+            self.assertAlmostEqual(dp.schedule.loc[d]['principal_payment'],p,3) 
 
+
+    def testUnderspecifiedRollup(self):
+	"""Test whether an underspecified loan in the portfolio raises the appropriate error"""
+	loan = pf.Loan(name = "loan1")
+	dp = pf.DebtPortfolio()
+	dp.add_debt(loan)
+	self.assertRaises(pf.UnderspecifiedError, dp.build_debt_schedule)
 
     
 

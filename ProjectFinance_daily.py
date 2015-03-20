@@ -791,8 +791,8 @@ class Escalator:
 
     def escalate(self, cost, basis_date, new_date):
         #do checking on the basis date and the new date
-        if not isinstance(basis_date, dt.datetime) or not isinstance(new_date, dt.datetime):
-            raise BadDateError, "The basis date and the new date both need to be of class datetime.datetime"
+        #if not isinstance(basis_date, dt.datetime) or not isinstance(new_date, dt.datetime):
+        #    raise BadDateError, "The basis date and the new date both need to be of class datetime.datetime"
 
         #test for validity of cost
         try:
@@ -825,8 +825,11 @@ class InflationRateEscalator(Escalator):
             if self.rate < 0:
                 raise BadValue, "The rate must be positive"
             dpr = np.power(1+self.rate, 1/365.0)-1
-            n = (kwargs['new_date']-kwargs['basis_date']).days	#number of days between intervening periods
-            
+            days = kwargs['new_date'] - kwargs['basis_date']
+            if isinstance(days, dt.timedelta):
+                days = np.timedelta64(days)		#cast this up to allow the necessary division
+            #n = (kwargs['new_date']-kwargs['basis_date']).days	#number of days between intervening periods
+            n = days/np.timedelta64(1,'D')
             self.factor = (1+dpr)**n
             return Escalator.escalate(self, **kwargs)
         except KeyError:
@@ -1255,7 +1258,7 @@ class StartupDiscounter(object):
 
     def discount_factors(self, time_series):
         """Returns discount factors in a timeseries indexed series"""
-        if not isinstance(time_series, Pd.Series):
+        if not isinstance(time_series, pd.Series):
             raise BadStartupDiscountError, "time_series must be a variant of a pandas series, got %s" % type(time_series)
         
 class NoneStartupDiscounter(StartupDiscounter):
@@ -1374,6 +1377,9 @@ class FixedExpense(object):
 	if v is not None and not isinstance(v, basestring):
 	    raise BadFixedExpenseInput, "pmt_type must be a string, got %s" % type(v)
 
+        if v is not None and v not in ['simple']:
+            raise BadFixedExpenseInput, "%s is not an acceptable payment type" % type(v)
+
 	self._pmt_type = v
 
 
@@ -1409,9 +1415,12 @@ class FixedExpense(object):
 	    raise BadFixedCostScheduleInput, "term must be a datetime.timedelta object, got %s" % type(term)
 	dates = pd.date_range(self.init_date, self.init_date+term, freq = self.quote_basis.freq)
 	self.schedule = pd.DataFrame(index = dates)
-	self.schedule['fixed_costs'] = np.ones(len(self.schedule.index))*self.escalator.escalate(cost = self.quote_basis.base_price, basis_date = self.quote_basis.date, new_date = pd.Series(self.schedule.index))
-	self.schedule['fixed_costs'] *= self.startup_discounter(time_series = self.startup_discounter.discount_factors(pd.Series(self.schedule.index)))
+        esc_factors = self.escalator.escalate(cost = self.quote_basis.base_price, basis_date = self.quote_basis.date, new_date  = pd.Series(self.schedule.index))
+	esc_factors.index = self.schedule.index
 
+        self.schedule['fixed_costs'] = np.ones(len(self.schedule.index))*esc_factors
+	self.schedule['fixed_costs'] *= self.startup_discounter.discount_factors(time_series = pd.Series(self.schedule.index))
+        print self.schedule
     def _calc_payment_schedule_fixed_schedule(self, schedule, **kwargs):
 	"""Applies the costs at a given fixed schedule.  No escalation -- this is a brute force override method"""
 	if not isinstance(schedule, pd.DataFrame) or not isinstance(schedule.index, pandas.tseries.index.DatetimeIndex) or 'fixed_costs' not in schedule.columns:

@@ -1259,8 +1259,9 @@ class FixedExpense(object):
 
         self._startup_function = v
 
-    def build_fex_schedule():
-        pass
+    def build_fex_schedule(self):
+	"""This is the wrapper function that matches the name in the container class"""
+        self.calc_payment_schedule(**self.pmt_args)
 
 
     def calc_payment_schedule(self, **kwargs):
@@ -1271,7 +1272,7 @@ class FixedExpense(object):
 
         getattr(self, "_calc_payment_schedule_%s" % self.pmt_type)(**kwargs)
 
-    def _calc_payment_schedule_simple(self, term):
+    def _calc_payment_schedule_simple(self, term, **kwargs):
         """Applies the escalated fixed cost at equal intervals; the fixed cost quote MUST be on the same interval as the freq"""
 	if not isinstance(term, dt.timedelta):
 	    raise BadFixedCostScheduleInput, "term must be a datetime.timedelta object, got %s" % type(term)
@@ -1281,7 +1282,7 @@ class FixedExpense(object):
 	
 	#apply the startup function?  Is there a better way to do this?
 
-    def _calc_payment_schedule_fixed_schedule(self, schedule):
+    def _calc_payment_schedule_fixed_schedule(self, schedule, **kwargs):
 	"""Applies the costs at a given fixed schedule.  No escalation -- this is a brute force override method"""
 	if not isinstance(schedule, pd.DataFrame) or not isinstance(schedule.index, pandas.tseries.index.DatetimeIndex) or 'fixed_costs' not in schedule.columns:
 	    raise BadFixedCostScheduleInput, "The given schedule does not conform to the requirements for this dataframe"
@@ -1292,46 +1293,37 @@ class FixedExpense(object):
 	pass
 
 
-class FixedCosts:
+class FixedCosts(object):
     gl_add_info = OrderedDict([('project_staff',('Project staff',float)),('g_and_a',('General and Administrative',float)),('prop_tax_and_insurance',('Property tax and insurance',float)),('rent_or_lease',('Rent or Lease',float)),('licensing_permits_fees',('Licensing, permits, and fees',float)),('mat_cost_maint_repair',('Material costs for maintenance and repairs',float)),('other_fees',('Other fees',float)),('other_fixed_op_and_maint',('Other fixed operational and maintenance costs',float))])
     labels = OrderedDict([('project_staff','Project staff'),('g_and_a','General and Administrative'),('prop_tax_and_insurance','Property tax and insurance'),('rent_or_lease','Rent or Lease'),('licensing_permits_fees','Licensing, permits, and fees'),('mat_cost_maint_repair','Material costs for maintenance and repairs'),('other_fees','Other fees'),('other_fixed_op_and_maint','Other fixed operational and maintenance costs')])
     types = OrderedDict([('project_staff',float),('g_and_a',float),('prop_tax_and_insurance',float),('rent_or_lease',float),('licensing_permits_fees',float),('mat_cost_maint_repair',float),('other_fees',float),('other_fixed_op_and_maint',float)])
 
     """Holds the fixed costs for a project (not a company)"""
-    def __init__(self, project_staff = None, G_A_exp = None, prop_tax_ins = None, rent = None, licensing_permits_fees = None, maintenance_cost = None, other_fees = None, other_fixed = None):
-        self.fixed_costs = {}
-        self.fixed_costs['project_staff'] = project_staff
-        self.fixed_costs['g_and_a'] = G_A_exp
-        self.fixed_costs['prop_tax_and_insurance'] = prop_tax_ins
-        self.fixed_costs['rent_or_lease'] = rent
-        self.fixed_costs['licensing_permits_fees'] = licensing_permits_fees
-        self.fixed_costs['mat_cost_maint_repair'] = maintenance_cost
-        self.fixed_costs['other_fees'] = other_fees
-        self.fixed_costs['other_fixed_op_and_maint'] = other_fixed
+    def __init__(self):
 
-        self.mode = "direct"
+        self.fixed_costs = []
+        
+    def add_fixed_cost(self, fixed_cost):
+        if not isinstance(fixed_cost, FixedExpense) and not isinstance(fixed_cost, FixedCosts):
+            raise BadFixedCostType, "fixed_cost must be of type FixedExpense, got %s" % type(fixed_cost)
+        self.fixed_costs.append(fixed_cost)
 
-    def c_total_fixed_costs(self, TDC = None):
-        fixed_list = []
-        for key in self.fixed_costs.keys():
-            if self.fixed_costs[key] is not None:
-                if self.mode == "direct":
-                    fixed_list.append(self.fixed_costs[key])
-		elif self.mode == "pct":
-                    fixed_list.append(self.fixed_costs[key]*TDC)
-        return sum(fixed_list)
+    def del_fixed_cost(self, fixed_cost):			###!!!### all of these deletions should be done with ids instead -- much cleaner, as I would not need the acutal object to remove it
+        for fc in self.fixed_costs:
+            if fc.name == fixed_cost.name:
+                self.fixed_costs.remove(fixed
 
-    def  __getitem__(self, index):
-        """Returns the item with the index name"""
-        try:
-            return self.fixed_costs[index]
-        except KeyError:
-            raise ProjFinError, "The desired column was not existent"
+    def build_fex_schedule(self):
+	self.schedule = pd.DataFrame()
+        for fc in self.fixed_costs:
+            fc.build_fex_schedule()
+            if len(self.schedule) == 0:
+                self.schedule = self.schedule.join(fc.schedule, how = 'outer').fillna(0.0)
 
-    def __setitem__(self,key,item):
-        if key not in self.fixed_costs:
-	    raise ProjFinError, "%s is not an acceptable fixed cost" % key
-        self.fixed_costs[key] = item
+	    else:
+		self.schedule = self.schedule.add(fc.schedule, fill_value = 0.0)
+	        
+ 
 
     def __eq__(self, other):
         return isinstance(other, self.__class__) and self.fixed_costs == other.fixed_costs
@@ -1339,21 +1331,7 @@ class FixedCosts:
     def __ne__(self, other):
         return not self.__eq__(other)
 
-    def set_base_scale(self, base_scale):
-        self.base_scale = base_scale
-
-    def scale(self, new_scale):
-        new_fc = FixedCosts()
-        converter = uc.UnitConverter()
-        scaled = converter.convert_units(new_scale[0], new_scale[1], self.base_scale[1])
-        #everything EXCEPT labor scales linearly; labor scales logarithmically
-        for key in self.fixed_costs:
-            if key != 'project_staff':
-                new_fc.fixed_costs[key] = self.fixed_costs[key] * scaled/self.base_scale[0]
-            else:
-                new_fc.fixed_costs[key] = self.fixed_costs[key] * np.log(scaled/self.base_scale[0])
-        return new_fc
-
+   
 class VariableExpense:
     """Holds a single variable expense, indexed to the production of a given unit of capacity"""
     #gl_add_info = OrderedDict([('name',('Name',str)),('unit_cost_val',('Unit Cost',float)),('unit_cost_units',('Unit Cost Units',str)),('prod_req_val',('Production required',float)),('prod_req_var_units',('Variable Expense Units',str)),('prod_req_prod_units',('Production Units', str))])
@@ -1498,17 +1476,7 @@ class DebtPortfolio:
 
     def __ne__(self, other):
         return not self.__ne__(other)
-
-    def set_base_scale(self, base_scale):
-        self.base_scale = base_scale
-        for loan in self.loans:
-            loan.set_base_scale(base_scale)
-
-    def scale(self, new_scale):
-        new_dpf = DebtPortfolio()
-        for loan in self.loans:
-            new_dpf.add_loan(loan.scale(new_scale))
-        return new_dpf
+    
 
 class DebtPmtScheduler:
     """Schedules debt payments for all types of debt"""

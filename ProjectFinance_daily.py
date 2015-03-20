@@ -1311,7 +1311,7 @@ class FixedCosts(object):
     def del_fixed_cost(self, fixed_cost):			###!!!### all of these deletions should be done with ids instead -- much cleaner, as I would not need the acutal object to remove it
         for fc in self.fixed_costs:
             if fc.name == fixed_cost.name:
-                self.fixed_costs.remove(fixed
+                self.fixed_costs.remove(fixed_cost)
 
     def build_fex_schedule(self):
 	self.schedule = pd.DataFrame()

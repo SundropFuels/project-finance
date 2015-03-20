@@ -640,17 +640,34 @@ class CapitalExpenseQuoteBasis(QuoteBasis):
     """This is the class for holding quotation information that a capital item will require to scale"""
     def __init__(self, installation_model = None, lead_time = None, **kwargs):
         
-        if installation_model is not None and not isinstance(installation_model, InstallModel):
-            raise QuoteBasisBadInput, "The installation model must be an InstallModel object"
-
-        if lead_time is not None:
-	    if not isinstance(lead_time, dt.timedelta):
-                raise QuoteBasisBadInput, "The lead time must be a timedelta"
-
+        
 	QuoteBasis.__init__(self, **kwargs)
    
         self.install_model = installation_model
         self.lead_time = lead_time
+
+    @property
+    def install_model(self):
+        return self._install_model
+
+    @install_model.setter
+    def install_model(self, v):
+        if v is not None and not isinstance(v, InstallModel):
+            raise QuoteBasisBadInput, "The installation model must be an InstallModel object"
+	self._install_model = v
+
+    @property
+    def lead_time(self):
+        return self._lead_time
+
+    @lead_time.setter
+    def lead_time(self, v):
+        if v is not None and not isinstance(v, dt.timedelta):
+            raise QuoteBasisBadInput, "The lead time must be a timedelta"
+
+        self._lead_time = v
+
+
 
     def __eq__(self, other):
         if not isinstance(other, QuoteBasis):

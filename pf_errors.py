@@ -58,3 +58,18 @@ class BadDebtInput(ProjFinError):
 
 class UnderspecifiedError(MissingInfoError):
     pass
+
+class BadFrequencyError(ProjFinError):
+    pass
+
+class BadStartupDiscountError(ProjFinError):
+    pass
+
+class BadFixedExpenseInput(ProjFinError):
+    pass
+
+class BadFixedExpenseItem(ProjFinError):
+    pass
+
+class BadFixedCostType(BadFixedExpenseInput):
+    pass

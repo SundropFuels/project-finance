@@ -1247,16 +1247,79 @@ class CapitalCosts:
         pass
 
 
+class StartupDiscounter(object):
+    """Class to encapsulate discounting of startup fixed costs, variable costs, and production at the beginning of a plant life"""
+
+    def __init__(self):
+        pass
+
+    def discount_factors(self, time_series):
+        """Returns discount factors in a timeseries indexed series"""
+        if not isinstance(time_series, Pd.Series):
+            raise BadStartupDiscountError, "time_series must be a variant of a pandas series, got %s" % type(time_series)
+        
+class NoneStartupDiscounter(StartupDiscounter):
+    """Returns 1x factors for the entire passed time series"""
+
+    def discount_factors(self, time_series):
+        StartupDiscounter.discount_factors(self, time_series)
+        return pd.DataFrame({'factors':np.ones(len(time_series))}, index = time_series)
+
+
+class dtFractionalStartupDiscounter(StartupDiscounter):
+    """Discounts the first delta_t of a startup period at a fixed rate"""
+
+    def __init__(self, time_span, fraction):
+        self.deltat = time_span
+        self.fraction = fraction
+
+    @property
+    def fraction(self):
+        return self._fraction
+
+    @fraction.setter
+    def fraction(self, v):
+        try:
+             v/12.5
+             if v < 0:
+                 raise BadStartupDiscountError, "The fraction for this startup function must be non-negative"
+        except TypeError:
+             raise BadStartupDiscountError, "The fraction must be numeric"
+        self._fraction = v
+
+    @property
+    def deltat(self):
+        return self._dt
+
+    @deltat.setter
+    def deltat(self, v):
+        if not isinstance(v, dt.timedelta):
+            raise BadStartupDiscountError, "time_span must be a datetime.timedelta object"
+
+        self._dt = v
+    
+    
+    def discount_factors(self, time_series):
+        StartupDiscounter.discount_factors(self, time_series)
+        f = pd.DataFrame(index = time_series)
+        f['factors'] = np.ones(len(time_series))
+        f['factors'][f.index < time_series[0] + self.deltat] = self.fraction
+	return f
+        
+
+
 class FixedExpense(object):
     """Models a fixed (non-production related) expense."""
 
-    def __init__(self, name, description = None, quote_basis = None, escalator = None, pmt_type = None, startup_function = None):
+    def __init__(self, name, description = None, quote_basis = None, escalator = None, pmt_type = None, startup_discounter = None):
 	self.name = name
 	self.description = description
 	self.quote_basis = quote_basis
 	self.escalator = escalator
 	self.pmt_type = pmt_type
-	self.startup_function = startup_function
+	self.startup_discounter = startup_discounter
+        self.pmt_args = {}
+
 
     @property
     def name(self):
@@ -1315,14 +1378,17 @@ class FixedExpense(object):
 
 
     @property
-    def startup_function(self):
-	return self._startup_function
+    def startup_discounter(self):
+	return self._startup_discounter
 
-    @startup_function.setter
-    def startup_function(self, v):
-        #I SHOULD put type checking in here, but I haven't decided how this is going to work yet
+    @startup_discounter.setter
+    def startup_discounter(self, v):
+        if v is None:
+            v = NoneStartupDiscounter()
+        elif not isinstance(v, StartupDiscounter):
+             raise BadFixedExpenseInput, "The startup discounter must be of type StartupDiscounter, got type %s" % type(v)
 
-        self._startup_function = v
+        self._startup_discounter = v
 
     def build_fex_schedule(self):
 	"""This is the wrapper function that matches the name in the container class"""
@@ -1343,9 +1409,8 @@ class FixedExpense(object):
 	    raise BadFixedCostScheduleInput, "term must be a datetime.timedelta object, got %s" % type(term)
 	dates = pd.date_range(self.init_date, self.init_date+term, freq = self.quote_basis.freq)
 	self.schedule = pd.DataFrame(index = dates)
-	self.schedule['fixed_costs'] = np.ones(len(self.schedule.index))*self.escalator.escalate(cost = self.quote_basis.base_price, basis_date = self.quote_basis.base_date, new_date = pd.Series(self.schedule.index))
-	
-	#apply the startup function?  Is there a better way to do this?
+	self.schedule['fixed_costs'] = np.ones(len(self.schedule.index))*self.escalator.escalate(cost = self.quote_basis.base_price, basis_date = self.quote_basis.date, new_date = pd.Series(self.schedule.index))
+	self.schedule['fixed_costs'] *= self.startup_discounter(time_series = self.startup_discounter.discount_factors(pd.Series(self.schedule.index)))
 
     def _calc_payment_schedule_fixed_schedule(self, schedule, **kwargs):
 	"""Applies the costs at a given fixed schedule.  No escalation -- this is a brute force override method"""

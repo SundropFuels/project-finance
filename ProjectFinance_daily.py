@@ -698,13 +698,22 @@ class IndirectCapitalExpenseQuoteBasis(QuoteBasis):
         
 	QuoteBasis.__init__(self, **kwargs)
       
-        methods = ['fixed', 'fractional']
-        if method not in methods:
-            raise QuoteBasisBadInput, "%s is not a valid method" % method
+        
         self.method = method
 
 	for kw in kwargs:
             setattr(self, kw, kwargs[kw])
+
+    @property
+    def method(self):
+        return self._method
+
+    @method.setter
+    def method(self, v):
+        methods = ['fixed', 'fractional']
+        if v not in methods:
+            raise QuoteBasisBadInput, "%s is not a valid method" % v
+        self._method = v
 
     def cost(self):
         return getattr(self, "_calc_installed_cost_%s" % self.method)()

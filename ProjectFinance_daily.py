@@ -536,7 +536,7 @@ class SteppedScaler(Scaler):
             N += 1
         return self.base_price * self.steps[sorted_keys[N-1]]
 
-class QuoteBasis:
+class QuoteBasis(object):
     """This is the class for holding quotation information that a capital item will require to scale"""
     def __init__(self, base_price = None, date = None, size_basis = None, source = None, scaler = NoneScaler(), **kwargs):
         if base_price == None or date == None or size_basis == None:
@@ -660,6 +660,27 @@ class IndirectCapitalExpenseQuoteBasis(QuoteBasis):
         return self.base_price*self.fraction
     
                    
+class FixedExpenseQuoteBasis(QuoteBasis):
+
+
+
+    def __init__(self, freq = None, **kwargs):
+        self.freq = freq
+	QuoteBasis.__init__(self, **kwargs)
+
+    @property
+    def freq(self):
+	return self._freq
+
+    @freq.setter
+    def freq(self, v):
+        freqs = ['D','M','A']			#add the entire list of acceptable pandas frequencies
+
+	if v not in freqs:
+	    raise BadFrequencyError, "The given frequency (%s) is not accepted in this application" % v
+        self._freq = v
+
+
 
 	
 class InstallModel:
@@ -1159,6 +1180,117 @@ class CapitalCosts:
 
     def scale(self, new_scale):
         pass
+
+
+class FixedExpense(object):
+    """Models a fixed (non-production related) expense."""
+
+    def __init__(self, name, description = None, quote_basis = None, escalator = None, pmt_type = None, startup_function = None):
+	self.name = name
+	self.description = description
+	self.quote_basis = quote_basis
+	self.escalator = escalator
+	self.pmt_type = pmt_type
+	self.startup_function = startup_function
+
+    @property
+    def name(self):
+	return self._name
+
+    @name.setter
+    def name(self, value):
+	if value is not None and not isinstance(value, basestring):
+	    raise BadFixedExpenseInput, "name must be of type string, got %s" % type(value)
+
+	self._name = value
+
+    @property
+    def description(self):
+	return self._description
+
+    @description.setter
+    def description(self, v):
+	if v is not None and not isinstance(v, basestring):
+	    raise BadFixedExpenseInput, "description must be of type string, got %s" % type(v)
+
+	self._description = v
+
+    @property
+    def quote_basis(self):
+	return self._quote_basis
+
+    @quote_basis.setter
+    def quote_basis(self, v):
+        if v is not None and not isinstance(v, FixedExpenseQuoteBasis):
+	    raise BadFixedExpenseInput, "quote_basis must be of type FixedExpenseQuoteBasis, got %s" % type(v)
+
+	self._quote_basis = v
+
+    @property
+    def escalator(self):
+	return self._escalator
+
+    @escalator.setter
+    def escalator(self, v):
+        if v is not None and not isinstance(v, Escalator):
+            raise BadFixedExpenseInput, "escalator must be a derivative of Escalator, got %s" % type(v)
+
+	self._escalator = v
+
+    @property
+    def pmt_type(self):
+        return self._pmt_type
+
+    @pmt_type.setter
+    def pmt_type(self, v):
+	if v is not None and not isinstance(v, basestring):
+	    raise BadFixedExpenseInput, "pmt_type must be a string, got %s" % type(v)
+
+	self._pmt_type = v
+
+
+    @property
+    def startup_function(self):
+	return self._startup_function
+
+    @startup_function.setter
+    def startup_function(self, v):
+        #I SHOULD put type checking in here, but I haven't decided how this is going to work yet
+
+        self._startup_function = v
+
+    def build_fex_schedule():
+        pass
+
+
+    def calc_payment_schedule(self, **kwargs):
+	accepted_terms = ['simple', 'fixed_schedule']
+        if self.pmt_type not in accepted_terms:
+            raise BadFixedExpensePaymentType, "%s is not a supported kind of payment schedule" % self.payment_terms
+        
+
+        getattr(self, "_calc_payment_schedule_%s" % self.pmt_type)(**kwargs)
+
+    def _calc_payment_schedule_simple(self, term):
+        """Applies the escalated fixed cost at equal intervals; the fixed cost quote MUST be on the same interval as the freq"""
+	if not isinstance(term, dt.timedelta):
+	    raise BadFixedCostScheduleInput, "term must be a datetime.timedelta object, got %s" % type(term)
+	dates = pd.date_range(self.init_date, self.init_date+term, freq = self.quote_basis.freq)
+	self.schedule = pd.DataFrame(index = dates)
+	self.schedule['fixed_costs'] = np.ones(len(self.schedule.index))*self.escalator.escalate(cost = self.quote_basis.base_price, basis_date = self.quote_basis.base_date, new_date = pd.Series(self.schedule.index))
+	
+	#apply the startup function?  Is there a better way to do this?
+
+    def _calc_payment_schedule_fixed_schedule(self, schedule):
+	"""Applies the costs at a given fixed schedule.  No escalation -- this is a brute force override method"""
+	if not isinstance(schedule, pd.DataFrame) or not isinstance(schedule.index, pandas.tseries.index.DatetimeIndex) or 'fixed_costs' not in schedule.columns:
+	    raise BadFixedCostScheduleInput, "The given schedule does not conform to the requirements for this dataframe"
+	self.schedule = schedule.loc[:,'fixed_costs']		#trim any superfluous columns
+
+    def _calc_payment_schedule_fractional_schedule(self, schedule):
+	"""This takes a given fraction of the planned schedule, and allows for simple startup functions to be applied.  More of the scheduling has to be done outside, though"""
+	pass
+
 
 class FixedCosts:
     gl_add_info = OrderedDict([('project_staff',('Project staff',float)),('g_and_a',('General and Administrative',float)),('prop_tax_and_insurance',('Property tax and insurance',float)),('rent_or_lease',('Rent or Lease',float)),('licensing_permits_fees',('Licensing, permits, and fees',float)),('mat_cost_maint_repair',('Material costs for maintenance and repairs',float)),('other_fees',('Other fees',float)),('other_fixed_op_and_maint',('Other fixed operational and maintenance costs',float))])

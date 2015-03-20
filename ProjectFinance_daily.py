@@ -539,34 +539,73 @@ class SteppedScaler(Scaler):
 class QuoteBasis(object):
     """This is the class for holding quotation information that a capital item will require to scale"""
     def __init__(self, base_price = None, date = None, size_basis = None, source = None, scaler = NoneScaler(), **kwargs):
-        if base_price == None or date == None or size_basis == None:
-            raise QuoteBasisBadInput, "QuoteBasis is underspecified"
-        try:
-            if base_price <= 0:
-                raise QuoteBasisBadInput, "price must be greater than zero"
-	    b = 1.0/base_price				#is there a better way to test for numeric data?
-        except TypeError:
-            raise QuoteBasisBadInput, "price must be numeric"
-
-        if not isinstance(date, dt.datetime):
-            raise QuoteBasisBadInput, "date must be a datetime.datetime object"
-
-        if source is not None and not isinstance(source, basestring):
-            raise QuoteBasisBadInput, "The source must be a string"
-
-        if not isinstance(size_basis, uv.UnitVal):
-            raise QuoteBasisBadInput, "The size basis must be a UnitVal"
-
         
         self.base_price = base_price
         self.date = date
         self.size_basis = size_basis 
 	self.source = source
-        
-        if not isinstance(scaler, Scaler):
-            raise BadScalingMethodError, "The provided scaler is of type %s, must be a sub-class of Scaler" % type(scaler)
         self.scaler = scaler
-      
+    
+    @property
+    def base_price(self):
+        return self._base_price
+
+    @base_price.setter
+    def base_price(self, v):
+        if v is None:
+            raise QuoteBasisBadInput, "QuoteBasis is underspecified"
+        try:
+            if v <= 0:
+                raise QuoteBasisBadInput, "the price must be positive"
+            b = 1.0/v
+        except TypeError:
+            raise QuoteBasisBadInput, "price must be numeric"
+
+        self._base_price = v
+
+    @property
+    def date(self):
+        return self._date
+    @date.setter
+    def date(self, v):
+        if v is None:
+           raise QuoteBasisBadInput, "QuoteBasis is underspecified"
+        if not isinstance(v, dt.datetime):
+           raise QuoteBasisBadInput, "date must be an instance of datetime.datetime, got %s " % type(v)
+	self._date = v    
+
+    @property
+    def size_basis(self):
+        return self._size_basis
+
+    @size_basis.setter
+    def size_basis(self, v):
+        if v is None:
+            raise QuoteBasisBadInput, "QuoteBasis is underspecified"
+        if not isinstance(v, uv.UnitVal):
+            raise QuoteBasisBadInput, "The size basis must currently be a UnitVal"
+        self._size_basis = v
+
+    @property
+    def source(self):
+        return self._source
+
+    @source.setter
+    def source(self, v):
+        if v is not None and not isinstance(v, basestring):
+            raise QuoteBasisBadInput, "source must be a string"
+        self._source = v
+
+    @property
+    def scaler(self):
+        return self._scaler
+
+    @scaler.setter
+    def scaler(self, v):
+        if not isinstance(v, Scaler):
+            raise BadScalingMethodError, "The provided scaler is of type %s, must be a sub-class of Scaler" % type(scaler)
+	self._scaler = v
+  
     def __eq__(self, other):
         if not isinstance(other, QuoteBasis):
             raise TypeError, "Cannot compare %s to QuoteBasis" % type(other)

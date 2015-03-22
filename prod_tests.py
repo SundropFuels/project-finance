@@ -82,7 +82,7 @@ class ProductTests(unittest.TestCase):
 	scaler = pf.LinearScaler()
 	QB = pf.ProductQuoteBasis(base_price = 1.53, date = dt.datetime(2012,01,01), source = "P&T", scaler = scaler, size_basis = uv.UnitVal(100, '1/gal'))
 	esc = pf.NoEscalationEscalator()
-	pr1 = pf.Product(name = 'gasoline', description = 'People', quote_basis = QB, escalator = esc))
+	pr1 = pf.Product(name = 'gasoline', description = 'People', quote_basis = QB, escalator = esc)
 
 	kwargs = {}
 	kwargs['name'] = 'stream1'

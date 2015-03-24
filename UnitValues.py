@@ -60,13 +60,22 @@ class UnitVal:
         except uc.InconsistentUnitError:
             raise ValueError, "Inconsistent units, %s, %s" % (other.units, self.units)
 
+    def simplify_units(self):
+        pass
+
+	#self.value, self.units = conv.simplify_units(self.value, self.units)		#eliminates repeats of the same unit and returns
+
+
     def __mul__(self, other):
         """Returns the product of this with other, in this' units, as a UnitVal"""
         #Want to include the ability to do scalar multiplication as well as uv multiplication
+
         if isinstance(other, UnitVal):
             conv = uc.UnitConverter()
             try:
                 rarg = conv.convert_units(other.value, other.units, self.units)
+		#new_unit = "%s*%s" % (self.units, other.units)
+		#return UnitVal(self.value * other.value, new_unit).simplify_units()
                 return UnitVal(self.value * rarg, self.units)
             except uc.InconsistentUnitError:
                 raise ValueError, "Inconsistent units, %s, %s" % (other.units, self.units)

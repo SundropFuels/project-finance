@@ -147,11 +147,11 @@ class UnitConverter:
         out_string = ""
         for unit_dict in UnitConverter.units:
             if simplified_list[UnitConverter.units.index(unit_dict)] != 0:
-                out_string += "%s^%s*" % (self.unit_names[UnitConverter.units.index(unit_dict)], simplified_list[UnitConverter.units.index(unit_dict)])
+                out_string += "%s^%s*" % (self.unit_names[UnitConverter.units.index(unit_dict)], int(simplified_list[UnitConverter.units.index(unit_dict)]))
 
         for (base_unit, unit_dict) in UnitConverter.derived_units:
             if derived_list[UnitConverter.derived_units.index((base_unit,unit_dict))] != 0:
-                out_string += "%s^%s*" % (dunit_names[UnitConverter.derived_units.index((base_unit,unit_dict))], derived_list[UnitConverter.derived_units.index((base_unit,unit_dict))])
+                out_string += "%s^%s*" % (dunit_names[UnitConverter.derived_units.index((base_unit,unit_dict))], int(derived_list[UnitConverter.derived_units.index((base_unit,unit_dict))]))
         out_string = out_string[:-1]
 
         

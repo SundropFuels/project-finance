@@ -73,3 +73,9 @@ class BadFixedExpenseItem(ProjFinError):
 
 class BadFixedCostType(BadFixedExpenseInput):
     pass
+
+class BadProductInput(ProjFinError):
+    pass
+
+class BadProductionInput(ProjFinError):
+    pass

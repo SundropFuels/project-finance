@@ -635,6 +635,9 @@ class QuoteBasis(object):
 
         return self.base_price
 
+class ProductQuoteBasis(QuoteBasis):
+    """Quote basis for a given production product"""
+    pass		#nothing special to add for this one
 
 class CapitalExpenseQuoteBasis(QuoteBasis):
     """This is the class for holding quotation information that a capital item will require to scale"""
@@ -1535,6 +1538,166 @@ class VariableCosts:
 
     def __ne__(self, other):
         return not self.__eq__(other)
+
+class Product(object):
+    """Holds a product and its pricing information"""
+    def __init__(self, name, description=None, quote_basis=None, escalator=None):
+	self.name = name
+	self.description = description
+	self.quote_basis = quote_basis
+	self.escalator = escalator
+
+    @property
+    def name(self):
+	return self._name
+
+    @name.setter
+    def name(self, v):
+        if not isinstance(v, basestring):
+	    raise BadProductInput, "name must be a string"
+
+        self._name = v
+
+    @property
+    def description(self):
+	return self._description
+
+    @description.setter
+    def description(self, v):
+        if v is not None and not isinstance(v, basestring):
+	   raise BadProductInput, "description must be a string"
+        self._description = v
+
+    @property
+    def quote_basis(self):
+	return self._quote_basis
+    
+    @quote_basis.setter
+    def quote_basis(self, v):
+        if v is not None and not isinstance(v, QuoteBasis):
+	    raise BadProductInput, "quote basis must be a QuoteBasis object, got %s" % type(v)
+	self._quote_basis = v
+
+    @property
+    def escalator(self):
+        return self._escalator
+
+    @escalator.setter
+    def escalator(self,v):
+        if v is None:
+            self._escalator = NoEscalationEscalator()
+	elif not isinstance(v, Escalator):
+	    raise BadProductInput, "escalator must be an Escalator object, got %s" % type(v)
+	else:
+	    self._escalator = v
+
+
+class Production(object):
+    """Holds a product and a rate of production"""
+
+    def __init__(self, name, product = None, rate = None, startup_discounter = None, init_date = None, comment = None, method = None, freq = None):
+        self.name = name
+	self.product = product
+	self.rate = rate
+	self.startup_discounter = startup_discounter
+	self.init_date = init_date
+	self.comment = comment
+	self.method = method
+	self.freq = freq
+
+    @property
+    def name(self):
+	return self._name
+
+    @name.setter
+    def name(self, v):
+        if not isinstance(v, basestring):
+	    raise BadProductionInput, "name must be a string"
+
+        self._name = v
+
+    @property
+    def product(self):
+	return self._product
+
+    @product.setter
+    def product(self, v):
+        if v is not None and not isinstance(v, Product):
+	    raise BadProductionInput, "product must be a Product, got %s" % type(v)
+	self._product = v
+
+    @property
+    def rate(self):
+	return self._rate
+    @rate.setter
+    def rate(self, v):
+        if v is not None and not isinstance(v, uv.UnitVal):	#should really check that rate has a time unit in it, but whatever
+	    raise BadProductionInput, "rate must be a UnitVal object, got %s" % type(v)
+
+	self._rate = v
+
+    @property
+    def startup_discounter(self):
+	return self._startup_discounter
+
+    @startup_discounter.setter
+    def startup_discounter(self, v):
+        if v is None:
+            self._startup_discounter = NoneStartupDiscounter()
+	elif not isinstance(v, StartupDiscounter):
+	    raise BadProductionInput, "startup_discounter must be a StartupDiscounter, got %s" % type(v)
+        else:
+            self._startup_discounter = v
+	
+    @property
+    def init_date(self):
+	return self._init_date
+
+    @init_date.setter
+    def init_date(self, v):
+        if v is not None and not isinstance(v, dt.datetime):
+	    raise BadProductionInput, "init_date must be a datetime.datetime object, got %s" % type(v)
+        self._init_date = v
+
+    @property
+    def comment(self):
+        return self._comment
+
+    @comment.setter
+    def comment(self, v):
+        if v is not None and not isinstance(v, basestring):
+	    raise BadProductionInput, "comment must be a string"
+
+        self._comment = v
+
+    @property
+    def method(self):
+        return self._method
+
+    @method.setter
+    def method(self, v):
+        methods = ['simple']
+	if v is None:
+	    self._method = 'simple'
+	elif v not in methods:
+	    raise BadProductionInput, "Unsupported method selected"
+	else:
+	    self._method = v
+
+    @property
+    def freq(self):
+	return self._freq
+
+    @freq.setter
+    def freq(self, v):
+	freqs = ['D','M','A']
+        if v is None:
+	    self._freq = 'D'	#default to daily payment method
+        elif v not in freqs:
+	    raise BadProductionInput, "Unsupported frequency selected"
+	else:
+	    self._freq = v
+
 
 class DebtPortfolio:
     """Holds all of the loans, bonds, etc. for a given project"""

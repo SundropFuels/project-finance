@@ -363,6 +363,10 @@ class UnitConverter:
     def _parse_inputstr(self, i_string):
         """Parser for arbitrary symbolic mathematical expressions of units"""
 
+	#first, make sure i_string is a string
+	if not isinstance(i_string, basestring):
+	    raise BadCharacterError, "Either the to or from string given was not a string; it was of type %s" % type(i_string)
+
         operators = ['*','/','^','(',')']
         number_sym = ['.', '-']
         parsed_units = []      
@@ -374,6 +378,7 @@ class UnitConverter:
         i = 0
         while i < len(i_string):
             current_char = i_string[i]
+
             if current_char not in operators:
                 
                 if not current_char.isalpha() and current_char != '$' and current_char != '1':
@@ -386,8 +391,7 @@ class UnitConverter:
                     
             else: 
                 if current_char == '*' or current_char == '/':
-                    
-                    
+                                        
                     if sub_parsed is not None:
                         for (u,e) in sub_parsed:
                             e = e * current_exp

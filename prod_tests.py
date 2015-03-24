@@ -74,7 +74,7 @@ class ProductTests(unittest.TestCase):
 	self.assertEqual(pro1.product, pr1)
 	self.assertEqual(pro1.rate, uv.UnitVal(15000,'gal/hr'))
 	self.assertEqual(pro1.init_date, dt.datetime(2015,01,01))
-	self.assertEqual(pro1.type, 'simple')
+	self.assertEqual(pro1.method, 'simple')
 	self.assertEqual(pro1.freq, 'D')
 
     def testBadProductionInput(self):
@@ -88,7 +88,7 @@ class ProductTests(unittest.TestCase):
 	kwargs['name'] = 'stream1'
 	kwargs['product'] = pr1
 	kwargs['rate'] = uv.UnitVal(15000, 'gal/hr')
-	kwargs['type'] = 'simple'
+	kwargs['method'] = 'simple'
 	kwargs['freq'] = 'D'
 	kwargs['init_date'] = dt.datetime(2015,01,01)
 
@@ -112,9 +112,9 @@ class ProductTests(unittest.TestCase):
 	self.assertRaises(pf.BadProductionInput, pf.Production, **kwargs)
 	kwargs['comment'] = 'goop'
 
-	kwargs['type'] = 'horned_toad'
+	kwargs['method'] = 'horned_toad'
 	self.assertRaises(pf.BadProductionInput, pf.Production, **kwargs)
-	kwargs['type'] = 'simple'
+	kwargs['method'] = 'simple'
 
 
 	kwargs['freq'] = 'never'

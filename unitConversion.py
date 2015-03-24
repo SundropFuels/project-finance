@@ -50,7 +50,7 @@ class UnitConverter:
     power_pref_u = 'W'
 
 
-    units = [mass_dict, time_dict, length_dict, mole_dict, temperature_dict, money_dict]
+    units = [mass_dict, time_dict, length_dict, mole_dict, temperature_dict, money_dict, unity_dict]
     derived_units = [(energy_units, energy_dict),(pressure_units,pressure_dict),(volume_units,volume_dict),(power_units,power_dict)]
     derived_preferred_units = [energy_pref_u, pressure_pref_u, volume_pref_u, power_pref_u]
 
@@ -147,14 +147,16 @@ class UnitConverter:
         out_string = ""
         for unit_dict in UnitConverter.units:
             if simplified_list[UnitConverter.units.index(unit_dict)] != 0:
-                out_string += "%s^%s*" % (self.unit_names[UnitConverter.units.index(unit_dict)], int(simplified_list[UnitConverter.units.index(unit_dict)]))
+                if unit_dict != UnitConverter.unity_dict:			#don't want it to pollute the output string with lots of 1's
+                    out_string += "%s^%s*" % (self.unit_names[UnitConverter.units.index(unit_dict)], int(simplified_list[UnitConverter.units.index(unit_dict)]))
 
         for (base_unit, unit_dict) in UnitConverter.derived_units:
             if derived_list[UnitConverter.derived_units.index((base_unit,unit_dict))] != 0:
                 out_string += "%s^%s*" % (dunit_names[UnitConverter.derived_units.index((base_unit,unit_dict))], int(derived_list[UnitConverter.derived_units.index((base_unit,unit_dict))]))
         out_string = out_string[:-1]
 
-        
+        if out_string == "":
+            out_string = "1"		#the unity case
 	return (self.convert_units(1.0,unit,out_string),out_string)
 
     def _find_derived_units(self, smp_list, drv_list):
@@ -297,7 +299,8 @@ class UnitConverter:
                     if unit == key:
                         factor = factor / np.power(value, float(exponent))
                         found = True
-                        consistency_list[UnitConverter.units.index(unit_dict)] += exponent
+                        if unit_dict != UnitConverter.unity_dict:
+                            consistency_list[UnitConverter.units.index(unit_dict)] += exponent
 
 
                         break
@@ -333,7 +336,8 @@ class UnitConverter:
                     if unit == key:
                         factor = factor * np.power(value, float(exponent))
                         found = True
-                        consistency_list[UnitConverter.units.index(unit_dict)] += -exponent
+                        if unit_dict != UnitConverter.unity_dict:
+                            consistency_list[UnitConverter.units.index(unit_dict)] += -exponent
                         break
                 if found == True:
                     break

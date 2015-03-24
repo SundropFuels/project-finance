@@ -122,7 +122,7 @@ class UnitSimplificationTests(unittest.TestCase):
 
 	self.assertAlmostEqual(s1[0], 1.0)
 	self.assertAlmostEqual(s2[0], 1.0)
-	self.assertAlmostEqual(s3[0], 1.0)
+	self.assertAlmostEqual(s3[0], 3600.0)
 
 	self.assertEqual(s1[1], '1')
 	self.assertEqual(s2[1], '1')

@@ -19,6 +19,9 @@ class UnitNotFoundError(UnitError):
 class InconsistentUnitError(UnitError):
     pass
 
+class BadExponentError(UnitError):
+    pass
+
 class UnitConverter:
     """This class converts arbitrary fundamental units from one to the other"""
 
@@ -28,6 +31,7 @@ class UnitConverter:
     mole_dict = {'mol':1.0}
     temperature_dict = {'K': 1.0, 'C': 1.0, 'R': 1.8, 'F': 1.8}
     money_dict = {'$':1.0}
+    unity_dict = {'1':1.0}
 
     energy_dict = {'J':1.0, 'kJ':0.001, 'MJ':1E-6, 'cal':0.238845896628, 'kcal':238.845896628, 'Btu':9.47817120313E-4, 'MMBtu':9.47817120313E-10}
     energy_units = 'kg*m^2/s^2'    
@@ -79,7 +83,7 @@ class UnitConverter:
         
 
 	if len(parsed) == 1:
-            return unit
+            return (1.0,unit)
 
 	simplified_list = [0] * len(UnitConverter.units)
 	self.unit_names = [None] * len(UnitConverter.units)
@@ -151,7 +155,7 @@ class UnitConverter:
         out_string = out_string[:-1]
 
         
-	return out_string
+	return (self.convert_units(1.0,unit,out_string),out_string)
 
     def _find_derived_units(self, smp_list, drv_list):
         """Determines whether a simplified unit expression in base units can be expressed in more complicated derived units.
@@ -368,7 +372,7 @@ class UnitConverter:
             current_char = i_string[i]
             if current_char not in operators:
                 
-                if not current_char.isalpha() and current_char != '$':
+                if not current_char.isalpha() and current_char != '$' and current_char != '1':
                     raise BadCharacterError, "Unit names can only contain alphabetical characters"
                 else:
                     current_unit = "".join([current_unit, current_char])

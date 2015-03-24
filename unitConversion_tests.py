@@ -15,7 +15,7 @@ class UnitConversionTests(unittest.TestCase):
         """A UnitConverter should correctly convert units for a variety of sample units"""
         
 	conv = uc.UnitConverter()
-	self.assertEqual(conv.convert_units(2.0, "kg",'lb'),##]
+	self.assertAlmostEqual(conv.convert_units(2.0, "kg",'lb'),4.40925]
 	self.assertEqual(conv.convert_units(1.0, 'J/s', 'W'), 1.0]
 	self.assertEqual(conv.convert_units(2.54, "cm", 'in'), 1.0]
 	self.assertEqual(conv.convert_units(100.0, "L", 'm^3'), 0.1]
@@ -80,10 +80,10 @@ class UnitSimplificationTests(unittest.TestCase):
 	s4 = conv.simplify_units('gal*gal')
 	s5 = conv.simplify_units('Btu/s')
 
-	self.assertEqual(s1[0],1.0)
-	self.assertEqual(s2[0],1.0)
-	self.assertEqual(s3[0],1.0)
-	self.assertEqual(s4[0],1.0)
+	self.assertAlmostEqual(s1[0],1.0)
+	self.assertAlmostEqual(s2[0],1.0)
+	self.assertAlmostEqual(s3[0],1.0)
+	self.assertAlmostEqual(s4[0],1.0)
 	self.assertAlmostEqual(s4[0],1055.05585,4)
 
 	self.assertIn(s1[1],simp1)
@@ -119,9 +119,9 @@ class UnitSimplificationTests(unittest.TestCase):
 	s2 = conv.simplify_units("gal*1/gal")
 	s3 = conv.simplify_units("hr/s")
 
-	self.assertEqual(s1[0], 1.0)
-	self.assertEqual(s2[0], 1.0)
-	self.assertEqual(s3[0], 1.0)
+	self.assertAlmostEqual(s1[0], 1.0)
+	self.assertAlmostEqual(s2[0], 1.0)
+	self.assertAlmostEqual(s3[0], 1.0)
 
 	self.assertEqual(s1[1], '1')
 	self.assertEqual(s2[1], '1')

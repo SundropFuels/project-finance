@@ -134,12 +134,12 @@ class ProductTests(unittest.TestCase):
 	sd = pf.dtFractionalStartupDiscounter(time_span = dt.timedelta(days=1*365), fraction = 0.75)
 	pr1 = pf.Product(name = 'gasoline', description = 'People', quote_basis = QB, escalator = esc)
 	pro1 = pf.Production(name = 'stream1', product = pr1, rate = uv.UnitVal(15000, 'gal/hr'), startup_discounter = sd, init_date = dt.datetime(2015,01,01))
-	pro1.sch_args['term'] = dt.timedelta(10*365)			#This is kind of ugly, from an OO perspective; it gives waaaay too much insight into how this works -- fix later
+	pro1.sch_args['term'] = dt.timedelta(10*400)			#This is kind of ugly, from an OO perspective; it gives waaaay too much insight into how this works -- fix later
 	pro1.build_production_schedule()
 
 	dates = [dt.datetime(2015,01,01), dt.datetime(2017,03,25), dt.datetime(2024,12,31)]
-	production_vals = [uv.UnitVal(270000,'gal'),uv.UnitVal(360000,'gal') ,uv.UnitVal(360000,'gal')]		#This could be very difficult to parse, and math will be much slower -- maybe hold the units separately
-	price_vals = [1.53, 1.564331125, 1.690164001]
+	production_vals = [270000,360000,360000]		#This could be very difficult to parse, and math will be much slower -- maybe hold the units separately
+	price_vals = [1.53,1.564331125,1.690164001]
 	revenue_vals = [413100, 563159.2049, 608459.0404]
 
 	for d,v1,v2,v3 in zip(dates, production_vals, price_vals, revenue_vals):

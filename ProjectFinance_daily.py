@@ -1591,9 +1591,15 @@ class Product(object):
 	else:
 	    self._escalator = v
 
+    @property
+    def price(self):
+        return self.quote_basis.base_price * self.quote_basis.size_basis
+
 
 class Production(object):
     """Holds a product and a rate of production"""
+
+    freqs = {'D':'day'}			#daily is the only frequency currently supported
 
     def __init__(self, name, product = None, rate = None, startup_discounter = None, init_date = None, comment = None, method = None, freq = None):
         self.name = name
@@ -1604,6 +1610,8 @@ class Production(object):
 	self.comment = comment
 	self.method = method
 	self.freq = freq
+        self.sch_args = {}
+
 
     @property
     def name(self):
@@ -1690,13 +1698,51 @@ class Production(object):
 
     @freq.setter
     def freq(self, v):
-	freqs = ['D','M','A']
+	
         if v is None:
 	    self._freq = 'D'	#default to daily payment method
-        elif v not in freqs:
+        elif v not in Production.freqs.keys():
 	    raise BadProductionInput, "Unsupported frequency selected"
 	else:
 	    self._freq = v
+
+
+    def build_production_schedule(self):
+	"""This is the wrapper function that matches the name in the container class"""
+	#dispatch to the right function
+	getattr(self, "_calc_schedule_%s" % self.method)(**self.sch_args)
+ 
+
+    def _calc_schedule_simple(self, term, **kwargs):
+        """Applies the escalated fixed cost at equal intervals; the fixed cost quote MUST be on the same interval as the freq"""
+	conv = uc.UnitConverter()
+	if not isinstance(term, dt.timedelta):
+	    raise BadFixedCostScheduleInput, "term must be a datetime.timedelta object, got %s" % type(term)
+	dates = pd.date_range(self.init_date, self.init_date+term, freq = self.freq)
+	self.schedule = pd.DataFrame(index = dates)
+	#all of the data frame columns MUST be numeric -- it makes processing much easier and faster
+	
+        esc_price = self.product.escalator.escalate(cost = self.product.quote_basis.base_price, basis_date = self.product.quote_basis.date, new_date  = pd.Series(self.schedule.index))  #lots of reach through -- do we want to put an accessor in Product?
+	esc_price.index = self.schedule.index
+
+	#OK -- it's pretty easy to put UnitVals in the dataframes, but we'll dumb it down for now and just use numbers -- but UnitVals are just fine, be aware
+	
+	#need to put the rate in a format equal to the frequency
+	dummy = uv.UnitVal(1.0, Production.freqs[self.freq])
+	rate = dummy * self.rate			#give the rate in units on a daily basis  #NOPE- SLOWED EVERYTHING DOWN -- NEED TO SWITCH TO NUMERIC HANDLING
+	#the price needs to be converted to the units of the rate -- yeah, I know, sort of obviates all the good work I did to get multipliers to work in UnitVals
+	esc_price = conv.convert_units(esc_price, self.product.price.units, '(%s)^-1' % rate.units)
+        self.schedule['rate'] = np.ones(len(self.schedule.index))*rate.value
+	self.schedule['rate'] *= self.startup_discounter.discount_factors(time_series = pd.Series(self.schedule.index))
+        self.schedule['price'] = np.ones(len(self.schedule.index))*esc_price		
+	self.schedule['revenue'] = self.schedule['price'] * self.schedule['rate']		
+	#self.schedule['revenue'] = np.array([v1.value for v1 in self.schedule['price'] * self.schedule['rate']])	        #this does not look like it should, but it is the best way to do this (for now)
+	#NOTE: ABOVE COULD BE DONE WITH UNITVALS, JUST DON'T KNOW HOW THAT CASCADES THROUGH YET
+        
+
+
+
+
 
 
 class DebtPortfolio:

@@ -1740,8 +1740,40 @@ class Production(object):
 	#NOTE: ABOVE COULD BE DONE WITH UNITVALS, JUST DON'T KNOW HOW THAT CASCADES THROUGH YET
         
 
+class ProductionPortfolio:
+    """Class to hold the set of production items""" 
 
+    def __init__(self):
 
+        self.production = []
+        
+    def add_production(self, production):
+        if not isinstance(production, Production) and not isinstance(production, ProductionPortfolio):
+            raise BadProductionItem, "production must be of type Production, got %s" % type(production)
+        self.production.append(production)
+
+    def del_production(self, production):			###!!!### all of these deletions should be done with ids instead -- much cleaner, as I would not need the acutal object to remove it
+        for p in self.production:
+            if p.name == production.name:
+                self.production.remove(p)
+
+    def build_production_schedule(self):
+	self.schedule = pd.DataFrame()
+        for p in self.production:
+            p.build_production_schedule()
+            if len(self.schedule) == 0:
+                self.schedule = self.schedule.join(p.schedule, how = 'outer').fillna(0.0)
+
+	    else:
+		self.schedule = self.schedule.add(p.schedule, fill_value = 0.0)
+	        
+ 
+
+    def __eq__(self, other):
+        return isinstance(other, self.__class__) and self.production == other.production
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
 
 

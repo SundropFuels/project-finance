@@ -79,3 +79,6 @@ class BadProductInput(ProjFinError):
 
 class BadProductionInput(ProjFinError):
     pass
+
+class BadProductionItem(ProjFinError):
+    pass

@@ -154,7 +154,7 @@ class ProductPortfolioTests(unittest.TestCase):
 
     def testBadProductionItem(self):
         """Adding an item that is not a fixed expense should raise an error"""
-	prod = pf.ProductionPortfolio
+	prod = pf.ProductionPortfolio()
 	self.assertRaises(pf.BadProductionItem, prod.add_production, 45)
 	
 
@@ -173,7 +173,7 @@ class ProductPortfolioTests(unittest.TestCase):
 	pr2 = pf.Product(name = 'char', description = 'coally waste', quote_basis = QB2, escalator = esc)
 	pro2 = pf.Production(name = 'stream2', product = pr2, rate = uv.UnitVal(150000, 'lb/day'), startup_discounter = None, init_date = dt.datetime(2015,01,01))
 	pro2.sch_args['term'] = dt.timedelta(10*365)
-	port = pf.ProductPortfolio()
+	port = pf.ProductionPortfolio()
 	port.add_production(pro1)
 	port.add_production(pro2)
 	port.build_production_schedule()

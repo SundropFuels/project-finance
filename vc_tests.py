@@ -38,7 +38,7 @@ class VariableExpenseTests(unittest.TestCase):
 	self.assertEqual(vex1.description, 'Power consumption by plant')
 	self.assertEqual(vex1.quote_basis, QB)
 	self.assertEqual(vex1.production, pro1)
-	self.assertEqual(vex1.rate, uv.UnitVal(1, 'kW*hr/gal')
+	self.assertEqual(vex1.rate, uv.UnitVal(1, 'kW*hr/gal'))
 	self.assertEqual(vex1.escalator, esc)
 		
 
@@ -62,7 +62,7 @@ class VariableExpenseTests(unittest.TestCase):
 	kwargs['production'] = pro1
 	kwargs['rate'] = uv.UnitVal(1,'kW*hr/gal')
 	kwargs['escalator'] = esc
-	kwargs['startup_discounter'] = pf.NoneStartupDiscounter()
+
 	
 	kwargs['description'] = 29
 	self.assertRaises(pf.BadVariableExpenseInput, pf.VariableExpense, **kwargs)
@@ -170,9 +170,9 @@ class VariableCostsTests(unittest.TestCase):
 	end_date = dt.datetime(2034,12,31)
         costs.build_vex_schedule(end_date)
 
-        for d, dates:
+        for d in dates:
             self.assertTrue((vex1.schedule['variable_production'] == costs.schedule['Electricity_variable_production']).all())
-	    self.assertTrue((vex1.schedule['variable_costs'] == costs.schedule['Electricity_variable_costs').all())
+	    self.assertTrue((vex1.schedule['variable_costs'] == costs.schedule['Electricity_variable_costs']).all())
 	    self.assertTrue((vex2.schedule['variable_production'] == costs.schedule['Biomass_variable_production']).all())
 	    self.assertTrue((vex2.schedule['variable_costs'] == costs.schedule['Biomass_variable_costs']).all())
 

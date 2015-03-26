@@ -82,3 +82,6 @@ class BadProductionInput(ProjFinError):
 
 class BadProductionItem(ProjFinError):
     pass
+
+class BadVariableExpenseInput(ProjFinError):
+    pass

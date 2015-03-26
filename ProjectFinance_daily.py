@@ -748,7 +748,9 @@ class FixedExpenseQuoteBasis(QuoteBasis):
 	    raise BadFrequencyError, "The given frequency (%s) is not accepted in this application" % v
         self._freq = v
 
-
+class VariableExpenseQuoteBasis(QuoteBasis):
+    """Quote Basis for variable expense objects"""
+    pass
 
 	
 class InstallModel:
@@ -1483,31 +1485,81 @@ class FixedCosts(object):
         return not self.__eq__(other)
 
    
-class VariableExpense:
-    """Holds a single variable expense, indexed to the production of a given unit of capacity"""
-    #gl_add_info = OrderedDict([('name',('Name',str)),('unit_cost_val',('Unit Cost',float)),('unit_cost_units',('Unit Cost Units',str)),('prod_req_val',('Production required',float)),('prod_req_var_units',('Variable Expense Units',str)),('prod_req_prod_units',('Production Units', str))])
-    value_map = ['name', 'unit_cost', 'prod_req']
+class VariableExpense(object):
+    """Holds a single instance of a variable expense"""
 
-    def __init__(self, name, unit_cost = None, prod_required = None):
+    def __init__(self, name, description = None, quote_basis = None, production = None, rate = None, escalator = None):
         self.name = name
-        self.unit_cost = unit_cost                              #Cost per unit of variable expense - unit bearing value
-        
-        self.prod_req = prod_required				#Number of units required per unit of production - unit bearing value
-        self.converter = uc.UnitConverter()		        #Used to convert non-standard units
+        self.description = description
+	self.quote_basis = quote_basis
+	self.production = production
+	self.rate = rate
+	self.escalator = escalator
 
-    def annual_cost(self, production):
-        """Returns the annual variable cost for this unit, given the a production level in (value, unit) format"""
-        #prod_val = self.converter.convert_units(production[0], production[1], self.prod_req[2])
-        
-        #cost_req = 1/self.converter.convert_units(1/self.unit_cost[0], self.unit_cost[1], self.prod_req[1])
-	
-        return self.converter.convert_units(self.unit_cost.value*self.prod_req.value*production.value, '%s*%s*%s' % (self.unit_cost.units, self.prod_req.units, production.units), "$")
+    @property
+    def name(self):
+	return self._name
 
-    def __eq__(self, other):
-        return isinstance(other, self.__class__) and self.name == other.name and self.unit_cost == other.unit_cost and self.prod_req == other.prod_req
+    @name.setter
+    def name(self, v):
+        if not isinstance(v, basestring):
+	    raise BadVariableExpenseInput, "name must be a string"
 
-    def __ne__(self, other):
-        return not self.__eq__(other)
+        self._name = v
+
+    @property
+    def description(self):
+        return self._description
+
+    @description.setter
+    def description(self, v):
+        if v is not None and not isinstance(v, basestring):
+            raise BadVariableExpenseInput, "description must be a string"
+
+        self._description = v
+
+    @property
+    def quote_basis(self):
+        return self._quote_basis
+
+    @quote_basis.setter
+    def quote_basis(self, v):
+        if v is not None and not isinstance(v, VariableExpenseQuoteBasis):
+            raise BadVariableExpenseInput, "quote_basis must be a QuoteBasis object, got %s" % type(v)
+        self._quote_basis = v
+
+    @property
+    def production(self):
+        return self._production
+
+    @production.setter
+    def production(self,v):
+        if v is not None and not isinstance(v, Production):
+            raise BadVariableExpenseInput, "production must be a Production object, got %s" % type(v)
+        self._production = v
+
+    @property
+    def rate(self):
+        return self._rate
+
+    @rate.setter
+    def rate(self, v):
+        if v is not None and not isinstance(v, uv.UnitVal):
+            raise BadVariableExpenseInput, "rate must be a UnitVal"
+        self._rate = v
+
+    @property
+    def escalator(self):
+        return self._escalator
+
+    @escalator.setter
+    def escalator(self, v):
+        if v is None:
+            self._escalator = NoEscalationEscalator()
+        elif not isinstance(v, Escalator):
+            raise BadVariableExpenseInput, "escalator must be an Escalator"
+        else:
+            self._escalator = v
 
 
 class VariableCosts:

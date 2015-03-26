@@ -1755,6 +1755,7 @@ class ProductionPortfolio:
     def __init__(self):
 
         self.production = []
+	self.detailed = False
         
     def add_production(self, production):
         if not isinstance(production, Production) and not isinstance(production, ProductionPortfolio):
@@ -1768,7 +1769,8 @@ class ProductionPortfolio:
 
     def build_production_schedule(self):
 	self.schedule = pd.DataFrame()
-        for p in self.production:
+
+	for p in self.production:
             p.build_production_schedule()
             if len(self.schedule) == 0:
                 self.schedule = self.schedule.join(p.schedule, how = 'outer').fillna(0.0)
@@ -1776,6 +1778,10 @@ class ProductionPortfolio:
 	    else:
 		self.schedule = self.schedule.add(p.schedule, fill_value = 0.0)
 
+	    if self.detailed:
+		self.schedule['%s_rate' % p.name] = p.schedule['rate']
+		self.schedule['%s_price' % p.name] = p.schedule['price']
+	        self.schedule['%s_revenue' % p.name] = p.schedule['revenue']
  
 
     def __eq__(self, other):

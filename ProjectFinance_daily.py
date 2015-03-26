@@ -811,7 +811,16 @@ class Escalator:
 class NoEscalationEscalator(Escalator):
     """Scales to a constant value"""
     def escalate(self, **kwargs):
-        self.factor = 1.0
+	#need to make sure we have all of the days
+	if 'new_date' in kwargs:
+            days = kwargs['new_date'] - kwargs['basis_date']
+	    if isinstance(days, dt.timedelta):
+		days = np.timedelta64(days)
+            n = days/np.timedelta64(1,'D')
+	    self.factor = 1**n
+
+	else:
+            self.factor = 1.0
         return Escalator.escalate(self, **kwargs)    
 
 
@@ -1766,7 +1775,7 @@ class ProductionPortfolio:
 
 	    else:
 		self.schedule = self.schedule.add(p.schedule, fill_value = 0.0)
-	        
+
  
 
     def __eq__(self, other):

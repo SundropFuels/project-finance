@@ -168,22 +168,25 @@ class ProductPortfolioTests(unittest.TestCase):
 	sd = pf.dtFractionalStartupDiscounter(time_span = dt.timedelta(days=1*365), fraction = 0.75)
 	pr1 = pf.Product(name = 'gasoline', description = 'People', quote_basis = QB, escalator = esc)
 	pro1 = pf.Production(name = 'stream1', product = pr1, rate = uv.UnitVal(15000, 'gal/hr'), startup_discounter = sd, init_date = dt.datetime(2015,01,01))
-	pro1.sch_args['term'] = dt.timedelta(10*365)			#This is kind of ugly, from an OO perspective; it gives waaaay too much insight into how this works -- fix later
+	pro1.sch_args['term'] = dt.timedelta(10*366)			#This is kind of ugly, from an OO perspective; it gives waaaay too much insight into how this works -- fix later
 	QB2 = pf.ProductQuoteBasis(base_price = 0.04*2.205, date = dt.datetime(2015,01,01), source = 'mag', scaler = scaler, size_basis = uv.UnitVal(1, '1/kg'))
-	pr2 = pf.Product(name = 'char', description = 'coally waste', quote_basis = QB2, escalator = esc)
+	pr2 = pf.Product(name = 'char', description = 'coally waste', quote_basis = QB2, escalator = None)
 	pro2 = pf.Production(name = 'stream2', product = pr2, rate = uv.UnitVal(150000, 'lb/day'), startup_discounter = None, init_date = dt.datetime(2015,01,01))
-	pro2.sch_args['term'] = dt.timedelta(10*365)
+	pro2.sch_args['term'] = dt.timedelta(10*366)
 	port = pf.ProductionPortfolio()
 	port.add_production(pro1)
 	port.add_production(pro2)
 	port.build_production_schedule()
 
+	
+
 	dates = [dt.datetime(2015,01,01), dt.datetime(2017,03,25), dt.datetime(2024,12,31)]
-	revenue_vals = [419100, 569293.8367, 615087.1345]
+	revenue_vals = [419101.05, 569160.2549, 614460.0904]
+	
 
 	for d,v in zip(dates, revenue_vals):
             
-	    self.assertAlmostEqual(pro1.schedule.loc[d,'revenue'],v,4)
+	    self.assertAlmostEqual(port.schedule.loc[d,'revenue'],v,1)
 
     def testAggregateDetailed(self):
         self.assertTrue(False)   

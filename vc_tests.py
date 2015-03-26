@@ -25,161 +25,161 @@ class VariableExpenseTests(unittest.TestCase):
     def testCreateVariableExpense(self):
         """Testing correct setting of a variable expense"""
 
-	self.assertTrue(False)
-
 	scaler = pf.LinearScaler()
-	QB = pf.FixedExpenseQuoteBasis(base_price = 14000, date = dt.datetime(2012,01,01), source = "P&T", scaler = scaler, size_basis = uv.UnitVal(100, 'lb/hr'), freq = 'M')
+	QBp = pf.ProductQuoteBasis(base_price = 1.53, date = dt.datetime(2012,01,01), source = "P&T", scaler = scaler, size_basis = uv.UnitVal(100, '1/gal'))
 	esc = pf.NoEscalationEscalator()
-	fex1 = pf.FixedExpense(name = 'Labor', description = 'People', quote_basis = QB, escalator = esc, startup_discounter = None, pmt_type = 'simple')
+	pr1 = pf.Product(name = 'gasoline', description = 'People', quote_basis = QBp, escalator = esc)
+	pro1 = pf.Production(name = 'stream1', product = pr1, rate = uv.UnitVal(15000, 'gal/hr'), startup_discounter = None, init_date = dt.datetime(2015,01,01))
 
-	self.assertEqual(fex1.name, 'Labor')
-	self.assertEqual(fex1.description, 'People')
-	self.assertEqual(fex1.quote_basis, QB)
-	self.assertEqual(fex1.escalator, esc)
-	self.assertEqual(fex1.pmt_type, 'simple')
-	
+	QB = pf.VariableExpenseQuoteBasis(base_price = 0.062, date = dt.datetime(2012,01,01), source = "P&T", scaler = scaler, size_basis = uv.UnitVal(100, '1/(kW*hr)'))
+	vex1 = pf.VariableExpense(name = 'Electricity', description = 'Power consumption by plant', quote_basis = QB, production = pro1, rate = uv.UnitVal(1, 'kW*hr/gal'), escalator = esc, pmt_type = 'simple')
+
+	self.assertEqual(vex1.name, 'Electricity')
+	self.assertEqual(vex1.description, 'Power consumption by plant')
+	self.assertEqual(vex1.quote_basis, QB)
+	self.assertEqual(vex1.production, pro1)
+	self.assertEqual(vex1.rate, uv.UnitVal(1, 'kW*hr/gal')
+	self.assertEqual(vex1.escalator, esc)
+	self.assertEqual(vex1.pmt_type, 'simple')	
 
 
     def testBadVariableExpenseInput(self):
         """Bad input types or values should throw a BadVariableExpenseInput error on initialization"""
 
-	self.assertTrue(False)
-
 	scaler = pf.LinearScaler()
-	QB = pf.FixedExpenseQuoteBasis(base_price = 14000, date = dt.datetime(2012,01,01), source = "P&T", scaler = scaler, size_basis = uv.UnitVal(100, 'lb/hr'), freq = 'M')
+	QBp = pf.ProductQuoteBasis(base_price = 1.53, date = dt.datetime(2012,01,01), source = "P&T", scaler = scaler, size_basis = uv.UnitVal(100, '1/gal'))
+	esc = pf.NoEscalationEscalator()
+	pr1 = pf.Product(name = 'gasoline', description = 'People', quote_basis = QBp, escalator = esc)
+	pro1 = pf.Production(name = 'stream1', product = pr1, rate = uv.UnitVal(15000, 'gal/hr'), startup_discounter = None, init_date = dt.datetime(2015,01,01))
+
+	QB = pf.VariableExpenseQuoteBasis(base_price = 0.062, date = dt.datetime(2012,01,01), source = "P&T", scaler = scaler, size_basis = uv.UnitVal(100, '1/(kW*hr)'))
+
+
 	kwargs = {}
 	kwargs['name'] = 'Labor'
 	kwargs['description'] = 'farts'
-	kwargs['startup_discounter'] = None
+	kwargs['quote_basis'] = QB
+	kwargs['production'] = pro1
+	kwargs['rate'] = uv.UnitVal(1,'kW*hr/gal')
+	kwargs['escalator'] = esc
+	kwargs['startup_discounter'] = pf.NoneStartupDiscounter()
+	
+	kwargs['pmt_type'] = 'balls'
+	self.assertRaises(pf.BadVariableExpenseInput, pf.VariableExpense, **kwargs)
 	kwargs['pmt_type'] = 'simple'
 
-	kwargs['quote_basis'] = 'a'
-	self.assertRaises(pf.BadFixedExpenseInput, pf.FixedExpense, **kwargs)
-	kwargs['quote_basis'] = QB
-
-	kwargs['name'] = 29
-	self.assertRaises(pf.BadFixedExpenseInput, pf.FixedExpense, **kwargs)
-	kwargs['name'] = 'Labor'
-
-	kwargs['description'] = QB
-	self.assertRaises(pf.BadFixedExpenseInput, pf.FixedExpense, **kwargs)
+	kwargs['description'] = 29
+	self.assertRaises(pf.BadVariableExpenseInput, pf.VariableExpense, **kwargs)
 	kwargs['description'] = 'farts'
 
-	kwargs['escalator'] = 'a'
-	self.assertRaises(pf.BadFixedExpenseInput, pf.FixedExpense, **kwargs)
-	kwargs['escalator'] = None
-       
-	kwargs['startup_discounter'] = 'a'
-	self.assertRaises(pf.BadFixedExpenseInput, pf.FixedExpense, **kwargs)
-	kwargs['startup_discounter'] = None
+	kwargs['quote_basis'] = 2345.3
+	self.assertRaises(pf.BadVariableExpenseInput, pf.VariableExpense, **kwargs)
+	kwargs['quote_basis'] = QB
 
-	kwargs['pmt_type'] = 'boobs'
-	self.assertRaises(pf.BadFixedExpenseInput, pf.FixedExpense, **kwargs)
-	kwargs['pmt_type'] = 'simple'
- 
+	kwargs['production'] = QB
+	self.assertRaises(pf.BadVariableExpenseInput, pf.VariableExpense, **kwargs)
+	kwargs['production'] = pro1
+
+	kwargs['rate'] = 234
+	self.assertRaises(pf.BadVariableExpenseInput, pf.VariableExpense, **kwargs)
+	kwargs['rate'] = uv.UnitVal(1, 'kW*hr/gal')
+
+	kwargs['escalator'] = pro1
+	self.assertRaises(pf.BadVariableExpenseInput, pf.VariableExpense, **kwargs)
+	kwargs['escalator'] = esc
+
+ 	
        
 
     def testAggregateCorrectly_simple(self):
         """Each VariableExpense must successfully aggregate itself"""
-	self.assertTrue(False)
 
 	scaler = pf.LinearScaler()
-	QB = pf.FixedExpenseQuoteBasis(base_price = 14000, date = dt.datetime(2012,01,01), source = "P&T", scaler = scaler, size_basis = uv.UnitVal(100, 'lb/hr'), freq = 'M')
-	esc = pf.InflationRateEscalator(rate=0.01)
-	fex1 = pf.FixedExpense(name = 'Labor', description = 'People', quote_basis = QB, escalator = esc)
+	QBp = pf.ProductQuoteBasis(base_price = 1.53, date = dt.datetime(2012,01,01), source = "P&T", scaler = scaler, size_basis = uv.UnitVal(100, '1/gal'))
+	esc = pf.NoEscalationEscalator()
+	pr1 = pf.Product(name = 'gasoline', description = 'People', quote_basis = QBp, escalator = esc)
+	pro1 = pf.Production(name = 'stream1', product = pr1, rate = uv.UnitVal(15000, 'gal/hr'), startup_discounter = None, init_date = dt.datetime(2015,01,01))
 
-	fex1.init_date = dt.datetime(2012,01,01)
-	fex1.pmt_type = 'simple'
-	fex1.pmt_args['term'] = dt.timedelta(20*365)
-	fex1.startup_discounter = None
+	QB = pf.VariableExpenseQuoteBasis(base_price = 0.062, date = dt.datetime(2012,01,01), source = "P&T", scaler = scaler, size_basis = uv.UnitVal(100, '1/(kW*hr)'))
+	vex1 = pf.VariableExpense(name = 'Electricity', description = 'Power consumption by plant', quote_basis = QB, production = pro1, rate = uv.UnitVal(1, 'kW*hr/gal'), escalator = esc, pmt_type = 'simple')
+	vex1.build_vex_schedule()		#Do we need a term here?  Yes?  How do we control this...through the production?  #maybe this should just be passed as an argument
 
 	dates = [dt.datetime(2012,01,31), dt.datetime(2013,01,31), dt.datetime(2020, 03, 31), dt.datetime(2021, 12,31)]
-        vals = [14011.45438,14151.95472,15198.0633,15465.55295]
-        vals2 = [20016.3634, 20217.07817, 21711.519, 22093.64707]
-        vals3 = [10508.59078, 14151.95472, 15198.0633, 15465.55295]
-	vals4 = [30524.95418, 34369.03288, 36909.58229, 37559.20002]
-
-	fex1.build_fex_schedule()
-        #print fex1.schedule
-        for d, v in zip(dates, vals):
-            self.assertAlmostEqual(v, fex1.schedule.loc[d, 'fixed_costs'],4)
-	
-    def testAggregateCorrectly_fixed_schedule(self):
-	self.assertTrue(False)
-
-    def testAggregateCorrectly_simple_75burnin(self):
-	"""Variable expense must correctly aggregate itself with a 75% burn-in"""
-	self.assertTrue(False)
-	scaler = pf.LinearScaler()
-	QB = pf.FixedExpenseQuoteBasis(base_price = 14000, date = dt.datetime(2012,01,01), source = "P&T", scaler = scaler, size_basis = uv.UnitVal(100, 'lb/hr'), freq = 'M')
-	esc = pf.InflationRateEscalator(rate=0.01)
-	fex1 = pf.FixedExpense(name = 'Labor', description = 'People', quote_basis = QB, escalator = esc)
-
-	fex1.init_date = dt.datetime(2012,01,01)
-	fex1.pmt_type = 'simple'
-	fex1.pmt_args['term'] = dt.timedelta(20*365)
-	fex1.startup_discounter = pf.dtFractionalStartupDiscounter(time_span = dt.timedelta(days=1*365), fraction = 0.75)
-	dates = [dt.datetime(2012,01,31), dt.datetime(2013,01,31), dt.datetime(2020, 03, 31), dt.datetime(2021, 12,31)]
-        vals = [14011.45438,14151.95472,15198.0633,15465.55295]
-        vals2 = [20016.3634, 20217.07817, 21711.519, 22093.64707]
-        vals3 = [10508.59078, 14151.95472, 15198.0633, 15465.55295]
-	vals4 = [30524.95418, 34369.03288, 36909.58229, 37559.20002]
-
-	fex1.build_fex_schedule()
-
-        for d, v in zip(dates, vals3):
-            self.assertAlmostEqual(v, fex1.schedule.loc[d, 'fixed_costs'],4)
-
-
-	
-
+        ###!!!###Still need values here!
+        vals_cons = [,,,]
+        vals_cost = [,,,]
+        	
+        for d, v1, v2 in zip(dates, vals_cons, vals_cost):
+            self.assertAlmostEqual(v, vex1.schedule.loc[d, 'variable_consumption'],4)
+	    self.assertAlmostEqual(v, vex1.schedule.loc[d, 'variable_costs'],4)
+	    
 class VariableCostsTests(unittest.TestCase):
 
     def testBadVariableCostItem(self):
         """Adding an item that is not a fixed expense should raise an error"""
-	self.assertTrue(False)
 	       
-        costs = pf.FixedCosts()
-        self.assertRaises(pf.BadFixedCostType, costs.add_fixed_cost, "ninja")
+        costs = pf.VariableCosts()
+        self.assertRaises(pf.BadVariableExpenseType, costs.add_variable_cost, "ninja")
 
 
     def testAggregateCorrectly(self):
         """VariableCosts must correctly build the fixed cost schedule"""
-	self.assertTrue(False)
+
 	scaler = pf.LinearScaler()
-	QB = pf.FixedExpenseQuoteBasis(base_price = 14000, date = dt.datetime(2012,01,01), source = "P&T", scaler = scaler, size_basis = uv.UnitVal(100, 'lb/hr'), freq = 'M')
-        QB2 = pf.FixedExpenseQuoteBasis(base_price = 20000, date = dt.datetime(2012,01,01), source = "P&T", scaler = scaler, size_basis = uv.UnitVal(100, 'lb/hr'), freq= 'M')
+	QBp = pf.ProductQuoteBasis(base_price = 1.53, date = dt.datetime(2012,01,01), source = "P&T", scaler = scaler, size_basis = uv.UnitVal(100, '1/gal'))
+	esc = pf.NoEscalationEscalator()
+	pr1 = pf.Product(name = 'gasoline', description = 'People', quote_basis = QBp, escalator = esc)
+	pro1 = pf.Production(name = 'stream1', product = pr1, rate = uv.UnitVal(15000, 'gal/hr'), startup_discounter = None, init_date = dt.datetime(2015,01,01))
 
-	esc = pf.InflationRateEscalator(rate=0.01)
-	fex1 = pf.FixedExpense(name = 'Labor', description = 'People', quote_basis = QB, escalator = esc)
+	QB = pf.VariableExpenseQuoteBasis(base_price = 0.062, date = dt.datetime(2012,01,01), source = "P&T", scaler = scaler, size_basis = uv.UnitVal(100, '1/(kW*hr)'))
+	vex1 = pf.VariableExpense(name = 'Electricity', description = 'Power consumption by plant', quote_basis = QB, production = pro1, rate = uv.UnitVal(1, 'kW*hr/gal'), escalator = esc)
+	vex1.build_vex_schedule()		#Do we need a term here?  Yes?  How do we control this...through the production?  #maybe this should just be passed as an argument
 
-	fex1.init_date = dt.datetime(2012,01,01)
-	fex1.pmt_type = 'simple'
-	fex1.pmt_args['term'] = dt.timedelta(20*365)
-	fex1.startup_discounter = pf.dtFractionalStartupDiscounter(time_span = dt.timedelta(days=1*365), fraction = 0.75)
+	QB2 = pf.VariableExpenseQuoteBasis(base_price = 75, date = dt.datetime(2012,01,01), source= 'Tom Miles', scaler = scaler, size_basis = uv.UnitVal(1, '1/ton'))
+	vex2 = pf.VariableExpense(name = 'Biomass', description = 'Biomass used by plant', quote_basis = QB2, production = pro1, rate = uv.UnitVal(1/150, 'ton/gal'), escalator = esc)
 
-        fex2 = pf.FixedExpense(name = 'Strippers', description = 'Entertainment', quote_basis = QB2, escalator = esc)
-        fex2.init_date = dt.datetime(2012,01,01)
-        fex2.pmt_type = 'simple'
-        fex2.pmt_args['term'] = dt.timedelta(20*365)
-        fex2.startup_discounter = None
 
 	dates = [dt.datetime(2012,01,31), dt.datetime(2013,01,31), dt.datetime(2020, 03, 31), dt.datetime(2021, 12,31)]
-        vals = [14011.45438,14151.95472,15198.0633,15465.55295]
-        vals2 = [20016.3634, 20217.07817, 21711.519, 22093.64707]
-        vals3 = [10508.59078, 14151.95472, 15198.0633, 15465.55295]
-	vals4 = [30524.95418, 34369.03288, 36909.58229, 37559.20002]
+        vals = [,,,]
 
-	costs = pf.FixedCosts()
-        costs.add_fixed_cost(fex1)
-        costs.add_fixed_cost(fex2)
-        costs.build_fex_schedule()
+	costs = pf.VariableCosts()
+        costs.add_variable_cost(vex1)
+        costs.add_variable_cost(vex2)
+        costs.build_vex_schedule()
 
-        for d, v in zip(dates, vals4):
-            self.assertAlmostEqual(v, costs.schedule.loc[d, 'fixed_costs'],4)
+        for d, v in zip(dates, vals):
+            self.assertAlmostEqual(v, costs.schedule.loc[d, 'variable_costs'],4)
 
 
-    
+    def testAggregateDetailedCorrectly(self):
+	"""VariableCosts must correctly build the detailed cost schedule"""
+	scaler = pf.LinearScaler()
+	QBp = pf.ProductQuoteBasis(base_price = 1.53, date = dt.datetime(2012,01,01), source = "P&T", scaler = scaler, size_basis = uv.UnitVal(100, '1/gal'))
+	esc = pf.NoEscalationEscalator()
+	pr1 = pf.Product(name = 'gasoline', description = 'People', quote_basis = QBp, escalator = esc)
+	pro1 = pf.Production(name = 'stream1', product = pr1, rate = uv.UnitVal(15000, 'gal/hr'), startup_discounter = None, init_date = dt.datetime(2015,01,01))
+
+	QB = pf.VariableExpenseQuoteBasis(base_price = 0.062, date = dt.datetime(2012,01,01), source = "P&T", scaler = scaler, size_basis = uv.UnitVal(100, '1/(kW*hr)'))
+	vex1 = pf.VariableExpense(name = 'Electricity', description = 'Power consumption by plant', quote_basis = QB, production = pro1, rate = uv.UnitVal(1, 'kW*hr/gal'), escalator = esc)
+	vex1.build_vex_schedule()		#Do we need a term here?  Yes?  How do we control this...through the production?  #maybe this should just be passed as an argument
+
+	QB2 = pf.VariableExpenseQuoteBasis(base_price = 75, date = dt.datetime(2012,01,01), source= 'Tom Miles', scaler = scaler, size_basis = uv.UnitVal(1, '1/ton'))
+	vex2 = pf.VariableExpense(name = 'Biomass', description = 'Biomass used by plant', quote_basis = QB2, production = pro1, rate = uv.UnitVal(1/150, 'ton/gal'), escalator = esc)
+
+
+	dates = [dt.datetime(2012,01,31), dt.datetime(2013,01,31), dt.datetime(2020, 03, 31), dt.datetime(2021, 12,31)]
+        
+	costs = pf.VariableCosts()
+        costs.add_variable_cost(vex1)
+        costs.add_variable_cost(vex2)
+	costs.detailed = True
+        costs.build_vex_schedule()
+
+        for d, dates:
+            self.assertTrue((vex1.schedule['variable_production'] == costs.schedule['Electricity_variable_production']).all())
+	    self.assertTrue((vex1.schedule['variable_costs'] == costs.schedule['Electricity_variable_costs').all())
+	    self.assertTrue((vex2.schedule['variable_production'] == costs.schedule['Biomass_variable_production']).all())
+	    self.assertTrue((vex2.schedule['variable_costs'] == costs.schedule['Biomass_variable_costs']).all())
 
 
 

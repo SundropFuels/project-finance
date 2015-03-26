@@ -32,7 +32,7 @@ class VariableExpenseTests(unittest.TestCase):
 	pro1 = pf.Production(name = 'stream1', product = pr1, rate = uv.UnitVal(15000, 'gal/hr'), startup_discounter = None, init_date = dt.datetime(2015,01,01))
 
 	QB = pf.VariableExpenseQuoteBasis(base_price = 0.062, date = dt.datetime(2012,01,01), source = "P&T", scaler = scaler, size_basis = uv.UnitVal(100, '1/(kW*hr)'))
-	vex1 = pf.VariableExpense(name = 'Electricity', description = 'Power consumption by plant', quote_basis = QB, production = pro1, rate = uv.UnitVal(1, 'kW*hr/gal'), escalator = esc, pmt_type = 'simple')
+	vex1 = pf.VariableExpense(name = 'Electricity', description = 'Power consumption by plant', quote_basis = QB, production = pro1, rate = uv.UnitVal(1, 'kW*hr/gal'), escalator = esc)
 
 	self.assertEqual(vex1.name, 'Electricity')
 	self.assertEqual(vex1.description, 'Power consumption by plant')
@@ -40,7 +40,7 @@ class VariableExpenseTests(unittest.TestCase):
 	self.assertEqual(vex1.production, pro1)
 	self.assertEqual(vex1.rate, uv.UnitVal(1, 'kW*hr/gal')
 	self.assertEqual(vex1.escalator, esc)
-	self.assertEqual(vex1.pmt_type, 'simple')	
+		
 
 
     def testBadVariableExpenseInput(self):
@@ -64,10 +64,6 @@ class VariableExpenseTests(unittest.TestCase):
 	kwargs['escalator'] = esc
 	kwargs['startup_discounter'] = pf.NoneStartupDiscounter()
 	
-	kwargs['pmt_type'] = 'balls'
-	self.assertRaises(pf.BadVariableExpenseInput, pf.VariableExpense, **kwargs)
-	kwargs['pmt_type'] = 'simple'
-
 	kwargs['description'] = 29
 	self.assertRaises(pf.BadVariableExpenseInput, pf.VariableExpense, **kwargs)
 	kwargs['description'] = 'farts'
@@ -101,7 +97,7 @@ class VariableExpenseTests(unittest.TestCase):
 	pro1 = pf.Production(name = 'stream1', product = pr1, rate = uv.UnitVal(15000, 'gal/hr'), startup_discounter = None, init_date = dt.datetime(2015,01,01))
 
 	QB = pf.VariableExpenseQuoteBasis(base_price = 0.062, date = dt.datetime(2012,01,01), source = "P&T", scaler = scaler, size_basis = uv.UnitVal(100, '1/(kW*hr)'))
-	vex1 = pf.VariableExpense(name = 'Electricity', description = 'Power consumption by plant', quote_basis = QB, production = pro1, rate = uv.UnitVal(1, 'kW*hr/gal'), escalator = esc, pmt_type = 'simple')
+	vex1 = pf.VariableExpense(name = 'Electricity', description = 'Power consumption by plant', quote_basis = QB, production = pro1, rate = uv.UnitVal(1, 'kW*hr/gal'), escalator = esc)
 	vex1.build_vex_schedule()		#Do we need a term here?  Yes?  How do we control this...through the production?  #maybe this should just be passed as an argument
 
 	dates = [dt.datetime(2012,01,31), dt.datetime(2013,01,31), dt.datetime(2020, 03, 31), dt.datetime(2021, 12,31)]

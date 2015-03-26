@@ -1716,18 +1716,18 @@ class Production(object):
 	    self._freq = v
 
 
-    def build_production_schedule(self):
+    def build_production_schedule(self, end_date):
 	"""This is the wrapper function that matches the name in the container class"""
 	#dispatch to the right function
-	getattr(self, "_calc_schedule_%s" % self.method)(**self.sch_args)
+	getattr(self, "_calc_schedule_%s" % self.method)(end_date)
  
 
-    def _calc_schedule_simple(self, term, **kwargs):
+    def _calc_schedule_simple(self, end_date, **kwargs):
         """Applies the escalated fixed cost at equal intervals; the fixed cost quote MUST be on the same interval as the freq"""
 	conv = uc.UnitConverter()
-	if not isinstance(term, dt.timedelta):
-	    raise BadFixedCostScheduleInput, "term must be a datetime.timedelta object, got %s" % type(term)
-	dates = pd.date_range(self.init_date, self.init_date+term, freq = self.freq)
+	if not isinstance(end_date, dt.datetime):
+	    raise BadFixedCostScheduleInput, "end_date must be a datetime.datetime object, got %s" % type(end_date)
+	dates = pd.date_range(self.init_date, end_date, freq = self.freq)
 	self.schedule = pd.DataFrame(index = dates)
 	#all of the data frame columns MUST be numeric -- it makes processing much easier and faster
 	
@@ -1767,11 +1767,11 @@ class ProductionPortfolio:
             if p.name == production.name:
                 self.production.remove(p)
 
-    def build_production_schedule(self):
+    def build_production_schedule(self, end_date):
 	self.schedule = pd.DataFrame()
 
 	for p in self.production:
-            p.build_production_schedule()
+            p.build_production_schedule(end_date)
             if len(self.schedule) == 0:
                 self.schedule = self.schedule.join(p.schedule, how = 'outer').fillna(0.0)
 

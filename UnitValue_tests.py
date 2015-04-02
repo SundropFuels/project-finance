@@ -115,8 +115,8 @@ class UnitValueTests(unittest.TestCase):
 
     def testUnitValDivision(self):
 	"""UnitVals should correctly divide between them, with appropriate concatenated units"""
-	a = uv.UnitVal(value = 35, units = 'gal')
-	b = uv.UnitVal(value = 10, units = '1/s')
+	a = uv.UnitVal(value = 35.0, units = 'gal')
+	b = uv.UnitVal(value = 10.0, units = '1/s')
 	c = a / b
 	c.simplify_units()
 	d = b / a

@@ -35,7 +35,7 @@ class UnitVal(object):
         try:
             if v is not None:
                 v/25.3
-	        v = float(v)
+
 	    self._value = v
         except TypeError:
             self._value = None

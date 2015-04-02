@@ -27,29 +27,20 @@ class CapitalExpenseTests(unittest.TestCase):
         start = dt.datetime(2010,01,01)
         finish = dt.datetime(2012,01,01)
         es = pf.NoEscalationEscalator()
-        val = es.escalate(cost = 100.0, basis_date = start, new_date = finish)
-        self.assertEqual(100.0, val)
+        val = es.escalate(basis_date = start, new_date = finish)
+        self.assertEqual(100.0, val*100.0)
 
     def testBadEscalationDates(self):
         """Not passing in proper dates should throw an error"""
         start = 'poop'
 	finish = dt.datetime(2012,01,01)
         es = pf.NoEscalationEscalator()
-        kwargs = {'cost':100.0, 'basis_date':start, 'new_date':finish}
+        kwargs = {'basis_date':start, 'new_date':finish}
         self.assertRaises(pf.BadDateError, es.escalate, **kwargs)
         start = finish
         finish = 234.0
-        kwargs = {'cost':100.0, 'basis_date':start, 'new_date':finish}
+        kwargs = {'basis_date':start, 'new_date':finish}
         self.assertRaises(pf.BadDateError, es.escalate, **kwargs)
-
-    def testBadEscalationCost(self):
-        """Cost should be a non-zero value"""
-	start = dt.datetime(2010,01,01)
-        finish = dt.datetime(2012,01,01)
-        es = pf.NoEscalationEscalator()
-        kwargs = {'cost':'moop', 'basis_date':start, 'new_date':finish}
-        self.assertRaises(pf.BadValue, es.escalate, **kwargs)
-
         
     def testProperEscalationInflationRate(self):
         """Test whether an inflation rate is properly escalated"""
@@ -57,11 +48,11 @@ class CapitalExpenseTests(unittest.TestCase):
         finish = dt.datetime(2011,01,01)
         es = pf.InflationRateEscalator()
 	es.rate = 0.015
-        val = es.escalate(cost = 100.0, basis_date = start, new_date = finish)
+        val = es.escalate(basis_date = start, new_date = finish)*100.0
         actual = 100.0*(1+0.015)
         self.assertAlmostEqual(val,actual)
         finish = dt.datetime(2012,06,25)
-        val = es.escalate(cost = 100.0, basis_date = start, new_date = finish)
+        val = es.escalate(basis_date = start, new_date = finish)*100.0
         r = (np.power(1.015,1/365.0)-1)
         actual = 100.0 * (1+r)**906
         self.assertAlmostEqual(val, actual)

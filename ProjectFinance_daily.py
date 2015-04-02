@@ -795,12 +795,13 @@ class Escalator:
     def __init__(self):
         self.factor = 1.0			#When it comes down to it, all escalators increase their underlying values by a given factor
 
-    def escalate(self, cost, basis_date, new_date):
+    def escalate(self, basis_date, new_date):
         #do checking on the basis date and the new date
         #if not isinstance(basis_date, dt.datetime) or not isinstance(new_date, dt.datetime):
         #    raise BadDateError, "The basis date and the new date both need to be of class datetime.datetime"
 
         #test for validity of cost
+	"""
         try:
             if cost < 0:
                 raise BadValue, "The cost must be a non-negative number"
@@ -808,15 +809,19 @@ class Escalator:
                 a = 23.0/cost
         except TypeError:
             raise BadValue, "The cost must be numeric"
+	"""
 
-        return self.factor * cost
+        return self.factor #OK, I just broke a lot of shit!
 
 class NoEscalationEscalator(Escalator):
     """Scales to a constant value"""
     def escalate(self, **kwargs):
 	#need to make sure we have all of the days
 	if 'new_date' in kwargs:
-            days = kwargs['new_date'] - kwargs['basis_date']
+	    try:
+                days = kwargs['new_date'] - kwargs['basis_date']
+	    except TypeError:
+                raise BadDateError, "A bad date type has been passed"
 	    if isinstance(days, dt.timedelta):
 		days = np.timedelta64(days)
             n = days/np.timedelta64(1,'D')
@@ -840,7 +845,11 @@ class InflationRateEscalator(Escalator):
             if self.rate < 0:
                 raise BadValue, "The rate must be positive"
             dpr = np.power(1+self.rate, 1/365.0)-1
-            days = kwargs['new_date'] - kwargs['basis_date']
+	    
+	    try:
+                days = kwargs['new_date'] - kwargs['basis_date']
+	    except TypeError:
+	        raise BadDateError, "The dates passed are not of an acceptable type"
             if isinstance(days, dt.timedelta):
                 days = np.timedelta64(days)		#cast this up to allow the necessary division
             #n = (kwargs['new_date']-kwargs['basis_date']).days	#number of days between intervening periods
@@ -1040,8 +1049,8 @@ class CapitalExpense:
         """Returns the total installed cost for the given date, applying the internal escalator and inflation functions"""
         if self.quote_basis is None:
             raise BadCapitalTICInput, "A quote basis must be defined to give a total installed cost"
-        base_cost = self.quote_basis.cost()
-        return self.escalator.escalate(cost = base_cost, basis_date = self.quote_basis.date, new_date = date, **kwargs)
+        
+        return self.escalator.escalate(basis_date = self.quote_basis.date, new_date = date, **kwargs) * self.quote_basis.cost()
  
     def build_capex_schedule(self):
         """Aggregates the payment schedule and depreciation schedule into the total_schedule dataframe"""
@@ -1430,10 +1439,10 @@ class FixedExpense(object):
 	    raise BadFixedCostScheduleInput, "term must be a datetime.timedelta object, got %s" % type(term)
 	dates = pd.date_range(self.init_date, self.init_date+term, freq = self.quote_basis.freq)
 	self.schedule = df.DataFrame(index = dates)
-        esc_factors = self.escalator.escalate(cost = self.quote_basis.base_price, basis_date = self.quote_basis.date, new_date  = pd.Series(self.schedule.index))
+        esc_factors = self.escalator.escalate(basis_date = self.quote_basis.date, new_date  = pd.Series(self.schedule.index))
 	esc_factors.index = self.schedule.index
 
-        self.schedule['fixed_costs'] = np.ones(len(self.schedule.index))*esc_factors
+        self.schedule['fixed_costs'] = np.ones(len(self.schedule.index))*esc_factors*self.quote_basis.base_price
 	self.schedule['fixed_costs'] *= self.startup_discounter.discount_factors(time_series = pd.Series(self.schedule.index))
         print self.schedule
     def _calc_payment_schedule_fixed_schedule(self, schedule, **kwargs):
@@ -1820,7 +1829,7 @@ class Production(object):
 	self.schedule = df.DataFrame(index = dates)
 	#all of the data frame columns MUST be numeric -- it makes processing much easier and faster
 	
-        esc_price = self.product.escalator.escalate(cost = self.product.quote_basis.base_price, basis_date = self.product.quote_basis.date, new_date  = pd.Series(self.schedule.index))  #lots of reach through -- do we want to put an accessor in Product?
+        esc_price = self.product.escalator.escalate(basis_date = self.product.quote_basis.date, new_date  = pd.Series(self.schedule.index)) * self.product.quote_basis.base_price  #lots of reach through -- do we want to put an accessor in Product?
 	esc_price.index = self.schedule.index
 
 	#OK -- it's pretty easy to put UnitVals in the dataframes, but we'll dumb it down for now and just use numbers -- but UnitVals are just fine, be aware

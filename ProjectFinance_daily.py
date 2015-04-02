@@ -1701,6 +1701,11 @@ class Product(object):
     def price(self):
         return self.quote_basis.base_price * self.quote_basis.size_basis
 
+    def escalate_price(self, new_dates):
+	esc_price = self.escalator.escalate(basis_date = self.quote_basis.date, new_date  = pd.Series(new_dates)) * self.quote_basis.base_price
+	esc_price.index = new_dates
+	return esc_price
+
 
 class Production(object):
     """Holds a product and a rate of production"""
@@ -1827,25 +1832,23 @@ class Production(object):
 	    raise BadFixedCostScheduleInput, "end_date must be a datetime.datetime object, got %s" % type(end_date)
 	dates = pd.date_range(self.init_date, end_date, freq = self.freq)
 	self.schedule = df.DataFrame(index = dates)
-	#all of the data frame columns MUST be numeric -- it makes processing much easier and faster
-	
-        esc_price = self.product.escalator.escalate(basis_date = self.product.quote_basis.date, new_date  = pd.Series(self.schedule.index)) * self.product.quote_basis.base_price  #lots of reach through -- do we want to put an accessor in Product?
-	esc_price.index = self.schedule.index
 
-	#OK -- it's pretty easy to put UnitVals in the dataframes, but we'll dumb it down for now and just use numbers -- but UnitVals are just fine, be aware
+	#This is the non-unit-val approach
+	self.schedule['price'] = self.product.escalate_price(new_dates = self.schedule.index)
+	self.schedule.units['price'] = self.product.quote_basis.size_basis.units
+	self.schedule.simplify_units('price')
+
+	#want to create the base unit for the entry, then scale
+	self.schedule['rate'] = self.rate.value*self.startup_discounter.discount_factors(time_series = pd.Series(self.schedule.index))
+	self.schedule.units['rate'] = (self.rate*self.freq_dummy_uv).units
+	self.schedule.simplify_units('rate')
+
+	#For the revenue column to work, we need equivalent units, right?  Or do we just need to multiply the series values, then simplify units?
+	self.schedule['revenue'] = self.schedule['price'] * self.schedule['rate']
+	self.schedule.units['revenue'] = (uv.UnitVal(1.0, self.schedule.units['price'])*uv.UnitVal(1.0, self.schedule.units['rate'])).units
+	self.schedule.simplify_units('revenue')
+
 	
-	#need to put the rate in a format equal to the frequency
-	dummy = self.freq_dummy_uv
-	rate = dummy * self.rate			#give the rate in units on a daily basis  #NOPE- SLOWED EVERYTHING DOWN -- NEED TO SWITCH TO NUMERIC HANDLING
-	#the price needs to be converted to the units of the rate -- yeah, I know, sort of obviates all the good work I did to get multipliers to work in UnitVals
-	esc_price = conv.convert_units(esc_price, self.product.price.units, '(%s)^-1' % rate.units)
-        self.schedule['rate'] = np.ones(len(self.schedule.index))*rate.value
-	self.schedule['rate'] *= self.startup_discounter.discount_factors(time_series = pd.Series(self.schedule.index))
-        self.schedule['price'] = np.ones(len(self.schedule.index))*esc_price		
-	self.schedule['revenue'] = self.schedule['price'] * self.schedule['rate']		
-	#self.schedule['revenue'] = np.array([v1.value for v1 in self.schedule['price'] * self.schedule['rate']])	        #this does not look like it should, but it is the best way to do this (for now)
-	#NOTE: ABOVE COULD BE DONE WITH UNITVALS, JUST DON'T KNOW HOW THAT CASCADES THROUGH YET
-        
 
 class ProductionPortfolio:
     """Class to hold the set of production items""" 

@@ -13,6 +13,7 @@ import datetime as dt
 import pandas.tseries.offsets as offs
 from pandas.tseries.offsets import DateOffset
 from pf_errors import *
+import dataFrame_pd as df
 
 class ProjAnalyzer:
     """Base class for analyzing a single project"""
@@ -66,7 +67,7 @@ class CapitalProject:
         ip = self.fin_param['Initial_period']				#This must be a datetime object for this to work -- this assignment may be unnecessary
         dates = pd.date_range(ip, end = ip + self.fin_param['Analysis_period']*DateOffset(years=1), freq = 'D')
         count = {'Period':np.arange(len(dates))}
-        self.cf_sheet = pd.DataFrame(data = count, index = dates)
+        self.cf_sheet = df.DataFrame(data = count, index = dates)
 
     def assembleFinancials(self, price):
         """Put together the financials for a given selling price of the product"""
@@ -164,7 +165,7 @@ class CapitalProject:
 
     def setAnnualOutput(self):
         """Creates the annual output column for production level, adjusted for startup considerations"""
-        output = pd.DataFrame(np.zeros(len(self.cf_sheet)), index = self.cf_sheet.index)
+        output = df.DataFrame(np.zeros(len(self.cf_sheet)), index = self.cf_sheet.index)
         ann_out = self.fin_param['Cap_factor'] * self.fin_param['Design_cap'].value
         daily_out = ann_out/365.0		
         end_period = self.fin_param['Startup_period'] + self.fin_param['Plant_life']*DateOffset(years=1)
@@ -240,7 +241,7 @@ class CapitalProject:
             raise ProjFinError, "You must set the fixed costs before you can calculate them"
 
         total = self.fixed_costs.c_total_fixed_costs()/365		#The fixed cost settings are on an annual basis
-        mask = pd.DataFrame(data = np.zeros(len(self.cf_sheet)), index = self.cf_sheet.index)
+        mask = df.DataFrame(data = np.zeros(len(self.cf_sheet)), index = self.cf_sheet.index)
         #Could easily generalize for a startup length here
         mask[self.fin_param['Startup_period']:self.fin_param['Startup_period']+DateOffset(years=1)] = self.fin_param['Startup_fixed_cost_breakdown']
         mask[self.fin_param['Startup_period']+DateOffset(years=1):] = 1.0
@@ -376,7 +377,7 @@ class FinancialParameters:
         if not is_numeric(value) and key not in ['Capital_expense_breakdown','Design_cap','Depreciation_type', 'Initial_period', 'Startup_period'] and value is not None:
             raise ProjFinError, "The specific value (%s) is not numeric" % value
 
-        if key == 'Capital_expense_breakdown' and not (isinstance(value,list) or isinstance(value,dict) or isinstance(value,pd.DataFrame)) and value is not None:
+        if key == 'Capital_expense_breakdown' and not (isinstance(value,list) or isinstance(value,dict) or isinstance(value,df.DataFrame)) and value is not None:
             raise ProjFinError, "The capital expense breakdown is not a recognized type"
 
         elif key == 'Design_cap' and value is not None:
@@ -906,7 +907,7 @@ class NonDepreciableDepreciationSchedule(DepreciationSchedule):
         DepreciationSchedule.__init__(self, starting_period, length)
         dates = pd.date_range(self.starting_period, self.starting_period + self.length*DateOffset(years=1) - DateOffset(days=1), freq = 'D')
 	d = {'depreciation':np.zeros(len(dates))}
-	self.frame = pd.DataFrame(index = dates, data = d)
+	self.frame = df.DataFrame(index = dates, data = d)
         
 	
 
@@ -924,7 +925,7 @@ class StraightLineDepreciationSchedule(DepreciationSchedule):
         DepreciationSchedule.__init__(self, starting_period, length)
         dates = pd.date_range(self.starting_period, self.starting_period + self.length*DateOffset(years=1) - DateOffset(days=1), freq = 'D')
         d = {'depreciation':np.zeros(len(dates))}
-        self.frame = pd.DataFrame(index = dates, data = d)
+        self.frame = df.DataFrame(index = dates, data = d)
 	
 
     def build(self, cost):
@@ -948,7 +949,7 @@ class MACRSDepreciationSchedule(DepreciationSchedule):
         
         dates = pd.date_range(self.starting_period, self.starting_period + (self.length+1)*DateOffset(years=1)-DateOffset(days=1), freq = 'D')
         d = {'depreciation': np.zeros(len(dates))}
-        self.frame = pd.DataFrame(index = dates, data = d)
+        self.frame = df.DataFrame(index = dates, data = d)
 	
 
     def build(self, cost):
@@ -965,7 +966,7 @@ class ScheduleDepreciationSchedule(DepreciationSchedule):
     """A fixed schedule of fractional write-downs should be passed in"""
     def __init__(self, starting_period=None, length=None, schedule=None):
 	DepreciationSchedule.__init__(self, starting_period, length)
-	if not isinstance(schedule, pd.DataFrame) or not isinstance(schedule.index, pd.tseries.index.DatetimeIndex):
+	if not isinstance(schedule, df.DataFrame) or not isinstance(schedule.index, pd.tseries.index.DatetimeIndex):
 	    raise BadCapitalDepreciationInput, "The schedule must be a pandas dataframe with a timeseries index"
         if schedule.index[0] < starting_period:
             raise BadCapitalDepreciationInput, "The schedule starts before the given starting period"
@@ -973,7 +974,7 @@ class ScheduleDepreciationSchedule(DepreciationSchedule):
         if 'depreciation' not in schedule.columns:
             raise BadCapitalDepreciationInput, "The depreciation schedule must have a 'depreciation' column"
 
-        self.frame = pd.DataFrame(schedule)
+        self.frame = df.DataFrame(schedule)
 
     def build(self, cost):
         self['depreciation'] *= cost
@@ -1078,14 +1079,14 @@ class CapitalExpense:
             raise BadCapitalPaymentInput, "order_date must be datetime.datetime; got %s instead)" % type(order_date)
         dates = [order_date]
         data = {self.payment_label:np.array([self.TIC(order_date)])}
-        self.payment_schedule = pd.DataFrame(index = dates, data = data)
+        self.payment_schedule = df.DataFrame(index = dates, data = data)
 
     def _calc_payment_schedule_LumpSumDelivered(self, order_date = None):
         if not isinstance(order_date, dt.datetime):
             raise BadCapitalPaymentInput, "order_date must be datetime.datetime, got %s instead)" % type(order_date)
         dates = [order_date + self.quote_basis.lead_time]
 	data = {self.payment_label:np.array([self.TIC(order_date)])}
-        self.payment_schedule = pd.DataFrame(index = dates, data = data)
+        self.payment_schedule = df.DataFrame(index = dates, data = data)
 
     def _calc_payment_schedule_EqualPeriodic(self, order_date = None, freq = 'M'):
         if not isinstance(order_date, dt.datetime):
@@ -1094,14 +1095,14 @@ class CapitalExpense:
 	pmts = np.ones(len(dates))
 	pmts *= self.TIC(order_date)/len(pmts)
         data = {self.payment_label:pmts}
-	self.payment_schedule = pd.DataFrame(index = dates, data = data)
+	self.payment_schedule = df.DataFrame(index = dates, data = data)
 	
 	
 
     def _calc_payment_schedule_FractionalSchedule(self, order_date = None, schedule = None):
         if not isinstance(order_date, dt.datetime):
             raise BadCapitalPaymentInput, "order_date must be datetime.datetime, got %s instead)" % type(order_date)
-	if not isinstance(schedule, pd.DataFrame) or not isinstance(schedule.index, pd.tseries.index.DatetimeIndex):
+	if not isinstance(schedule, df.DataFrame) or not isinstance(schedule.index, pd.tseries.index.DatetimeIndex):
             raise BadCapitalPaymentInput, "schedule must be a pandas DataFrame with a DatetimeIndex"
         if not self.payment_label in schedule.columns:
             raise BadCapitalPaymentInput, "schedule must have a '%s' column" % self.payment_label
@@ -1115,7 +1116,7 @@ class CapitalExpense:
     def _calc_payment_schedule_FixedSchedule(self, order_date = None, schedule = None):
         if not isinstance(order_date, dt.datetime):
             raise BadCapitalPaymentInput, "order_date must be datetime.datetime, got %s instead)" % type(order_date)
-	if not isinstance(schedule, pd.DataFrame) or not isinstance(schedule.index, pd.tseries.index.DatetimeIndex):
+	if not isinstance(schedule, df.DataFrame) or not isinstance(schedule.index, pd.tseries.index.DatetimeIndex):
             raise BadCapitalPaymentInput, "schedule must be a pandas DataFrame with a DatetimeIndex"
         if not self.payment_label in schedule.columns:
             raise BadCapitalPaymentInput, "schedule must have a '%s' column" % self.payment_label
@@ -1158,7 +1159,7 @@ class IndirectCapitalExpense(CapitalExpense):
         self.quote_basis = quote_basis
 
     #def build_depreciation_schedule(self):
-    #    self.depreciation_schedule = pd.DataFrame()		#for indirect costs, which are not (??) depreciable -- check this, actually -- we create an empty dataframe
+    #    self.depreciation_schedule = df.DataFrame()		#for indirect costs, which are not (??) depreciable -- check this, actually -- we create an empty dataframe
 
 
     def calc_payment_schedule(self, **kwargs):
@@ -1208,7 +1209,7 @@ class CapitalCosts:
         """Calculates all of the payments and depreciation and aggregates these into a pandas dataframe"""
 	#Call the aggregation functions on all of the directs
 
-        self.total_schedule = pd.DataFrame()
+        self.total_schedule = df.DataFrame()
 	
         for dc in self.direct_capital:
 	    dc.build_capex_schedule()		#if some of these items are CapitalCosts, then the schedule will contain indirects -- this handles itself seamlessly
@@ -1280,7 +1281,7 @@ class NoneStartupDiscounter(StartupDiscounter):
 
     def discount_factors(self, time_series):
         StartupDiscounter.discount_factors(self, time_series)
-        return pd.DataFrame({'factors':np.ones(len(time_series))}, index = time_series)
+        return df.DataFrame({'factors':np.ones(len(time_series))}, index = time_series)
 
 
 class dtFractionalStartupDiscounter(StartupDiscounter):
@@ -1318,7 +1319,7 @@ class dtFractionalStartupDiscounter(StartupDiscounter):
     
     def discount_factors(self, time_series):
         StartupDiscounter.discount_factors(self, time_series)
-        f = pd.DataFrame(index = time_series)
+        f = df.DataFrame(index = time_series)
         f['factors'] = np.ones(len(time_series))
         f['factors'][f.index < time_series[0] + self.deltat] = self.fraction
 	return f
@@ -1428,7 +1429,7 @@ class FixedExpense(object):
 	if not isinstance(term, dt.timedelta):
 	    raise BadFixedCostScheduleInput, "term must be a datetime.timedelta object, got %s" % type(term)
 	dates = pd.date_range(self.init_date, self.init_date+term, freq = self.quote_basis.freq)
-	self.schedule = pd.DataFrame(index = dates)
+	self.schedule = df.DataFrame(index = dates)
         esc_factors = self.escalator.escalate(cost = self.quote_basis.base_price, basis_date = self.quote_basis.date, new_date  = pd.Series(self.schedule.index))
 	esc_factors.index = self.schedule.index
 
@@ -1437,7 +1438,7 @@ class FixedExpense(object):
         print self.schedule
     def _calc_payment_schedule_fixed_schedule(self, schedule, **kwargs):
 	"""Applies the costs at a given fixed schedule.  No escalation -- this is a brute force override method"""
-	if not isinstance(schedule, pd.DataFrame) or not isinstance(schedule.index, pandas.tseries.index.DatetimeIndex) or 'fixed_costs' not in schedule.columns:
+	if not isinstance(schedule, df.DataFrame) or not isinstance(schedule.index, pandas.tseries.index.DatetimeIndex) or 'fixed_costs' not in schedule.columns:
 	    raise BadFixedCostScheduleInput, "The given schedule does not conform to the requirements for this dataframe"
 	self.schedule = schedule.loc[:,'fixed_costs']		#trim any superfluous columns
 
@@ -1467,7 +1468,7 @@ class FixedCosts(object):
                 self.fixed_costs.remove(fixed_cost)
 
     def build_fex_schedule(self):
-	self.schedule = pd.DataFrame()
+	self.schedule = df.DataFrame()
         for fc in self.fixed_costs:
             fc.build_fex_schedule()
             if len(self.schedule) == 0:
@@ -1560,6 +1561,41 @@ class VariableExpense(object):
             raise BadVariableExpenseInput, "escalator must be an Escalator"
         else:
             self._escalator = v
+
+    def build_vex_schedule(self, end_date):
+        if not isinstance(end_date, dt.datetime):
+            raise BadScheduleDateError, "end_date must be a dt.datetime object"
+
+	#build the production schedule, you'll need it
+	self.production.build_production_schedule(end_date)
+	self.schedule = df.DataFrame(index = self.production.schedule.index)  #match dates
+	#escalate the quote basis
+	esc_price = self.escalator.escalate(cost = self.quote_basis.base_price, basis_date = self.quote_basis.date, new_date  = pd.Series(self.schedule.index))  #lots of reach through -- do we want to put an accessor in Product?
+	esc_price.index = self.schedule.index
+	#now we have the escalated prices
+
+
+	#units are consistent within the dataframe -- I should actually shift gears to my dataframe, which supports units natively
+	#---could....remove the simplification step in the UnitVal multiply function
+	#---multiply the UnitVals as numpy arrays
+	#---convert the units to the desired units, as specified by the parameters
+	#---set the units in the dataframe
+	#---this gets around all of the crazy moving and shaking I'm doing, and it allows us to use a preferred set of units if we like
+
+
+
+	#consumption = rate (xvar/xpro) * production (xpro/xtime) * freq(pro.time)
+	consumption = self.rate * uv.UnitVal(1,self.production.rate.units) * self.production.freq_dummy_uv		#this gives the conversion factor between units -- I'll use a unit dictionary later for this
+	print self.production.freq_dummy_uv.units	
+	print consumption.value
+	self.schedule['variable_consumption'] = consumption.value * self.production.schedule['rate']
+	#variable_costs = consumption(xvar) * esc_price (1/xvar)
+	varex = self.quote_basis.size_basis * consumption
+	self.schedule['variable_costs'] = varex.value * esc_price * self.schedule['variable_consumption']
+
+	#OK -- this is ugly, and does not take advantage of my UnitVal framework very well.  I need a way to do multiplication WITHOUT calling the simplify function on all of the UnitVals
+	#I'll think about this, as it would really clean this code up and prevent a lot of the object reach-through
+
 
 
 class VariableCosts:
@@ -1762,11 +1798,12 @@ class Production(object):
 	
         if v is None:
 	    self._freq = 'D'	#default to daily payment method
+	    self.freq_dummy_uv = uv.UnitVal(1, Production.freqs['D'])
         elif v not in Production.freqs.keys():
 	    raise BadProductionInput, "Unsupported frequency selected"
 	else:
 	    self._freq = v
-
+            self.freq_dummy_uv = uv.UnitVal(1, Production.freqs[v])
 
     def build_production_schedule(self, end_date):
 	"""This is the wrapper function that matches the name in the container class"""
@@ -1780,7 +1817,7 @@ class Production(object):
 	if not isinstance(end_date, dt.datetime):
 	    raise BadFixedCostScheduleInput, "end_date must be a datetime.datetime object, got %s" % type(end_date)
 	dates = pd.date_range(self.init_date, end_date, freq = self.freq)
-	self.schedule = pd.DataFrame(index = dates)
+	self.schedule = df.DataFrame(index = dates)
 	#all of the data frame columns MUST be numeric -- it makes processing much easier and faster
 	
         esc_price = self.product.escalator.escalate(cost = self.product.quote_basis.base_price, basis_date = self.product.quote_basis.date, new_date  = pd.Series(self.schedule.index))  #lots of reach through -- do we want to put an accessor in Product?
@@ -1789,7 +1826,7 @@ class Production(object):
 	#OK -- it's pretty easy to put UnitVals in the dataframes, but we'll dumb it down for now and just use numbers -- but UnitVals are just fine, be aware
 	
 	#need to put the rate in a format equal to the frequency
-	dummy = uv.UnitVal(1.0, Production.freqs[self.freq])
+	dummy = self.freq_dummy_uv
 	rate = dummy * self.rate			#give the rate in units on a daily basis  #NOPE- SLOWED EVERYTHING DOWN -- NEED TO SWITCH TO NUMERIC HANDLING
 	#the price needs to be converted to the units of the rate -- yeah, I know, sort of obviates all the good work I did to get multipliers to work in UnitVals
 	esc_price = conv.convert_units(esc_price, self.product.price.units, '(%s)^-1' % rate.units)
@@ -1820,7 +1857,7 @@ class ProductionPortfolio:
                 self.production.remove(p)
 
     def build_production_schedule(self, end_date):
-	self.schedule = pd.DataFrame()
+	self.schedule = df.DataFrame()
 
 	for p in self.production:
             p.build_production_schedule(end_date)
@@ -1873,7 +1910,7 @@ class DebtPortfolio:
 
     def build_debt_schedule(self):
         """Rolls up the debt schedules for all of the given loans"""
-	self.schedule = pd.DataFrame()
+	self.schedule = df.DataFrame()
 	
         for d in self.debts:
 	    try:
@@ -1905,7 +1942,7 @@ class DebtPortfolio:
             self.calculate_loans()
         
         #date_range should be a timeseries object for this to work
-        output = pd.DataFrame(index = date_range)
+        output = df.DataFrame(index = date_range)
         
         names = ['cash_proceeds','principal_payment','interest']
         for name in names:
@@ -1913,7 +1950,7 @@ class DebtPortfolio:
         for loan in self.loans:
             output = output.add(loan.schedule, fill_value=0)
                
-        output = pd.DataFrame(output, index = date_range, columns = names)
+        output = df.DataFrame(output, index = date_range, columns = names)
         
         return output   
 
@@ -1952,19 +1989,19 @@ class DebtPmtScheduler:
 
 
 	#we really just want to return a schedule of payments -- the debt instrument will calculate the interest and principal contributions
-	frame = pd.DataFrame(index = sched)
+	frame = df.DataFrame(index = sched)
 	frame['payments'] = np.ones(len(sched))*pmt
 	return frame
 
     def pmt_balloon(self, amt, term, init_date):
 	sched = pd.date_range(init_date+term, periods = 1, freq = 'D')
-	frame = pd.DataFrame(index = sched)
+	frame = df.DataFrame(index = sched)
 	frame['payments'] = np.ones(len(sched))*amt
 	return frame
 
     def cash_upfront(self, amt, init_date):
 	sched = pd.date_range(init_date, periods = 1, freq = 'D')
-	frame = pd.DataFrame(index = sched)
+	frame = df.DataFrame(index = sched)
 	frame['proceeds'] = np.ones(len(sched))*amt
 	return frame
 	
@@ -2034,7 +2071,7 @@ class Debt:
 
 	#create the schedule of interest accumulation/calculation -- works around the interspersed payments
 	
-	s = pd.DataFrame()
+	s = df.DataFrame()
 
 	for ps in self.pmt_schedules:
 	    s = s.join(ps, how = 'outer').fillna(0.0)
@@ -2042,7 +2079,7 @@ class Debt:
 	for cs in self.cash_schedules:
 	    s = s.join(cs, how = 'outer').fillna(0.0)
 	
-        self.schedule = pd.DataFrame(index = s.index)
+        self.schedule = df.DataFrame(index = s.index)
         
         #Now we just need to step through the payment dates to calculate the schedule 
 

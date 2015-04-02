@@ -107,8 +107,8 @@ class VariableExpenseTests(unittest.TestCase):
         vals_cons = [360000,360000,360000,360000]
         	
         for d, v1, v2 in zip(dates, vals_cons, vals_cost):
-            self.assertAlmostEqual(v, vex1.schedule.loc[d, 'variable_consumption'],4)
-	    self.assertAlmostEqual(v, vex1.schedule.loc[d, 'variable_costs'],4)
+            self.assertAlmostEqual(v1, vex1.schedule.loc[d, 'variable_consumption'],4)
+	    self.assertAlmostEqual(v2, vex1.schedule.loc[d, 'variable_costs'],4)
 	    
 class VariableCostsTests(unittest.TestCase):
 
@@ -171,9 +171,9 @@ class VariableCostsTests(unittest.TestCase):
         costs.build_vex_schedule(end_date)
 
         for d in dates:
-            self.assertTrue((vex1.schedule['variable_production'] == costs.schedule['Electricity_variable_production']).all())
+            self.assertTrue((vex1.schedule['variable_consumption'] == costs.schedule['Electricity_variable_consumption']).all())
 	    self.assertTrue((vex1.schedule['variable_costs'] == costs.schedule['Electricity_variable_costs']).all())
-	    self.assertTrue((vex2.schedule['variable_production'] == costs.schedule['Biomass_variable_production']).all())
+	    self.assertTrue((vex2.schedule['variable_consumption'] == costs.schedule['Biomass_variable_consumption']).all())
 	    self.assertTrue((vex2.schedule['variable_costs'] == costs.schedule['Biomass_variable_costs']).all())
 
 

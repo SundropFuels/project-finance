@@ -85,3 +85,9 @@ class BadProductionItem(ProjFinError):
 
 class BadVariableExpenseInput(ProjFinError):
     pass
+
+class BadScheduleDateError(ProjFinError):
+    pass
+
+class BadVariableExpenseType(ProjFinError):
+    pass

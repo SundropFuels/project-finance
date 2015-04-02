@@ -17,6 +17,7 @@ import company_tools as ct
 import pandas as pd
 import datetime as dt
 from pandas.tseries.offsets import DateOffset
+import dataFrame_pd as df
 
 
 class CapitalExpenseTests(unittest.TestCase):
@@ -260,7 +261,7 @@ class CapitalExpenseTests(unittest.TestCase):
               
         year1 = dt.datetime(2012,1,1)
 	rng = pd.date_range(year1, periods = 10*365, freq = 'D')
-        sched = pd.DataFrame(index = rng, data = {'depreciation':np.zeros(10*365)})
+        sched = df.DataFrame(index = rng, data = {'depreciation':np.zeros(10*365)})
 	date1 = dt.datetime(2015,3,28)
 	sched['depreciation'][date1] = 0.95
 	date2 = dt.datetime(2018,6,2)
@@ -394,7 +395,7 @@ class CapitalExpenseTests(unittest.TestCase):
         QB = pf.CapitalExpenseQuoteBasis(base_price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaler=scaler, installation_model = IM, lead_time = dt.timedelta(days=3*365))
 	dates = pd.date_range(dt.datetime(2014,01,01), periods = 5, freq = 'M')
         data = {'direct_costs':np.array([141000*1.6*0.2,141000*1.6*0.3,141000*1.6*0.1,141000*1.6*.3,141000*1.6*.1])}
-	schedule = pd.DataFrame(index = dates, data = data)
+	schedule = df.DataFrame(index = dates, data = data)
 	
         capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'StraightLine', payment_terms = 'FixedSchedule')
         start_date = dt.datetime(2014,01,01)
@@ -412,7 +413,7 @@ class CapitalExpenseTests(unittest.TestCase):
         QB = pf.CapitalExpenseQuoteBasis(base_price = 141000.0, date = dt.datetime(2012,01,01), source = "Vendor", size_basis = uv.UnitVal(100, 'lb/hr'), scaler=scaler, installation_model = IM, lead_time = dt.timedelta(days=3*365))
 	dates = pd.date_range(dt.datetime(2014,01,01), periods = 5, freq = 'M')
         data = {'direct_costs':np.array([.2,.3,.1,.3,.1])}
-	schedule = pd.DataFrame(index = dates, data = data)
+	schedule = df.DataFrame(index = dates, data = data)
 	print sum(schedule['direct_costs'])
         capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'StraightLine', payment_terms = 'FractionalSchedule')
         start_date = dt.datetime(2014,01,01)
@@ -454,15 +455,15 @@ class CapitalExpenseTests(unittest.TestCase):
         capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'StraightLine', payment_terms = 'FractionalSchedule')
 	dates = pd.date_range(dt.datetime(2012,01,01), periods = 5, freq = 'M')
         data = {'direct_costs':np.array([.2,.3,.1,.3,.1])}
-        schedule = pd.DataFrame(data = data)
+        schedule = df.DataFrame(data = data)
         kwargs = {'order_date':dt.datetime(2012,01,01), 'schedule':schedule}
 	self.assertRaises(pf.BadCapitalPaymentInput, capex1.calc_payment_schedule, **kwargs)
-        schedule = pd.DataFrame(index = dates, data = {'direct_costs':np.ones(5)})
+        schedule = df.DataFrame(index = dates, data = {'direct_costs':np.ones(5)})
 	self.assertRaises(pf.BadCapitalPaymentInput, capex1.calc_payment_schedule, **kwargs)
-        schedule = pd.DataFrame(index = dates, data = {'foop':np.array([.2,.2,.2,.2,.2])})
+        schedule = df.DataFrame(index = dates, data = {'foop':np.array([.2,.2,.2,.2,.2])})
 	self.assertRaises(pf.BadCapitalPaymentInput, capex1.calc_payment_schedule, **kwargs)
 	capex1 = pf.CapitalExpense(tag = "F-1401", name = "Feeder", description = "Biomass feeder", quote_basis = QB, depreciation_type = 'StraightLine', payment_terms = 'FixedSchedule')
-        schedule = pd.DataFrame(index = dates, data = data)
+        schedule = df.DataFrame(index = dates, data = data)
         self.assertRaises(pf.BadCapitalPaymentInput, capex1.calc_payment_schedule, **kwargs)
 
     def testBadCapitalDepreciationScheduleInput(self):
@@ -476,14 +477,14 @@ class CapitalExpenseTests(unittest.TestCase):
         year1 = dt.datetime(2012,1,1)
 	rng = pd.date_range(year1, periods = 10*365, freq = 'D')
 	rng1 = pd.date_range(dt.datetime(2011,1,1), periods = 10*365, freq = 'D')
-        sched = pd.DataFrame(index = rng, data = {'depreciation':np.zeros(10*365)})
+        sched = df.DataFrame(index = rng, data = {'depreciation':np.zeros(10*365)})
 	kwargs = {'schedule':'poop'}
         self.assertRaises(pf.BadCapitalDepreciationInput, capex1.build_depreciation_schedule, year1, 10, **kwargs)
-	kwargs = {'schedule':pd.DataFrame(index = rng1, data = {'depreciation':np.zeros(10*365)})}
+	kwargs = {'schedule':df.DataFrame(index = rng1, data = {'depreciation':np.zeros(10*365)})}
 	self.assertRaises(pf.BadCapitalDepreciationInput, capex1.build_depreciation_schedule, year1, 10, **kwargs)
-        kwargs = {'schedule':pd.DataFrame(index = np.array([1,2,3]), data = {'depreciation':np.zeros(3)})}
+        kwargs = {'schedule':df.DataFrame(index = np.array([1,2,3]), data = {'depreciation':np.zeros(3)})}
 	self.assertRaises(pf.BadCapitalDepreciationInput, capex1.build_depreciation_schedule, year1, 10, **kwargs)
-	kwargs = {'schedule':pd.DataFrame(index = rng, data = {'depreciation1':np.zeros(10*365)})}
+	kwargs = {'schedule':df.DataFrame(index = rng, data = {'depreciation1':np.zeros(10*365)})}
 	self.assertRaises(pf.BadCapitalDepreciationInput, capex1.build_depreciation_schedule, year1, 10, **kwargs)
 
     def testAggregateCorrectly_single(self):
@@ -507,7 +508,7 @@ class CapitalExpenseTests(unittest.TestCase):
 	#Payment check dates
 	dates = pd.date_range(dt.datetime(2012,01,01), periods = 5, freq = 'M')
         data = {'direct_costs':np.array([141000*0.2,141000*0.3,141000*0.1,141000*0.3,141000*0.1])}
-	schedule = pd.DataFrame(index = dates, data = data)
+	schedule = df.DataFrame(index = dates, data = data)
 
 	capex1.payment_args['order_date'] = year1
 	capex1.payment_args['schedule'] = schedule
@@ -577,11 +578,11 @@ class CapitalCostsTests(unittest.TestCase):
 
 	dates = pd.date_range(dt.datetime(2012,01,01), periods = 5, freq = 'M')
         data = {'direct_costs':np.array([141000*0.2,141000*0.3,141000*0.1,141000*0.3,141000*0.1])}
-	schedule = pd.DataFrame(index = dates, data = data)
+	schedule = df.DataFrame(index = dates, data = data)
 
 	idata = {'indirect_costs':np.array([282000*0.1*0.2, 282000*0.1*0.3, 282000*0.1*0.1, 282000*0.3*.1, 282000*.1*.1])}
 
-	ischedule = pd.DataFrame(index = dates, data = idata)
+	ischedule = df.DataFrame(index = dates, data = idata)
 
 
 

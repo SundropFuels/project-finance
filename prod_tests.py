@@ -150,6 +150,10 @@ class ProductTests(unittest.TestCase):
     def testUnitMismatch(self):
         self.assertTrue(False)
 
+    def testPreferredUnits(self):
+	"""Test building of the production schedule when preferred units are specified"""
+	self.assertTrue(False)
+
 class ProductPortfolioTests(unittest.TestCase):
 
     def testBadProductionItem(self):

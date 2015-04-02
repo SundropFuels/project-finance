@@ -1444,7 +1444,7 @@ class FixedExpense(object):
 
         self.schedule['fixed_costs'] = np.ones(len(self.schedule.index))*esc_factors*self.quote_basis.base_price
 	self.schedule['fixed_costs'] *= self.startup_discounter.discount_factors(time_series = pd.Series(self.schedule.index))
-        print self.schedule
+
     def _calc_payment_schedule_fixed_schedule(self, schedule, **kwargs):
 	"""Applies the costs at a given fixed schedule.  No escalation -- this is a brute force override method"""
 	if not isinstance(schedule, df.DataFrame) or not isinstance(schedule.index, pandas.tseries.index.DatetimeIndex) or 'fixed_costs' not in schedule.columns:
@@ -1505,6 +1505,9 @@ class VariableExpense(object):
 	self.production = production
 	self.rate = rate
 	self.escalator = escalator
+	self.preferred_units = {}
+	self.preferred_units['variable_consumption'] = None
+	self.preferred_units['variable_costs'] = None
 
     @property
     def name(self):
@@ -1578,21 +1581,27 @@ class VariableExpense(object):
 	#build the production schedule, you'll need it
 	self.production.build_production_schedule(end_date)
 	self.schedule = df.DataFrame(index = self.production.schedule.index)  #match dates
+	
+	
 	#escalate the quote basis
-	esc_price = self.escalator.escalate(cost = self.quote_basis.base_price, basis_date = self.quote_basis.date, new_date  = pd.Series(self.schedule.index))  #lots of reach through -- do we want to put an accessor in Product?
-	esc_price.index = self.schedule.index
-	#now we have the escalated prices
+	esc_factors = self.escalator.escalate(basis_date = self.quote_basis.date, new_date  = pd.Series(self.schedule.index))  #lots of reach through -- do we want to put an accessor in Product?
+	esc_factors.index = self.schedule.index
 
+	self.schedule['variable_consumption'] = self.rate.value * self.production.schedule['rate']
+	self.schedule.units['variable_consumption'] = (self.rate * uv.UnitVal(1.0, self.production.schedule.units['rate'])).units
+	if self.preferred_units['variable_consumption'] is not None:
+	    self.schedule.convert_units('variable_consumption', self.preferred_units['variable_consumption'])	#This should throw an error on unit mismatch, but should happen at the DataFrame level
+	else:
+	    self.schedule.simplify_units('variable_consumption')
 
-	#units are consistent within the dataframe -- I should actually shift gears to my dataframe, which supports units natively
-	#---could....remove the simplification step in the UnitVal multiply function
-	#---multiply the UnitVals as numpy arrays
-	#---convert the units to the desired units, as specified by the parameters
-	#---set the units in the dataframe
-	#---this gets around all of the crazy moving and shaking I'm doing, and it allows us to use a preferred set of units if we like
-
-
-
+	self.schedule['variable_costs'] = esc_factors * self.quote_basis.base_price * self.schedule['variable_consumption']
+	self.schedule.units['variable_costs'] = (self.quote_basis.size_basis * uv.UnitVal(1.0,self.schedule.units['variable_consumption'])).units
+	if self.preferred_units['variable_costs'] is not None:
+	    self.schedule.convert_units('variable_costs', self.preferred_units['variable_costs'])
+	else:
+	    self.schedule.simplify_units('variable_costs')
+	
+	"""
 	#consumption = rate (xvar/xpro) * production (xpro/xtime) * freq(pro.time)
 	consumption = self.rate * uv.UnitVal(1,self.production.rate.units) * self.production.freq_dummy_uv		#this gives the conversion factor between units -- I'll use a unit dictionary later for this
 	print self.production.freq_dummy_uv.units	
@@ -1604,7 +1613,7 @@ class VariableExpense(object):
 
 	#OK -- this is ugly, and does not take advantage of my UnitVal framework very well.  I need a way to do multiplication WITHOUT calling the simplify function on all of the UnitVals
 	#I'll think about this, as it would really clean this code up and prevent a lot of the object reach-through
-
+	"""
 
 
 class VariableCosts:
@@ -1722,6 +1731,10 @@ class Production(object):
 	self.method = method
 	self.freq = freq
         self.sch_args = {}
+	self.preferred_units = {}
+	self.preferred_units['rate'] = None
+	self.preferred_units['price'] = None
+	self.preferred_units['revenue'] = None	
 
 
     @property
@@ -1836,17 +1849,26 @@ class Production(object):
 	#This is the non-unit-val approach
 	self.schedule['price'] = self.product.escalate_price(new_dates = self.schedule.index)
 	self.schedule.units['price'] = self.product.quote_basis.size_basis.units
-	self.schedule.simplify_units('price')
+	if self.preferred_units['price'] is not None:
+	    self.schedule.convert_units('price', self.preferred_units['price'])
+	else:
+	    self.schedule.simplify_units('price')
 
 	#want to create the base unit for the entry, then scale
 	self.schedule['rate'] = self.rate.value*self.startup_discounter.discount_factors(time_series = pd.Series(self.schedule.index))
 	self.schedule.units['rate'] = (self.rate*self.freq_dummy_uv).units
-	self.schedule.simplify_units('rate')
+	if self.preferred_units['rate'] is not None:
+	    self.schedule.convert_units('rate', self.preferred_units['rate'])
+	else:
+	    self.schedule.simplify_units('rate')
 
 	#For the revenue column to work, we need equivalent units, right?  Or do we just need to multiply the series values, then simplify units?
 	self.schedule['revenue'] = self.schedule['price'] * self.schedule['rate']
 	self.schedule.units['revenue'] = (uv.UnitVal(1.0, self.schedule.units['price'])*uv.UnitVal(1.0, self.schedule.units['rate'])).units
-	self.schedule.simplify_units('revenue')
+	if self.preferred_units['revenue'] is not None:
+	    self.schedule.convert_units('revenue', self.preferred_units['revenue'])
+	else:
+            self.schedule.simplify_units('revenue')
 
 	
 

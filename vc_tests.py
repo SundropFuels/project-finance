@@ -98,7 +98,8 @@ class VariableExpenseTests(unittest.TestCase):
 
 	QB = pf.VariableExpenseQuoteBasis(base_price = 0.062, date = dt.datetime(2012,01,01), source = "P&T", scaler = scaler, size_basis = uv.UnitVal(100, '1/(kW*hr)'))
 	vex1 = pf.VariableExpense(name = 'Electricity', description = 'Power consumption by plant', quote_basis = QB, production = pro1, rate = uv.UnitVal(1, 'kW*hr/gal'), escalator = esc)
-	end_date = dt.datetime(2034,12,31)	
+	end_date = dt.datetime(2034,12,31)
+	vex1.preferred_units['variable_consumption'] = 'kW*hr'	
 	vex1.build_vex_schedule(end_date)		#Do we need a term here?  Yes?  How do we control this...through the production?  #maybe this should just be passed as an argument
 
 	dates = [dt.datetime(2015,01,31), dt.datetime(2016,01,31), dt.datetime(2020, 03, 31), dt.datetime(2021, 12,31)]

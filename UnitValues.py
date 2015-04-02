@@ -114,13 +114,11 @@ class UnitVal(object):
         if isinstance(other, UnitVal):
             
             try:
-                #rarg = conv.convert_units(other.value, other.units, self.units)
-		new_unit = "%s*%s" % (self.units, other.units)
+                new_unit = "%s*%s" % (self.units, other.units)
 		r = UnitVal(self.value * other.value, new_unit)
-		r.simplify_units()
+		#r.simplify_units()				-- I have intentionally removed this statement, to improve speed.  Call it if you want simplified units
 		return r
-		#return (UnitVal(self.value * other.value, new_unit)).simplify_units()
-                #return UnitVal(self.value * rarg, self.units)
+		
             except uc.InconsistentUnitError:
                 raise TypeError, "Inconsistent units, %s, %s" % (other.units, self.units)
 
@@ -138,14 +136,15 @@ class UnitVal(object):
         if isinstance(other, UnitVal): 
 
             try:
-                #divisor = conv.convert_units(other.value, other.units, self.units)
+
                 if other.value == 0:
                     raise ValueError, "Divide by zero error"
 		new_unit = "%s/(%s)" % (self.units, other.units)
 		r = UnitVal(self.value/other.value, new_unit)
-		r.simplify_units()
+		#Again, the simplification tool has been removed to speed up multiplication where the units don't need to be explicitly simplified
+		#r.simplify_units()
 		return r
-                #return (UnitVal(self.value/other.value, new_unit)).simplify_units()
+
             except uc.InconsistentUnitError:
                 raise TypeError, "Inconsistent units, %s, %s" % (other.units, self.units)
 	else:
@@ -164,13 +163,12 @@ class UnitVal(object):
         if isinstance(other, UnitVal):
 
             try:
-                #rarg = conv.convert_units(self.value, self.units, other.units)
+
 		new_unit = "%s*%s" % (self.units, other.units)
 		r = UnitVal(self.value*other.value, new_unit)
-		r.simplify_units()
+		#r.simplify_units()
 		return r
-		#return (UnitVal(self.value * other.value, new_unit)).simplify_units()
-                #return UnitVal(other.value * rarg, other.units)
+		
             except uc.InconsistentUnitError:
                 raise TypeError, "Inconsistent units, %s, %s" % (other.units, self.units)
 
@@ -192,9 +190,9 @@ class UnitVal(object):
                     raise ValueError, "Divide by zero error"
 		new_unit = "%s/%s" % (self.units, other.units)
 		r = UnitVal(other.value/self.value, new_unit)
-		r.simplify_units()
+		#r.simplify_units()
 		return r
-                #return UnitVal(self.value/other.value, new_unit).simplify_units()
+
             except uc.InconsistentUnitError:
                 raise TypeError, "Inconsistent units, %s, %s" % (other.units, self.units)
 	else:

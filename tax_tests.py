@@ -94,6 +94,8 @@ class TaxCreditTests(unittest.TestCase):
 	#should each tax credit simply be a wrapper around a tax, with a -1 multiple on the taxes?
 	#I think so, but each credit should in turn be owned by a tax, so that we can handle refundable vs. non-refundable tax credits
 
+
+
     def createTaxCreditBadInputs(self):
 	"""TaxCredit should throw an error when given a bad input"""
 	self.assertTrue(False)
@@ -130,3 +132,5 @@ class TaxManagerTests(unittest.TestCase):
 
 
 
+if __name__ == "__main__":
+    unittest.main()

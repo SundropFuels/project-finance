@@ -117,32 +117,33 @@ class VariableCostsTests(unittest.TestCase):
         """Adding an item that is not a fixed expense should raise an error"""
 	       
         costs = pf.VariableCosts()
-        self.assertRaises(pf.BadVariableExpenseType, costs.add_variable_cost, "ninja")
+        self.assertRaises(pf.BadVariableExpenseItem, costs.add_variable_expense, "ninja")
 
 
     def testAggregateCorrectly(self):
         """VariableCosts must correctly build the fixed cost schedule"""
 
 	scaler = pf.LinearScaler()
-	QBp = pf.ProductQuoteBasis(base_price = 1.53, date = dt.datetime(2012,01,01), source = "P&T", scaler = scaler, size_basis = uv.UnitVal(100, '1/gal'))
+	QBp = pf.ProductQuoteBasis(base_price = 1.53, date = dt.datetime(2012,01,01), source = "P&T", scaler = scaler, size_basis = uv.UnitVal(1, '1/gal'))
 	esc = pf.NoEscalationEscalator()
 	pr1 = pf.Product(name = 'gasoline', description = 'People', quote_basis = QBp, escalator = esc)
-	pro1 = pf.Production(name = 'stream1', product = pr1, rate = uv.UnitVal(15000, 'gal/hr'), startup_discounter = None, init_date = dt.datetime(2015,01,01))
 
-	QB = pf.VariableExpenseQuoteBasis(base_price = 0.062, date = dt.datetime(2012,01,01), source = "P&T", scaler = scaler, size_basis = uv.UnitVal(100, '1/(kW*hr)'))
+	pro1 = pf.Production(name = 'stream1', product = pr1, rate = uv.UnitVal(15000, 'gal/hr'), startup_discounter = None, init_date = dt.datetime(2012,01,01))
+
+	QB = pf.VariableExpenseQuoteBasis(base_price = 0.062, date = dt.datetime(2012,01,01), source = "P&T", scaler = scaler, size_basis = uv.UnitVal(1, '1/(kW*hr)'))
 	vex1 = pf.VariableExpense(name = 'Electricity', description = 'Power consumption by plant', quote_basis = QB, production = pro1, rate = uv.UnitVal(1, 'kW*hr/gal'), escalator = esc)
 
 	QB2 = pf.VariableExpenseQuoteBasis(base_price = 75, date = dt.datetime(2012,01,01), source= 'Tom Miles', scaler = scaler, size_basis = uv.UnitVal(1, '1/ton'))
-	vex2 = pf.VariableExpense(name = 'Biomass', description = 'Biomass used by plant', quote_basis = QB2, production = pro1, rate = uv.UnitVal(1/150, 'ton/gal'), escalator = esc)
+	vex2 = pf.VariableExpense(name = 'Biomass', description = 'Biomass used by plant', quote_basis = QB2, production = pro1, rate = uv.UnitVal(1.0/150.0, 'ton/gal'), escalator = esc)
 
 	dates = [dt.datetime(2012,01,31), dt.datetime(2013,01,31), dt.datetime(2020, 03, 31), dt.datetime(2021, 12,31)]
         vals = [202320,202320,202320,202320]
 	end_date = dt.datetime(2034,12,31)
 	costs = pf.VariableCosts()
-        costs.add_variable_cost(vex1)
-        costs.add_variable_cost(vex2)
+        costs.add_variable_expense(vex1)
+        costs.add_variable_expense(vex2)
         costs.build_vex_schedule(end_date)
-
+	
         for d, v in zip(dates, vals):
             self.assertAlmostEqual(v, costs.schedule.loc[d, 'variable_costs'],4)
 
@@ -159,18 +160,18 @@ class VariableCostsTests(unittest.TestCase):
 	vex1 = pf.VariableExpense(name = 'Electricity', description = 'Power consumption by plant', quote_basis = QB, production = pro1, rate = uv.UnitVal(1, 'kW*hr/gal'), escalator = esc)
 
 	QB2 = pf.VariableExpenseQuoteBasis(base_price = 75, date = dt.datetime(2012,01,01), source= 'Tom Miles', scaler = scaler, size_basis = uv.UnitVal(1, '1/ton'))
-	vex2 = pf.VariableExpense(name = 'Biomass', description = 'Biomass used by plant', quote_basis = QB2, production = pro1, rate = uv.UnitVal(1/150, 'ton/gal'), escalator = esc)
+	vex2 = pf.VariableExpense(name = 'Biomass', description = 'Biomass used by plant', quote_basis = QB2, production = pro1, rate = uv.UnitVal(1.0/150.0, 'ton/gal'), escalator = esc)
 
 
 	dates = [dt.datetime(2012,01,31), dt.datetime(2013,01,31), dt.datetime(2020, 03, 31), dt.datetime(2021, 12,31)]
         
 	costs = pf.VariableCosts()
-        costs.add_variable_cost(vex1)
-        costs.add_variable_cost(vex2)
+        costs.add_variable_expense(vex1)
+        costs.add_variable_expense(vex2)
 	costs.detailed = True
 	end_date = dt.datetime(2034,12,31)
         costs.build_vex_schedule(end_date)
-
+	
         for d in dates:
             self.assertTrue((vex1.schedule['variable_consumption'] == costs.schedule['Electricity_variable_consumption']).all())
 	    self.assertTrue((vex1.schedule['variable_costs'] == costs.schedule['Electricity_variable_costs']).all())

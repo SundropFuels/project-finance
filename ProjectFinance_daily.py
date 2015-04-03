@@ -1586,8 +1586,8 @@ class VariableExpense(object):
 	#escalate the quote basis
 	esc_factors = self.escalator.escalate(basis_date = self.quote_basis.date, new_date  = pd.Series(self.schedule.index))  #lots of reach through -- do we want to put an accessor in Product?
 	esc_factors.index = self.schedule.index
-
 	self.schedule['variable_consumption'] = self.rate.value * self.production.schedule['rate']
+
 	self.schedule.units['variable_consumption'] = (self.rate * uv.UnitVal(1.0, self.production.schedule.units['rate'])).units
 	if self.preferred_units['variable_consumption'] is not None:
 	    self.schedule.convert_units('variable_consumption', self.preferred_units['variable_consumption'])	#This should throw an error on unit mismatch, but should happen at the DataFrame level
@@ -1601,58 +1601,50 @@ class VariableExpense(object):
 	else:
 	    self.schedule.simplify_units('variable_costs')
 	
-	"""
-	#consumption = rate (xvar/xpro) * production (xpro/xtime) * freq(pro.time)
-	consumption = self.rate * uv.UnitVal(1,self.production.rate.units) * self.production.freq_dummy_uv		#this gives the conversion factor between units -- I'll use a unit dictionary later for this
-	print self.production.freq_dummy_uv.units	
-	print consumption.value
-	self.schedule['variable_consumption'] = consumption.value * self.production.schedule['rate']
-	#variable_costs = consumption(xvar) * esc_price (1/xvar)
-	varex = self.quote_basis.size_basis * consumption
-	self.schedule['variable_costs'] = varex.value * esc_price * self.schedule['variable_consumption']
-
-	#OK -- this is ugly, and does not take advantage of my UnitVal framework very well.  I need a way to do multiplication WITHOUT calling the simplify function on all of the UnitVals
-	#I'll think about this, as it would really clean this code up and prevent a lot of the object reach-through
-	"""
-
-
+	
 class VariableCosts:
-    """Holds the variable costs for a project (not a company)"""
-    #Needs to be able to calculate total costs for total production -- should be pretty easy, but may want unit conversion here
+    """Class to hold the set of variable costs""" 
+
     def __init__(self):
-        self.variable_exps = []
 
-    def add_variable_exp(self, VE):
-        if not isinstance(VE, VariableExpense):
-            raise ProjFinError, "VE must be a VariableExpense object"
+        self.variable_costs = []
+	self.detailed = False
+        
+    def add_variable_expense(self, vex):
+        if not isinstance(vex, VariableExpense) and not isinstance(vex, VariableCosts):
+            raise BadVariableExpenseItem, "vex must be of type VariableExpense, got %s" % type(vex)
+        self.variable_costs.append(vex)
 
-        self.variable_exps.append(VE)
+    def del_variable_expense(self, vex):			###!!!### all of these deletions should be done with ids instead -- much cleaner, as I would not need the acutal object to remove it
+        for vc in self.variable_costs:
+            if vc.name == vex.name:
+                self.variable_costs.remove(vc)
 
-    def c_total_VC(self, production_units):
-        total_VC = 0.0
-        for VE in self.variable_exps:
-            total_VC += VE.annual_cost(uv.UnitVal(1.0,production_units))
+    def build_vex_schedule(self, end_date):
+	self.schedule = df.DataFrame()
 
-        return total_VC
+	for vc in self.variable_costs:
+            vc.build_vex_schedule(end_date)
+            if len(self.schedule) == 0:
+                self.schedule = self.schedule.join(vc.schedule, how = 'outer').fillna(0.0)
+	        self.schedule = df.DataFrame(self.schedule)
 
-    def del_variable_exp(self, name):
-        """Removes a given variable expense from the list of variable expenses"""
-        for VE in self.variable_exps:
-            if VE.name == name:
-                self.variable_exps.remove(VE)
+	    else:
+		self.schedule = self.schedule.add(vc.schedule, fill_value = 0.0)			#This assumes a common currency in all the sheets ###!!!###
 
-    def variable_exp_names(self):
-        """Returns a list of the names of the variable expenses"""
-        name_list = []
-        for VE in self.variable_exps:
-            name_list.append(VE.name)
-        return name_list
-
+	    if self.detailed:
+		self.schedule['%s_variable_consumption' % vc.name] = vc.schedule['variable_consumption']
+		self.schedule.units['%s_variable_consumption'] = vc.schedule.units['variable_consumption']
+		self.schedule['%s_variable_costs' % vc.name] = vc.schedule['variable_costs']
+		self.schedule.units['%s_variable_costs' % vc.name] = vc.schedule.units['variable_costs']
+ 
+    
     def __eq__(self, other):
-        return isinstance(other, self.__class__) and self.variable_exps == other.variable_exps
+        return isinstance(other, self.__class__) and self.variable_costs == other.variable_costs
 
     def __ne__(self, other):
         return not self.__eq__(other)
+
 
 class Product(object):
     """Holds a product and its pricing information"""
@@ -1896,16 +1888,24 @@ class ProductionPortfolio:
 	for p in self.production:
             p.build_production_schedule(end_date)
             if len(self.schedule) == 0:
-                self.schedule = self.schedule.join(p.schedule, how = 'outer').fillna(0.0)
-
+	                
+		self.schedule = self.schedule.join(p.schedule, how = 'outer').fillna(0.0)
+	        self.schedule = df.DataFrame(self.schedule)	#need to cast this back up to a unit containing dataframe -- oh, shit, the units are gone -- only really a problem with currency
 	    else:
+		
 		self.schedule = self.schedule.add(p.schedule, fill_value = 0.0)
 
 	    if self.detailed:
 		self.schedule['%s_rate' % p.name] = p.schedule['rate']
+		self.schedule.units['%s_rate' % p.name] = p.schedule.units['rate']
 		self.schedule['%s_price' % p.name] = p.schedule['price']
+		self.schedule.units['%s_price' % p.name] = p.schedule.units['price']
 	        self.schedule['%s_revenue' % p.name] = p.schedule['revenue']
- 
+		self.schedule.units['%s_revenue' % p.name] = p.schedule.units['revenue']
+
+ 		
+        #drop the extraneous columns - cleanest to do it here, and the extra math won't cost much above
+
 
     def __eq__(self, other):
         return isinstance(other, self.__class__) and self.production == other.production

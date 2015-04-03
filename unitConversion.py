@@ -25,7 +25,7 @@ class BadExponentError(UnitError):
 class UnitConverter:
     """This class converts arbitrary fundamental units from one to the other"""
 
-    mass_dict = {'kg':1.0,'g':1000.0, 'lb':2.20462,'mg':1000000.0}
+    mass_dict = {'kg':1.0,'g':1000.0, 'lb':2.20462,'mg':1000000.0, 'ton':2.20462/2000.0}
     time_dict = {'hr':1.0/3600.0, 'min':1.0/60.0, 's':1.0, 'day':1.0/(24.0*3600.0)}
     length_dict = {'m':1.0, 'in':39.37, 'mm':1000.0, 'cm':100.0, 'ft' : 39.37/12.0}
     mole_dict = {'mol':1.0}

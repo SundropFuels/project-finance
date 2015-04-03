@@ -91,3 +91,6 @@ class BadScheduleDateError(ProjFinError):
 
 class BadVariableExpenseType(ProjFinError):
     pass
+
+class BadVariableExpenseItem(ProjFinError):
+    pass

@@ -10,7 +10,7 @@ import unittest
 import ProjectFinance_daily as pf
 import numpy as np
 import unitConversion as uc
-import dataFrame_v2 as df
+import dataFrame_pd as df
 import copy
 import UnitValues as uv
 import company_tools as ct
@@ -24,19 +24,105 @@ class TaxTests(unittest.TestCase):
     
     def testTax(self):
         """Testing correct creation of a base tax object"""
-	self.assertTrue(False)
+	#basis should be a dataframe with a timeseries index and an 'income' column
+	#deductions should be a dataframe with multiple columns corresponding to allowable deductions
+	#credits should be a list of tax credit objects, which will use the revenue and tax itself to determine itself
+	dates = pd.date_range(dt.datetime(2015,01,01), dt.datetime(2025,01,01), freq = 'D')
+
+	a = range(0,len(dates))
+	a1 = np.array([100*1.01**i for i in a])
+	b = df.DataFrame({'income':a1}, index = dates)
+	a2 = a1*.05
+	a3 = a1*.03
+	d = df.DataFrame({'depreciation':a2,'interest':a3}, index = dates)
+	#need to add and create the tax credits
+	t = pf.Tax(name = 'fed1', basis = b, deductions = d, credits = c, freq = 'Q')
+	self.assertEqual(t.name, 'fed1')
+	self.assertEqual(t.basis, b)
+	self.assertEqual(t.deductions, d)
+	self.assertEqual(t.credits, c)
+	self.assertEqual(t.freq, 'Q')		#taxes roll up all of the contributions during their period -- how does this work on an accrual basis?
+
 
     def testBadTaxInputs(self):
 	"""Tax should throw an error on bad inputs"""
-	self.assertTrue(False)
+	dates = pd.date_range(dt.datetime(2015,01,01), dt.datetime(2025,01,01), freq = 'D')
+
+	a = range(0,len(dates))
+	a1 = np.array([100*1.01**i for i in a])
+	b = df.DataFrame({'income':a1}, index = dates)
+	a2 = a1*.05
+	a3 = a1*.03
+	d = df.DataFrame({'depreciation':a2,'interest':a3}, index = dates)
+
+	kwargs = {}
+	kwargs['name'] = 'fed1'
+	kwargs['basis'] = b
+	kwargs['deductions'] = d
+	kwargs['credits'] = 'a'
+	
+
+	self.assertRaises(pf.BadTaxInputError, pf.Tax, **kwargs)
+	kwargs['credits'] = ['a', 'b']
+	self.assertRaises(pf.BadTaxInputError, pf.Tax, **kwargs)
+	#NEED TO PUT IN CORRECT CREDITS HERE###!!!###, OW WILL THROW THE ERROR BUT BE WRONG
+	kwargs['credits'] = fart  #purposely throwing an error here
+
+	kwargs['name'] = 324
+	self.assertRaises(pf.BadTaxInputerror, pf.Tax, **kwargs)
+	kwargs['name'] = 'state'
+
+	kwargs['basis'] = 'meep'
+	self.assertRaises(pf.BadTaxInputError, pf.Tax, **kwargs)
+	kwargs['basis'] = df.DataFrame(index = dates)
+	self.assertRaises(pf.BadTaxInputError, pf.Tax, **kwargs)
+	kwargs['basis'] = b
+
+	kwargs['deductions'] = 'meep'
+	self.assertRaises(pf.BadTaxInputError, pf.Tax, **kwargs)
+	kwargs['deductions'] = d
+
 
     def testFractionalTax(self):
 	"""Testing correct creation of a fractional tax"""
-	self.assertTrue(False)
+	dates = pd.date_range(dt.datetime(2015,01,01), dt.datetime(2025,01,01), freq = 'D')
+
+	a = range(0,len(dates))
+	a1 = np.array([100*1.01**i for i in a])
+	b = df.DataFrame({'income':a1}, index = dates)
+	a2 = a1*.05
+	a3 = a1*.03
+	d = df.DataFrame({'depreciation':a2,'interest':a3}, index = dates)
+
+	kwargs = {}
+	kwargs['name'] = 'fed1'
+	kwargs['basis'] = b
+	kwargs['deductions'] = d
+	kwargs['credits'] = c
+	t = pf.FractionalTax(rate = 0.35, **kwargs)
+
+	self.assertEqual(t.rate, 0.35)
+	self.assertEqual(t.basis, b)	#spot check for derived reach-through
 
     def testBadFractionalTaxInputs(self):
 	"""Fractional tax should throw an error on bad inputs"""
-	self.assertTrue(False)
+	dates = pd.date_range(dt.datetime(2015,01,01), dt.datetime(2025,01,01), freq = 'D')
+
+	a = range(0,len(dates))
+	a1 = np.array([100*1.01**i for i in a])
+	b = df.DataFrame({'income':a1}, index = dates)
+	a2 = a1*.05
+	a3 = a1*.03
+	d = df.DataFrame({'depreciation':a2,'interest':a3}, index = dates)
+
+	kwargs = {}
+	kwargs['name'] = 'fed1'
+	kwargs['basis'] = b
+	kwargs['deductions'] = d
+	kwargs['credits'] = c
+	kwargs['rate'] = 'beef'
+
+	self.assertRaises(pf.BadTaxInputError, pf.Tax, **kwargs)
 
     def testGraduatedFractionalTax(self):
 	"""Testing correct creation of a graduated tax"""
@@ -48,11 +134,43 @@ class TaxTests(unittest.TestCase):
 
     def testFixedTax(self):
 	"""Testing creation of a fixed tax"""
-	self.assertTrue(False)
+	dates = pd.date_range(dt.datetime(2015,01,01), dt.datetime(2025,01,01), freq = 'D')
+
+	a = range(0,len(dates))
+	a1 = np.array([100*1.01**i for i in a])
+	b = df.DataFrame({'income':a1}, index = dates)
+	a2 = a1*.05
+	a3 = a1*.03
+	d = df.DataFrame({'depreciation':a2,'interest':a3}, index = dates)
+
+	kwargs = {}
+	kwargs['name'] = 'fed1'
+	kwargs['basis'] = b
+	kwargs['deductions'] = d
+	kwargs['credits'] = c
+	t = pf.FixedTax(tax = 10000.0, **kwargs)
+
+	self.assertEqual(t.tax, 10000.0)
 
     def testBadFixedTaxInputs(self):
 	"""FixedTax should throw an error on bad inputs"""
-	self.assertTrue(False)
+	dates = pd.date_range(dt.datetime(2015,01,01), dt.datetime(2025,01,01), freq = 'D')
+
+	a = range(0,len(dates))
+	a1 = np.array([100*1.01**i for i in a])
+	b = df.DataFrame({'income':a1}, index = dates)
+	a2 = a1*.05
+	a3 = a1*.03
+	d = df.DataFrame({'depreciation':a2,'interest':a3}, index = dates)
+
+	kwargs = {}
+	kwargs['name'] = 'fed1'
+	kwargs['basis'] = b
+	kwargs['deductions'] = d
+	kwargs['credits'] = c
+	kwargs['tax'] = 't'
+	self.assertRaises(pf.BadTaxInputError, pf.Tax, **kwargs)
+
 
     def testGraduatedFixedTax(self):
 	"""Test creation of a graduated fixed tax"""

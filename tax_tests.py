@@ -452,19 +452,62 @@ class TaxCreditTests(unittest.TestCase):
 
     def createTaxCredit(self):
 	"""Should correctly create a tax credit"""
-	self.assertTrue(False)
+	
+	#Fractional
+	dates = pd.date_range(dt.datetime(2015,01,01), dt.datetime(2025,01,01), freq = 'D')
 
-	#should each tax credit simply be a wrapper around a tax, with a -1 multiple on the taxes?
-	#I think so, but each credit should in turn be owned by a tax, so that we can handle refundable vs. non-refundable tax credits
+	a = range(0,len(dates))
+	a1 = np.array([100*1.01**i for i in a])
+	b = df.DataFrame({'income':a1}, index = dates)
+	kwargs = {}
+	kwargs['name'] = '15pct'
+	kwargs['basis'] = b
+	c = pf.FractionalTaxCredit(refundable = False, rate = 0.15, **kwargs)
+	t = pf.FractionalTax(rate = 0.15, **kwargs)
+	self.assertEqual(c.credit, t)		#The underlying functionality in TaxCredit is built from tax
+	self.assertTrue(not c.refundable)
 
+	#Fixed
 
+	c = pf.FixedTaxCredit(refundable = True, tax = 1005.0, **kwargs)
+	t = pf.Fixedtax(tax = 1005.0, **kwargs)
+	self.assertEqual(c.credit, t)
+	self.assertTrue(c.refundable)
+
+	#GraduatedFractional
+
+	r = {-np.inf:0.10, 25000.0:0.20, 35000.0:0.3}
+
+	c = pf.GraduatedFractionalTaxCredit(refundable = False, rate = r, **kwargs)
+	t = pf.GraduatedFractionalTax(rate = r, **kwargs)
+	self.assertEqual(c.credit, t)
+	self.assertTrue(not c.refundable)
+
+	#GraduatedFixed
+
+	c = pf.GraduatedFixedTax(refundable = True, rate = r, **kwargs)
+	t = pf.GraduatedFixedTax(rate = r, **kwargs)
+	self.assertEqual(c.credit, t)
+	self.assertTrue(c.refundable)
 
     def createTaxCreditBadInputs(self):
 	"""TaxCredit should throw an error when given a bad input"""
-	self.assertTrue(False)
+        dates = pd.date_range(dt.datetime(2015,01,01), dt.datetime(2025,01,01), freq = 'D')
+
+	a = range(0,len(dates))
+	a1 = np.array([100*1.01**i for i in a])
+	b = df.DataFrame({'income':a1}, index = dates)
+	kwargs = {}
+	kwargs['name'] = '15pct'
+	kwargs['basis'] = b
+	kwargs['rate'] = 0.15
+	kwargs['refundable'] = 'bleh'
+	self.assertRaises(pf.BadTaxCreditInput, pf.FractionalTaxCredit, **kwargs)	
+
 
     def testBuildScheduleCorrectly(self):
 	"""TaxCredit should correctly build its own schedule"""
+
 	self.assertTrue(False)
 
 

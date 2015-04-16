@@ -132,7 +132,7 @@ class TaxTests(unittest.TestCase):
 	a2 = a1*.05
 	a3 = a1*.03
 	d = df.DataFrame({'depreciation':a2,'interest':a3}, index = dates)
-	r = {-np.inf:0.10, 25000.0:0.20, 35000.0:0.3}
+	r = {0:0.10, 25000.0:0.20, 35000.0:0.3}
 
 
 	kwargs = {}
@@ -216,7 +216,7 @@ class TaxTests(unittest.TestCase):
 	a2 = a1*.05
 	a3 = a1*.03
 	d = df.DataFrame({'depreciation':a2,'interest':a3}, index = dates)
-	r = {-np.inf:0.10, 25000.0:100.0, 35000.0:200.0}
+	r = {0:0.10, 25000.0:100.0, 35000.0:200.0}
 
 
 	kwargs = {}
@@ -399,7 +399,7 @@ class TaxTests(unittest.TestCase):
 	a2 = a1*.05
 	a3 = a1*.03
 	d = df.DataFrame({'depreciation':a2,'interest':a3}, index = dates)
-	r = {-np.inf:0.10, 25000.0:0.20, 35000.0:0.3}
+	r = {0:0.10, 25000.0:0.20, 35000.0:0.3}
 
 
 	kwargs = {}
@@ -429,7 +429,7 @@ class TaxTests(unittest.TestCase):
 	a2 = a1*.05
 	a3 = a1*.03
 	d = df.DataFrame({'depreciation':a2,'interest':a3}, index = dates)
-	r = {-np.inf:10.0, 25000.0:100.0, 35000.0:200.0}
+	r = {0:10.0, 25000.0:100.0, 35000.0:200.0}
 
 
 	kwargs = {}
@@ -476,7 +476,7 @@ class TaxCreditTests(unittest.TestCase):
 
 	#GraduatedFractional
 
-	r = {-np.inf:0.10, 25000.0:0.20, 35000.0:0.3}
+	r = {0:0.10, 25000.0:0.20, 35000.0:0.3}
 
 	c = pf.GraduatedFractionalTaxCredit(refundable = False, rate = r, **kwargs)
 	t = pf.GraduatedFractionalTax(rate = r, **kwargs)

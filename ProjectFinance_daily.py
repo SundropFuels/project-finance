@@ -2214,8 +2214,216 @@ class Loan(Debt):
 
     ###!!!###The function above should be eliminated -- it is ugly
 
-    
-            
+
+class Tax:
+    """Main class for Tax objects"""
+
+    def __init__(self, name = None, basis = None, deductions = None, credits = None, **kwargs):
+        self.name = name
+	self.basis = basis
+	self.deductions = deductions
+	self.credits = credits
+
+    @property
+    def name(self):
+	return self._name
+
+    @name.setter
+    def name(self, v):
+        if not isinstance(v,basestring):
+            raise BadTaxInputError, "name must be a string"
+
+	self._name = v
+
+    @property
+    def basis(self):
+        return self._basis
+
+    @basis.setter
+    def basis(self, v):
+	if v is None:
+            v = df.DataFrame()
+
+        elif not isinstance(v, pd.DataFrame):
+            raise BadTaxInputError, "basis must be a dataframe containing the income bases"
+        self._basis = v
+
+    @property
+    def deductions(self):
+        return self._deductions
+
+    @deductions.setter
+    def deductions(self, v):
+        if v is None:
+            v = df.DataFrame()
+        elif not isinstance(v, pd.DataFrame):
+            raise BadTaxInputError, "deductions must be a dataframe containing the deductions as columns"
+        self._deductions = v
+        
+
+    @property
+    def credits(self):
+	return self._credits
+
+    @credits.setter
+    def credits(self, v):
+        if v is None:
+            v = []
+
+        elif not isinstance(v, list):
+            raise BadTaxInputError, "credits must be a list of credits"
+
+	for c in v:
+	    if not isinstance(c, pf.TaxCredit):
+	        raise BadTaxInputError, "credits can only contain TaxCredits, got %s" % type(c)
+
+	self._credits = v
+
+    def build_tax_schedule(self):
+        """Creates the schedule of taxes"""
+        pass
+
+
+class GraduatedFractionalTax(Tax):
+    """Proportional tax on a rate schedule"""
+
+    def __init__(self, rate = None, **kwargs):
+        self.rate = rate
+        super(GraduatedFractionalTax,self).__init__(**kwargs)
+
+    @property
+    def rate(self):
+        return self._rate
+
+    @rate.setter
+    def rate(self, v):
+        if v is None:
+            v = {}
+        elif not isinstance(v, dict):
+            raise BadTaxInputError, "rate must be a dictionary of max_val:tax_rate pairs"
+        for key in v:
+            try:
+                key/100.0
+	        v[key]/100.0
+	    except TypeError:
+                raise BadTaxInputError, "rate dict key and its value must both be numeric"
+            if v[key] < 0.0:
+	        raise BadTaxInputError, "The tax rate must be non-negative"
+
+	self._rate = v
+
+    def build_tax_schedule(self):
+	#The graduated schedule should be anchored with zero: {0:rate0, bracket1:rate1, ...}
+	#we will tack on np.inf to the end to make sure that we don't overrun
+
+
+        self.schedule = self.basis.join(self.deductions, how = "outer").fillna(0.0)
+	self.schedule['total_income'] = np.zeros(len(self.schedule.index))
+	for col in self.basis:
+	    self.schedule['taxable_income'] += self.schedule[col]
+	for col in self.deductions
+	    self.schedule['taxable_income'] -= self.schedule[col]
+
+	#group and aggregate by year -- this is the default behavior of 
+     
+	key = lambda x: x.year
+	self.schedule['year'] = key(self.schedule.index)
+	self.schedule_agg = (self.schedule.groupby('year')).aggregate(np.sum)		#This is the aggregated dataframe
+	self.schedule_agg['total_tax'] = np.zeros(len(self.schedule_agg.index))
+	sorted_brackets = sorted(self.rate)
+	sorted_brackets.append(np.inf)
+	found_bracket_mask = np.array([True]*len(self.schedule_agg.index))
+	#comparisons must be made on slices, of course
+	for n in range(1,len(sorted_brackets)):
+	    self.schedule_agg[self.schedule_agg['taxable_income']>=sorted_brackets[n]]['total_tax'] += (sorted_brackets[n]-sorted_brackets[n-1])*self.rate[sorted_brackets[n-1]]
+	    self.schedule_agg[np.logical_and(self.schedule_agg['taxable_income']<sorted_brackets[n],found_bracket_mask)]['total_tax'] += (self.schedule_agg['taxable_income']-sorted_brackets[n-1])*self.rate[sorted_brackets[n-1]]
+	    found_bracket_mask[self.schedule_agg['taxable_income']<sorted_brackets[n]] = False	#When you find the right tax bracket, stop adding to these columns
+
+
+	#now we need to build the schedule by apportioning the tax according to the income
+	self.schedule['total_tax'] = np.zeros(len(self.schedule.index))
+	for year in self.schedule_agg.index:
+	     self.schedule['total_tax'][self.schedule.index.year == year] = self.schedule.agg.loc[year, 'total_tax'] * self.schedule['taxable_income']/self.schedule_agg.loc[year,'taxable_income']
+	#This assumes that the credits ARE IN THE APPROPRIATE PRIORITY ORDER!!!
+
+	for credit in self.credits:
+            credit.build_credit_schedule()
+	    self.schedule['total_tax'] -= credit.schedule['credits']
+	    if not credit.refundable:
+		self.schedule[self.schedule['total_tax']<0.0]['total_tax'] = 0.0
+
+
+class FractionalTax(GraduatedFractionalTax):
+    """Proportional tax at a fixed rate"""
+
+    def __init__(self, rate = None, **kwargs):
+	self.rate = rate
+	super(FractionalTax, self).__init__(rate = rate, **kwargs)
+
+    @property
+    def rate(self):
+	return self._rate
+
+    @rate.setter
+    def rate(self, v):
+        try:
+            v/100.0
+            if v < 0.0:
+                raise BadTaxInputError, "The rate must be non-negative"
+        except TypeError, "The rate must be numeric, got %s" % type(v)
+	#using a special case of the GraduatedFractionalTax
+        self._rate = {0.0:v}	
+
+class GraduatedFixedTax(GraduatedFractionalTax):
+    """Fixed tax payments throughout a year, with no proportion based on when the income was incurred"""
+
+    def build_tax_schedule(self):
+
+	self.schedule = self.basis.join(self.deductions, how = "outer").fillna(0.0)
+	self.schedule['total_income'] = np.zeros(len(self.schedule.index))
+	for col in self.basis:
+	    self.schedule['taxable_income'] += self.schedule[col]
+	for col in self.deductions
+	    self.schedule['taxable_income'] -= self.schedule[col]
+
+	#group and aggregate by year -- this is the default behavior of 
+     
+	key = lambda x: x.year
+	self.schedule['year'] = key(self.schedule.index)
+	self.schedule_agg = (self.schedule.groupby('year')).aggregate(np.sum)		#This is the aggregated dataframe
+	self.schedule_agg['total_tax'] = np.zeros(len(self.schedule_agg.index))
+	sorted_brackets = sorted(self.rate)
+	sorted_brackets.append(np.inf)
+	n = 0
+	while n < len(sorted_brackets)-1:
+	    self.schedule_agg[np.logical_and(self.schedule_agg['taxable_income']>=sorted_brackets[n],self.schedule_agg['taxable_income']<sorted_brackets[n+1])]['total_tax'] = self.rate[sorted_brackets[n]]
+
+
+        for credit in self.credits:
+            credit.build_credit_schedule()
+	    self.schedule['total_tax'] -= credit.schedule['credits']
+	    if not credit.refundable:
+		self.schedule[self.schedule['total_tax']<0.0]['total_tax'] = 0.0
+
+class FixedTax(GraduatedFixedTax):
+    """Fixed tax with a single flat amount"""
+
+    @property
+    def rate(self):
+        return self._rate
+
+    @rate.setter
+    def rate(self,v):
+        try:
+            v/100.0
+            if v < 0.0:
+                raise BadTaxInputError, "The fixed tax rate must be non-negative (otherwise, use a credit)"
+        except TypeError:
+            raise BadTaxInputError, "The fixed tax must be numeric, got %s" % type(v)
+        
+        self._rate = v
+
+
 class PF_FileLoader:
     """Reads the XML save file for a given project"""
     def __init__(self, source):

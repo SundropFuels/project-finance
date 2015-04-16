@@ -94,3 +94,9 @@ class BadVariableExpenseType(ProjFinError):
 
 class BadVariableExpenseItem(ProjFinError):
     pass
+
+class BadTaxInputError(ProjFinError):
+    pass
+
+class BadTaxCreditInput(ProjFinError):
+    pass

@@ -100,3 +100,6 @@ class BadTaxInputError(ProjFinError):
 
 class BadTaxCreditInput(ProjFinError):
     pass
+
+class TaxUnderdefinedError(ProjFinError):
+    pass

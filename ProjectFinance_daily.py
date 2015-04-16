@@ -2278,7 +2278,7 @@ class Tax(object):
             raise BadTaxInputError, "credits must be a list of credits"
 
 	for c in v:
-	    if not isinstance(c, pf.TaxCredit):
+	    if not isinstance(c, TaxCredit):
 	        raise BadTaxInputError, "credits can only contain TaxCredits, got %s" % type(c)
 
 	self._credits = v
@@ -2357,7 +2357,7 @@ class GraduatedFractionalTax(Tax):
 	self.schedule['total_income'] = np.zeros(len(self.schedule.index))
 	for col in self.basis:
 	    self.schedule['taxable_income'] += self.schedule[col]
-	for col in self.deductions
+	for col in self.deductions:
 	    self.schedule['taxable_income'] -= self.schedule[col]
 
 	#group and aggregate by year -- this is the default behavior of 
@@ -2439,7 +2439,8 @@ class FractionalTax(GraduatedFractionalTax):
             v/100.0
             if v < 0.0:
                 raise BadTaxInputError, "The rate must be non-negative"
-        except TypeError, "The rate must be numeric, got %s" % type(v)
+        except TypeError:
+		raise BadTaxInputError, "The rate must be numeric, got %s" % type(v)
 	#using a special case of the GraduatedFractionalTax
         self._rate = {0.0:v}	
 
@@ -2452,7 +2453,7 @@ class GraduatedFixedTax(GraduatedFractionalTax):
 	self.schedule['total_income'] = np.zeros(len(self.schedule.index))
 	for col in self.basis:
 	    self.schedule['taxable_income'] += self.schedule[col]
-	for col in self.deductions
+	for col in self.deductions:
 	    self.schedule['taxable_income'] -= self.schedule[col]
 
 	#group and aggregate by year -- this is the default behavior of 
@@ -2490,7 +2491,7 @@ class FixedTax(GraduatedFixedTax):
         except TypeError:
             raise BadTaxInputError, "The fixed tax must be numeric, got %s" % type(v)
         
-        self._rate = v
+        self._rate = {0.0:v}
 
 
 class TaxCredit(object):

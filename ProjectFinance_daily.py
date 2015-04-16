@@ -14,6 +14,8 @@ import pandas.tseries.offsets as offs
 from pandas.tseries.offsets import DateOffset
 from pf_errors import *
 import dataFrame_pd as df
+from Queue import *
+
 
 class ProjAnalyzer:
     """Base class for analyzing a single project"""
@@ -2215,14 +2217,16 @@ class Loan(Debt):
     ###!!!###The function above should be eliminated -- it is ugly
 
 
-class Tax:
+class Tax(object):
     """Main class for Tax objects"""
 
-    def __init__(self, name = None, basis = None, deductions = None, credits = None, **kwargs):
+    def __init__(self, name = None, basis = None, deductions = None, credits = None, carryover_years = 10, carryback_years = 2, **kwargs):
         self.name = name
 	self.basis = basis
 	self.deductions = deductions
 	self.credits = credits
+	self.carryover_years = carryover_years
+	self.carryback_years = carryback_years
 
     @property
     def name(self):
@@ -2279,6 +2283,38 @@ class Tax:
 
 	self._credits = v
 
+    @property
+    def carryover_years(self):
+	return self._carryover_years
+
+    @carryover_years.setter
+    def carryover_years(self, v):
+        try:
+            v/100.0
+            if not isinstance(v, int):
+                raise BadTaxInputError, "The number of carryover years must be an integer, got %s" % type(v)
+
+	except TypeError:
+ 		raise BadTaxInputError, "The number of carryover years must be numeric"
+
+	self._carryover_years = v
+
+    @property
+    def carryback_years(self):
+        return self._carryback_years
+
+    @carryback_years.setter
+    def carryback_years(self, v):
+        try:
+            v/100.0
+            if not isinstance(v, int):
+                raise BadTaxInputError, "The number of carryback years must be an integer, got %s" % type(v)
+
+        except TypeError:
+             raise BadTaxInputError, "The number of carryback years must be numeric"
+
+        self._carryback_years = v
+
     def build_tax_schedule(self):
         """Creates the schedule of taxes"""
         pass
@@ -2330,8 +2366,41 @@ class GraduatedFractionalTax(Tax):
 	self.schedule['year'] = key(self.schedule.index)
 	self.schedule_agg = (self.schedule.groupby('year')).aggregate(np.sum)		#This is the aggregated dataframe
 	self.schedule_agg['total_tax'] = np.zeros(len(self.schedule_agg.index))
+
+
+	#we actually need to do carryover up here
+	#walk through the taxable income sheet and apply carryover/carryback as appropriate
+	carryover = Queue(maxsize = self.carryover_years)
+	for i in self.schedule_agg.index:
+	    if self.schedule_agg.loc[i,'taxable_income'] < 0.0:
+		amt = -1 * self.schedule_agg.loc[i, 'taxable_income']
+	        #carryback first
+		for j in range(0,self.carryback_years):
+		    try:
+			inc = self.schedule_agg.loc[dt.datetime(i.year - (self.carryback_years -j)),'taxable_income']
+		        if inc > 0.0:
+			    if amt <= inc:
+                                self.schedule_agg.loc[dt.datetime(i.year- (self.carryback_years -j)),'taxable_income'] -= amt
+				amt = 0.0
+			    else:
+				amt -= inc
+				self.schedule_agg.loc[dt.datetime(i.year - (self.carryback_years -j)), 'taxable_income'] = 0.0
+		    except IndexError:
+                        pass #This is here for the case where there are fewer years to look at in the project than allowed in carryback
+
+		#carryforward now
+		if not carryover.full():
+		    carryover.put(amt)
+		else:
+		    carryover.get()
+		    carryover.put(amt)
+            else:
+		if not carryover.empty():
+		    self.schedule_agg.loc[i,'taxable_income'] -= carryover.get()
+	
 	sorted_brackets = sorted(self.rate)
 	sorted_brackets.append(np.inf)
+
 	found_bracket_mask = np.array([True]*len(self.schedule_agg.index))
 	#comparisons must be made on slices, of course
 	for n in range(1,len(sorted_brackets)):

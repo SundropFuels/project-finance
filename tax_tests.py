@@ -183,7 +183,7 @@ class TaxTests(unittest.TestCase):
 	kwargs['basis'] = b
 	kwargs['deductions'] = d
 	kwargs['credits'] = c
-	t = pf.FixedTax(tax = 10000.0, **kwargs)
+	t = pf.FixedTax(rate = 10000.0, **kwargs)
 
 	self.assertEqual(t.tax, 10000.0)
 
@@ -203,7 +203,7 @@ class TaxTests(unittest.TestCase):
 	kwargs['basis'] = b
 	kwargs['deductions'] = d
 	kwargs['credits'] = c
-	kwargs['tax'] = 't'
+	kwargs['rate'] = 't'
 	self.assertRaises(pf.BadTaxInputError, pf.FixedTax, **kwargs)
 
 
@@ -224,7 +224,7 @@ class TaxTests(unittest.TestCase):
 	kwargs['basis'] = b
 	kwargs['deductions'] = d
 	kwargs['credits'] = c
-	kwargs['tax'] = r
+	kwargs['rate'] = r
 	t = pf.GraduatedFixedTax(**kwargs)
 	self.assertEqual(t.rate, r)
 	
@@ -246,9 +246,9 @@ class TaxTests(unittest.TestCase):
 	kwargs['basis'] = b
 	kwargs['deductions'] = d
 	kwargs['credits'] = c
-	kwargs['tax'] = r
+	kwargs['rate'] = r
 	self.assertRaises(pf.BadTaxInputError, pf.GraduatedFixedTax, **kwargs)	
-	kwargs['tax'] = 234.4
+	kwargs['rate'] = 234.4
 	self.assertRaises(pf.BadTaxInputError, pf.GraduatedFixedTax, **kwargs)
 	
 
@@ -358,7 +358,7 @@ class TaxTests(unittest.TestCase):
 	self.assertRaises(pf.TaxUnderdefinedError, t.build_tax_schedule)
 	kwargs.remove('rate')
 
-	kwargs['tax'] = None
+	kwargs['rate'] = None
 	t = pf.FixedTax(**kwargs)
 	self.assertRaises(pf.TaxUnderdefinedError, t.build_tax_schedule)
 	t = pf.GraduatedFixedTax(**kwargs)
@@ -382,7 +382,7 @@ class TaxTests(unittest.TestCase):
 	kwargs['basis'] = b
 	kwargs['deductions'] = d
 	kwargs['credits'] = None
-	t = pf.FixedTax(tax = 10000.0, **kwargs)
+	t = pf.FixedTax(rate = 10000.0, **kwargs)
 	t.build_tax_schedule()
 
 	check_dates = [dt.datetime(2015,01,01), dt.datetime(2017,04,15), dt.datetime(2018,04,15), dt.datetime(2019,10,31), dt.datetime(2020,11,22), dt.datetime(2024,12,31)]
@@ -437,7 +437,7 @@ class TaxTests(unittest.TestCase):
 	kwargs['basis'] = b
 	kwargs['deductions'] = d
 	kwargs['credits'] = None
-	kwargs['tax'] = r
+	kwargs['rate'] = r
 	t = pf.GraduatedFixedTax(**kwargs)
 	t.build_tax_schedule()
 
@@ -471,8 +471,8 @@ class TaxCreditTests(unittest.TestCase):
 	#Fixed
 
 	kwargs['kind'] = 'Fixed'
-	c = pf.TaxCredit(refundable = True, tax = 1005.0, **kwargs)
-	t = pf.Fixedtax(tax = 1005.0, **kwargs)
+	c = pf.TaxCredit(refundable = True, rate = 1005.0, **kwargs)
+	t = pf.Fixedtax(rate = 1005.0, **kwargs)
 	self.assertEqual(c.credit, t)
 	self.assertTrue(c.refundable)
 

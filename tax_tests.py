@@ -462,14 +462,16 @@ class TaxCreditTests(unittest.TestCase):
 	kwargs = {}
 	kwargs['name'] = '15pct'
 	kwargs['basis'] = b
-	c = pf.FractionalTaxCredit(refundable = False, rate = 0.15, **kwargs)
+	kwargs['kind'] = 'Fractional'
+	c = pf.TaxCredit(refundable = False, rate = 0.15, **kwargs)
 	t = pf.FractionalTax(rate = 0.15, **kwargs)
 	self.assertEqual(c.credit, t)		#The underlying functionality in TaxCredit is built from tax
 	self.assertTrue(not c.refundable)
 
 	#Fixed
 
-	c = pf.FixedTaxCredit(refundable = True, tax = 1005.0, **kwargs)
+	kwargs['kind'] = 'Fixed'
+	c = pf.TaxCredit(refundable = True, tax = 1005.0, **kwargs)
 	t = pf.Fixedtax(tax = 1005.0, **kwargs)
 	self.assertEqual(c.credit, t)
 	self.assertTrue(c.refundable)
@@ -478,14 +480,16 @@ class TaxCreditTests(unittest.TestCase):
 
 	r = {0:0.10, 25000.0:0.20, 35000.0:0.3}
 
-	c = pf.GraduatedFractionalTaxCredit(refundable = False, rate = r, **kwargs)
+	kwargs['kind'] = 'GraduatedFractional'
+	c = pf.TaxCredit(refundable = False, rate = r, **kwargs)
 	t = pf.GraduatedFractionalTax(rate = r, **kwargs)
 	self.assertEqual(c.credit, t)
 	self.assertTrue(not c.refundable)
 
 	#GraduatedFixed
 
-	c = pf.GraduatedFixedTax(refundable = True, rate = r, **kwargs)
+	kwargs['kind'] = 'GraduatedFixed'
+	c = pf.TaxCredit(refundable = True, rate = r, **kwargs)
 	t = pf.GraduatedFixedTax(rate = r, **kwargs)
 	self.assertEqual(c.credit, t)
 	self.assertTrue(c.refundable)
@@ -502,8 +506,11 @@ class TaxCreditTests(unittest.TestCase):
 	kwargs['basis'] = b
 	kwargs['rate'] = 0.15
 	kwargs['refundable'] = 'bleh'
+	kwargs['kind'] = 'Fractional'
 	self.assertRaises(pf.BadTaxCreditInput, pf.FractionalTaxCredit, **kwargs)	
-
+	kwargs['refundable'] = True
+	kwargs['kind'] = 'bleh'
+	self.assertRaises(pf.BadTaxCreditInput, pf.FractionalTaxCredit, **kwargs)
 
     def testBuildScheduleCorrectly(self):
 	"""TaxCredit should correctly build its own schedule"""

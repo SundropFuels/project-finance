@@ -2424,6 +2424,43 @@ class FixedTax(GraduatedFixedTax):
         self._rate = v
 
 
+class TaxCredit(object):
+    """Main class for tax credits"""
+
+    def __init__(self, refundable = False, kind = 'Fixed', **kwargs):
+	self.refundable = refundable
+	self.kind = kind
+	try:
+	    self.credit = globals()['%sTax' % self.kind](**kwargs)
+	except NameError:
+	    raise BadTaxCreditInput, "%s is not a valid kind of TaxCredit" % self.kind
+
+    @property
+    def refundable(self):
+        return self._refundable
+
+    @refundable.setter
+    def refundable(self, v):
+        if not isinstance(v, bool):
+            raise BadTaxCreditInput, "refundable must be a boolean value, got %s" % type(v)
+        self._refundable = v
+
+    @property
+    def kind(self):
+        return self._kind
+
+    @kind.setter
+    def kind(self, v):
+        if not isinstance(v, basestring):
+            raise BadTaxCreditInput, "kind must be a string"
+        self._kind = v
+
+    def build_credit_schedule(self):
+        self.credit.build_tax_schedule()
+
+	self.schedule = df.DataFrame({'credit':self.credit.schedule['tax']})
+
+
 class PF_FileLoader:
     """Reads the XML save file for a given project"""
     def __init__(self, source):

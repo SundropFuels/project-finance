@@ -2354,7 +2354,7 @@ class GraduatedFractionalTax(Tax):
 
 
         self.schedule = self.basis.join(self.deductions, how = "outer").fillna(0.0)
-	self.schedule['total_income'] = np.zeros(len(self.schedule.index))
+	self.schedule['taxable_income'] = np.zeros(len(self.schedule.index))
 	for col in self.basis:
 	    self.schedule['taxable_income'] += self.schedule[col]
 	for col in self.deductions:
@@ -2365,27 +2365,28 @@ class GraduatedFractionalTax(Tax):
 	key = lambda x: x.year
 	self.schedule['year'] = key(self.schedule.index)
 	self.schedule_agg = (self.schedule.groupby('year')).aggregate(np.sum)		#This is the aggregated dataframe
-	self.schedule_agg['total_tax'] = np.zeros(len(self.schedule_agg.index))
+	self.schedule_agg['tax'] = np.zeros(len(self.schedule_agg.index))
 
 
 	#we actually need to do carryover up here
 	#walk through the taxable income sheet and apply carryover/carryback as appropriate
 	carryover = Queue(maxsize = self.carryover_years)
 	for i in self.schedule_agg.index:
+	   
 	    if self.schedule_agg.loc[i,'taxable_income'] < 0.0:
 		amt = -1 * self.schedule_agg.loc[i, 'taxable_income']
 	        #carryback first
 		for j in range(0,self.carryback_years):
 		    try:
-			inc = self.schedule_agg.loc[dt.datetime(i.year - (self.carryback_years -j)),'taxable_income']
+			inc = self.schedule_agg.loc[i - (self.carryback_years -j),'taxable_income']
 		        if inc > 0.0:
 			    if amt <= inc:
-                                self.schedule_agg.loc[dt.datetime(i.year- (self.carryback_years -j)),'taxable_income'] -= amt
+                                self.schedule_agg.loc[i- (self.carryback_years -j),'taxable_income'] -= amt
 				amt = 0.0
 			    else:
 				amt -= inc
-				self.schedule_agg.loc[dt.datetime(i.year - (self.carryback_years -j)), 'taxable_income'] = 0.0
-		    except IndexError:
+				self.schedule_agg.loc[i - (self.carryback_years -j), 'taxable_income'] = 0.0
+		    except KeyError:
                         pass #This is here for the case where there are fewer years to look at in the project than allowed in carryback
 
 		#carryforward now
@@ -2401,25 +2402,29 @@ class GraduatedFractionalTax(Tax):
 	sorted_brackets = sorted(self.rate)
 	sorted_brackets.append(np.inf)
 
-	found_bracket_mask = np.array([True]*len(self.schedule_agg.index))
+	found_bracket_mask = df.DataFrame({'mask':np.array([True]*len(self.schedule_agg.index))}, index = self.schedule_agg.index)
 	#comparisons must be made on slices, of course
 	for n in range(1,len(sorted_brackets)):
-	    self.schedule_agg[self.schedule_agg['taxable_income']>=sorted_brackets[n]]['total_tax'] += (sorted_brackets[n]-sorted_brackets[n-1])*self.rate[sorted_brackets[n-1]]
-	    self.schedule_agg[np.logical_and(self.schedule_agg['taxable_income']<sorted_brackets[n],found_bracket_mask)]['total_tax'] += (self.schedule_agg['taxable_income']-sorted_brackets[n-1])*self.rate[sorted_brackets[n-1]]
-	    found_bracket_mask[self.schedule_agg['taxable_income']<sorted_brackets[n]] = False	#When you find the right tax bracket, stop adding to these columns
+	    self.schedule_agg['tax'][self.schedule_agg['taxable_income']>=sorted_brackets[n]] += (sorted_brackets[n]-sorted_brackets[n-1])*self.rate[sorted_brackets[n-1]]
+	    self.schedule_agg['tax'][np.logical_and(self.schedule_agg['taxable_income']<sorted_brackets[n],found_bracket_mask['mask'])] += (self.schedule_agg['taxable_income']-sorted_brackets[n-1])*self.rate[sorted_brackets[n-1]]
+            
+	    found_bracket_mask['mask'][self.schedule_agg['taxable_income']<sorted_brackets[n]] = False	#When you find the right tax bracket, stop adding to these columns
 
 
 	#now we need to build the schedule by apportioning the tax according to the income
-	self.schedule['total_tax'] = np.zeros(len(self.schedule.index))
+	self.schedule['tax'] = np.zeros(len(self.schedule.index))
 	for year in self.schedule_agg.index:
-	     self.schedule['total_tax'][self.schedule.index.year == year] = self.schedule.agg.loc[year, 'total_tax'] * self.schedule['taxable_income']/self.schedule_agg.loc[year,'taxable_income']
+	    if self.schedule_agg.loc[year, 'tax'] == 0:
+		self.schedule['tax'][self.schedule.index.year == year] = 0.0
+	    else:
+	        self.schedule['tax'][self.schedule.index.year == year] = self.schedule_agg.loc[year, 'tax'] * self.schedule['taxable_income']/self.schedule_agg.loc[year,'taxable_income']
 	#This assumes that the credits ARE IN THE APPROPRIATE PRIORITY ORDER!!!
 
 	for credit in self.credits:
             credit.build_credit_schedule()
-	    self.schedule['total_tax'] -= credit.schedule['credits']
+	    self.schedule['tax'] -= credit.schedule['credits']
 	    if not credit.refundable:
-		self.schedule[self.schedule['total_tax']<0.0]['total_tax'] = 0.0
+		self.schedule[self.schedule['tax']<0.0]['tax'] = 0.0
 
 
 class FractionalTax(GraduatedFractionalTax):
@@ -2450,7 +2455,7 @@ class GraduatedFixedTax(GraduatedFractionalTax):
     def build_tax_schedule(self):
 
 	self.schedule = self.basis.join(self.deductions, how = "outer").fillna(0.0)
-	self.schedule['total_income'] = np.zeros(len(self.schedule.index))
+	self.schedule['taxable_income'] = np.zeros(len(self.schedule.index))
 	for col in self.basis:
 	    self.schedule['taxable_income'] += self.schedule[col]
 	for col in self.deductions:
@@ -2461,19 +2466,28 @@ class GraduatedFixedTax(GraduatedFractionalTax):
 	key = lambda x: x.year
 	self.schedule['year'] = key(self.schedule.index)
 	self.schedule_agg = (self.schedule.groupby('year')).aggregate(np.sum)		#This is the aggregated dataframe
-	self.schedule_agg['total_tax'] = np.zeros(len(self.schedule_agg.index))
+	self.schedule_agg['tax'] = np.zeros(len(self.schedule_agg.index))
 	sorted_brackets = sorted(self.rate)
 	sorted_brackets.append(np.inf)
 	n = 0
 	while n < len(sorted_brackets)-1:
-	    self.schedule_agg[np.logical_and(self.schedule_agg['taxable_income']>=sorted_brackets[n],self.schedule_agg['taxable_income']<sorted_brackets[n+1])]['total_tax'] = self.rate[sorted_brackets[n]]
+	    self.schedule_agg['tax'][np.logical_and(self.schedule_agg['taxable_income']>=sorted_brackets[n],self.schedule_agg['taxable_income']<sorted_brackets[n+1])] = self.rate[sorted_brackets[n]]
+            n += 1
+	#now we need to build the schedule by apportioning the tax according to the income
+	self.schedule['tax'] = np.zeros(len(self.schedule.index))
+	for year in self.schedule_agg.index:
+	    if self.schedule_agg.loc[year, 'tax'] == 0:
+		self.schedule['tax'][self.schedule.index.year == year] = 0.0
+	    else:
+	        self.schedule['tax'][self.schedule.index.year == year] = self.schedule_agg.loc[year, 'tax'] * self.schedule['taxable_income']/self.schedule_agg.loc[year,'taxable_income']
+	#This assumes that the credits ARE IN THE APPROPRIATE PRIORITY ORDER!!!
 
 
         for credit in self.credits:
             credit.build_credit_schedule()
-	    self.schedule['total_tax'] -= credit.schedule['credits']
+	    self.schedule['tax'] -= credit.schedule['credits']
 	    if not credit.refundable:
-		self.schedule[self.schedule['total_tax']<0.0]['total_tax'] = 0.0
+		self.schedule[self.schedule['tax']<0.0]['tax'] = 0.0
 
 class FixedTax(GraduatedFixedTax):
     """Fixed tax with a single flat amount"""

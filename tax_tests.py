@@ -41,8 +41,11 @@ class TaxTests(unittest.TestCase):
 	#need to add and create the tax credits
 	t = pf.Tax(name = 'fed1', basis = b, deductions = d, credits = c, freq = 'Q')
 	self.assertEqual(t.name, 'fed1')
-	self.assertEqual(t.basis, b)
-	self.assertEqual(t.deductions, d)
+	for col in b.columns:
+	    self.assertTrue((t.basis[col]==b[col]).all())
+	for col in d.columns:
+	    self.assertTrue((t.deductions[col]==d[col]).all())
+	
 	self.assertEqual(t.credits, c)
 	#We are going to have all taxes be assessed on an annual basis, but accrued on the income basis
 
@@ -112,7 +115,7 @@ class TaxTests(unittest.TestCase):
 	t = pf.FractionalTax(rate = 0.35, **kwargs)
 
 	self.assertEqual(t.rate, {0.0:0.35})
-	self.assertEqual(t.basis, b)	#spot check for derived reach-through
+	self.assertTrue((t.basis['income']==b['income']).all())	#spot check for derived reach-through
 
     def testBadFractionalTaxInputs(self):
 	"""Fractional tax should throw an error on bad inputs"""
@@ -299,18 +302,13 @@ class TaxTests(unittest.TestCase):
 	kwargs['deductions'] = d
 	kwargs['credits'] = None
 	kwargs['rate'] = r
-	t = pf.Tax(**kwargs)
+	t = pf.FractionalTax(**kwargs)
 	t.build_tax_schedule()
 	taxable = b['income'] - d['depreciation'] - d['interest']
 	#aggregate by year
 	check_dates = [dt.datetime(2015,01,01), dt.datetime(2017,04,15), dt.datetime(2020,11,22), dt.datetime(2024,12,31)]
 	taxes = [17.15964749,18.6977876448,21.3296606862,24.7813443226]
 
-
-	#key = lambda x: x.year
-	#taxable['year'] = key(taxable.index)
-	#taxable.agg = (taxable.groupby('year')).aggregate(np.sum)		#This is the aggregated dataframe
-	#actually, the hazard here is that I am just repeating the data method, not testing whether it is correct
 	for date, tax in zip(check_dates, taxes):
 	    self.assertEqual(t.schedule.loc[date,'tax'],tax)
 
@@ -334,7 +332,7 @@ class TaxTests(unittest.TestCase):
 	kwargs['deductions'] = d
 	kwargs['credits'] = None
 	kwargs['rate'] = r
-	t = pf.Tax(**kwargs)
+	t = pf.FractionalTax(**kwargs)
 	t.build_tax_schedule()
 	
 	check_dates = [dt.datetime(2015,01,01), dt.datetime(2017,04,15), dt.datetime(2018,04,15), dt.datetime(2019,10,31), dt.datetime(2020,11,22), dt.datetime(2024,12,31)]

@@ -296,21 +296,24 @@ class TaxTests(unittest.TestCase):
 	d = df.DataFrame({'depreciation':a2,'interest':a3}, index = dates)
 	r = 0.35
 
+	kw2 = {'basis':b}
+	cr = pf.TaxCredit(name = 'ITC', refundable = False, kind = 'Fractional', rate = 0.15, **kw2)
+	c = [cr]
+
 	kwargs = {}
 	kwargs['name'] = 'fed1'
 	kwargs['basis'] = b
 	kwargs['deductions'] = d
-	kwargs['credits'] = None
+	kwargs['credits'] = c
 	kwargs['rate'] = r
 	t = pf.FractionalTax(**kwargs)
 	t.build_tax_schedule()
-	taxable = b['income'] - d['depreciation'] - d['interest']
-	#aggregate by year
+	
 	check_dates = [dt.datetime(2015,01,01), dt.datetime(2017,04,15), dt.datetime(2020,11,22), dt.datetime(2024,12,31)]
-	taxes = [17.15964749,18.6977876448,21.3296606862,24.7813443226]
+	taxes = [17.2,18.6977876448,21.3296606862,24.7813443226]
 
 	for date, tax in zip(check_dates, taxes):
-	    self.assertEqual(t.schedule.loc[date,'tax'],tax)
+	    self.assertAlmostEqual(t.schedule.loc[date,'tax'],tax,4)
 
 
     def testBuildtaxScheduleFractionalCarryforward(self):

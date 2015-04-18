@@ -2315,6 +2315,13 @@ class Tax(object):
 
         self._carryback_years = v
 
+    def aggregate(self, dataframe, freq = 'Y'):
+	"""Aggregate a dataframe by a frequency subset of its index.  Returns the aggregated dataframe.  Right now, frequency does nothing and is unadjustable--only annual"""
+	key = lambda x: x.year
+	dataframe['year'] = key(dataframe.index)
+	agg_dataframe = (dataframe.groupby('year')).aggregate(np.sum)		#This is the aggregated dataframe
+	return agg_dataframe
+
     def build_tax_schedule(self):
         """Creates the schedule of taxes"""
         pass
@@ -2362,10 +2369,11 @@ class GraduatedFractionalTax(Tax):
 
 	#group and aggregate by year -- this is the default behavior of 
      
-	key = lambda x: x.year
-	self.schedule['year'] = key(self.schedule.index)
-	self.schedule_agg = (self.schedule.groupby('year')).aggregate(np.sum)		#This is the aggregated dataframe
-	self.schedule_agg['tax'] = np.zeros(len(self.schedule_agg.index))
+	#key = lambda x: x.year
+	#self.schedule['year'] = key(self.schedule.index)
+	#self.schedule_agg = (self.schedule.groupby('year')).aggregate(np.sum)		#This is the aggregated dataframe
+	self.schedule_agg = self.aggregate(self.schedule)
+        self.schedule_agg['tax'] = np.zeros(len(self.schedule_agg.index))
 
 
 	#we actually need to do carryover up here
@@ -2409,6 +2417,17 @@ class GraduatedFractionalTax(Tax):
 	    self.schedule_agg['tax'][np.logical_and(self.schedule_agg['taxable_income']<sorted_brackets[n],found_bracket_mask['mask'])] += (self.schedule_agg['taxable_income']-sorted_brackets[n-1])*self.rate[sorted_brackets[n-1]]
             
 	    found_bracket_mask['mask'][self.schedule_agg['taxable_income']<sorted_brackets[n]] = False	#When you find the right tax bracket, stop adding to these columns
+	#THIS ASSUMES THAT CREDITS ARE IN THE PRIORITY ORDER!!!
+	
+	for credit in self.credits:
+	    credit.build_credit_schedule()
+	    agg_credit_schedule = self.aggregate(credit.schedule)
+	    print agg_credit_schedule
+	    if credit.refundable:
+		self.schedule_agg['tax'] -= agg_credit_schedule['credits']
+	    else:
+                self.schedule_agg['tax'][self.schedule_agg['tax']>agg_credit_schedule['credits']] -= agg_credit_schedule['credits']
+	        self.schedule_agg['tax'][np.logical_and(self.schedule_agg['tax']<=agg_credit_schedule['credits'], self.schedule_agg['tax']>0.0)] = 0.0
 
 
 	#now we need to build the schedule by apportioning the tax according to the income
@@ -2418,15 +2437,9 @@ class GraduatedFractionalTax(Tax):
 		self.schedule['tax'][self.schedule.index.year == year] = 0.0
 	    else:
 	        self.schedule['tax'][self.schedule.index.year == year] = self.schedule_agg.loc[year, 'tax'] * self.schedule['taxable_income']/self.schedule_agg.loc[year,'taxable_income']
-	#This assumes that the credits ARE IN THE APPROPRIATE PRIORITY ORDER!!!
+	
 
-	for credit in self.credits:
-            credit.build_credit_schedule()
-	    self.schedule['tax'] -= credit.schedule['credits']
-	    if not credit.refundable:
-		self.schedule[self.schedule['tax']<0.0]['tax'] = 0.0
-
-
+	
 class FractionalTax(GraduatedFractionalTax):
     """Proportional tax at a fixed rate"""
 
@@ -2542,7 +2555,7 @@ class TaxCredit(object):
     def build_credit_schedule(self):
         self.credit.build_tax_schedule()
 
-	self.schedule = df.DataFrame({'credit':self.credit.schedule['tax']})
+	self.schedule = df.DataFrame({'credits':self.credit.schedule['tax']})
 
 
 class PF_FileLoader:

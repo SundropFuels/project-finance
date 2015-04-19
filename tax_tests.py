@@ -370,22 +370,13 @@ class TaxTests(unittest.TestCase):
 	self.assertRaises(pf.TaxUnderdefinedError, t.build_tax_schedule)
 	kwargs['basis'] = b
 	
-	kwargs['deductions'] = None
-	t = pf.Tax(**kwargs)
-	self.assertRaises(pf.TaxUnderdefinedError, t.build_tax_schedule)
-	kwargs['deductions'] = d
-
-	kwargs['credits'] = c
-	t = pf.Tax(**kwargs)
-	self.assertRaises(pf.TaxUnderdefinedError, t.build_tax_schedule)
-	kwargs['credits'] = c
-
+	
 	kwargs['rate'] = None
 	t = pf.FractionalTax(**kwargs)
 	self.assertRaises(pf.TaxUnderdefinedError, t.build_tax_schedule)
 	t = pf.GraduatedFractionalTax(**kwargs)
 	self.assertRaises(pf.TaxUnderdefinedError, t.build_tax_schedule)
-	kwargs.remove('rate')
+
 
 	kwargs['rate'] = None
 	t = pf.FixedTax(**kwargs)

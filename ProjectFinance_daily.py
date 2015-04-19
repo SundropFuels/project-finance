@@ -2324,7 +2324,8 @@ class Tax(object):
 
     def build_tax_schedule(self):
         """Creates the schedule of taxes"""
-        pass
+	if len(self.basis.index) == 0:
+	    raise TaxUnderdefinedError, "The basis must be set for a tax to be calculated"
 
 
 class GraduatedFractionalTax(Tax):
@@ -2358,7 +2359,9 @@ class GraduatedFractionalTax(Tax):
     def build_tax_schedule(self):
 	#The graduated schedule should be anchored with zero: {0:rate0, bracket1:rate1, ...}
 	#we will tack on np.inf to the end to make sure that we don't overrun
-
+	super(GraduatedFractionalTax,self).build_tax_schedule()
+	if not self.rate:
+	    raise TaxUnderdefinedError, "The rate is not fully prescribed"
 
         self.schedule = self.basis.join(self.deductions, how = "outer").fillna(0.0)
 	self.schedule['taxable_income'] = np.zeros(len(self.schedule.index))
@@ -2459,20 +2462,25 @@ class FractionalTax(GraduatedFractionalTax):
 
     @rate.setter
     def rate(self, v):
-        try:
-            v/100.0
-            if v < 0.0:
-                raise BadTaxInputError, "The rate must be non-negative"
-        except TypeError:
-		raise BadTaxInputError, "The rate must be numeric, got %s" % type(v)
-	#using a special case of the GraduatedFractionalTax
-        self._rate = {0.0:v}	
+	if v is None:
+	    self._rate = {}
+	else:
+            try:
+                v/100.0
+                if v < 0.0:
+                    raise BadTaxInputError, "The rate must be non-negative"
+            except TypeError:
+		    raise BadTaxInputError, "The rate must be numeric, got %s" % type(v)
+	    #using a special case of the GraduatedFractionalTax
+            self._rate = {0.0:v}	
 
 class GraduatedFixedTax(GraduatedFractionalTax):
     """Fixed tax payments throughout a year, with no proportion based on when the income was incurred"""
 
     def build_tax_schedule(self):
-
+        super(GraduatedFixedTax,self).build_tax_schedule()
+	if not self.rate:
+	    raise TaxUnderdefinedError, "The rate dictionary is empty, need it to calculate the tax."
 	self.schedule = self.basis.join(self.deductions, how = "outer").fillna(0.0)
 	self.schedule['taxable_income'] = np.zeros(len(self.schedule.index))
 	for col in self.basis:
@@ -2559,14 +2567,17 @@ class FixedTax(GraduatedFixedTax):
 
     @rate.setter
     def rate(self,v):
-        try:
-            v/100.0
-            if v < 0.0:
-                raise BadTaxInputError, "The fixed tax rate must be non-negative (otherwise, use a credit)"
-        except TypeError:
-            raise BadTaxInputError, "The fixed tax must be numeric, got %s" % type(v)
+	if v is None:
+	    self._rate = {}
+	else:        
+	    try:
+                v/100.0
+                if v < 0.0:
+                    raise BadTaxInputError, "The fixed tax rate must be non-negative (otherwise, use a credit)"
+            except TypeError:
+                raise BadTaxInputError, "The fixed tax must be numeric, got %s" % type(v)
         
-        self._rate = {0.0:v}
+            self._rate = {0.0:v}
 
 
 class TaxCredit(object):

@@ -348,7 +348,7 @@ class TaxTests(unittest.TestCase):
 	"""A call to build_tax_schedule() should raise appropriate errors on underdefined input"""
 	dates = pd.date_range(dt.datetime(2015,01,01), dt.datetime(2025,01,01), freq = 'D')
 	a = range(0,len(dates))
-	a1 = np.array([100*1.01**i for i in a])
+	a1 = np.array([100*1.0001**i for i in a])
 	b = df.DataFrame({'income':a1}, index = dates)
 	a2 = a1*.05
 	a3 = a1*.03
@@ -400,7 +400,7 @@ class TaxTests(unittest.TestCase):
 	dates = pd.date_range(dt.datetime(2015,01,01), dt.datetime(2025,01,01), freq = 'D')
 
 	a = range(0,len(dates))
-	a1 = np.array([100*1.01**i for i in a])
+	a1 = np.array([100*1.0001**i for i in a])
 	b = df.DataFrame({'income':a1}, index = dates)
 	a2 = a1*.05
 	a3 = a1*.03
@@ -422,14 +422,14 @@ class TaxTests(unittest.TestCase):
 
     def testBuildTaxScheduleGraduatedFractional(self):
 	"""GraduatedFractionalTax should correctly build its schedule"""
-	dates = pd.date_range(dt.datetime(2015,01,01), dt.datetime(2025,01,01), freq = 'D')	
+	dates = pd.date_range(dt.datetime(2015,01,01), dt.datetime(2025,01,01), freq = 'D')
 	a = range(0,len(dates))
-	a1 = np.array([100*1.01**i for i in a])
+	a1 = np.array([100*1.0001**i for i in a])
 	b = df.DataFrame({'income':a1}, index = dates)
 	a2 = a1*.05
 	a3 = a1*.03
 	d = df.DataFrame({'depreciation':a2,'interest':a3}, index = dates)
-	r = {0:0.10, 25000.0:0.20, 35000.0:0.3}
+	r = {0:0.10, 25000.0:0.25, 35000.0:0.35}
 
 
 	kwargs = {}
@@ -441,18 +441,19 @@ class TaxTests(unittest.TestCase):
 	t = pf.GraduatedFractionalTax(**kwargs)
 	t.build_tax_schedule()
 
+
 	check_dates = [dt.datetime(2015,01,01), dt.datetime(2017,04,15), dt.datetime(2020,11,22), dt.datetime(2024,12,31)]
-	taxes = [12.911873,15.296399,19.781131,26.162247]
+	taxes = [12.911873,15.296399,19.837197,26.220554]
 
 
 	for date, tax in zip(check_dates, taxes):
-	    self.assertEqual(t.schedule.loc[date,'tax'],tax)
+	    self.assertAlmostEqual(t.schedule.loc[date,'tax'],tax,3)
 
     def testBuildTaxScheduleGraduatedFixed(self):
 	"""GraduatedFixedTax should correctly build its schedule"""
 	dates = pd.date_range(dt.datetime(2015,01,01), dt.datetime(2025,01,01), freq = 'D')
 	a = range(0,len(dates))
-	a1 = np.array([100*1.01**i for i in a])
+	a1 = np.array([100*1.0001**i for i in a])
 	b = df.DataFrame({'income':a1}, index = dates)
 	b['income'][np.logical_and(b.index < dt.datetime(2017,01,01), b.index > dt.datetime(2016,01,01))] = 15000.0
 	b['income'][b.index > dt.datetime(2024,01,01)] = 0.0

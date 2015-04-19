@@ -2423,6 +2423,7 @@ class GraduatedFractionalTax(Tax):
 	    self.schedule_agg['tax'][np.logical_and(self.schedule_agg['taxable_income']<sorted_brackets[n],found_bracket_mask['mask'])] += (self.schedule_agg['taxable_income']-sorted_brackets[n-1])*self.rate[sorted_brackets[n-1]]
             
 	    found_bracket_mask['mask'][self.schedule_agg['taxable_income']<sorted_brackets[n]] = False	#When you find the right tax bracket, stop adding to these columns
+
 	#THIS ASSUMES THAT CREDITS ARE IN THE PRIORITY ORDER!!!
 
 	for credit in self.credits:

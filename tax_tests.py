@@ -413,7 +413,7 @@ class TaxTests(unittest.TestCase):
 	kwargs['credits'] = None
 	t = pf.FixedTax(rate = 10000.0, **kwargs)
 	t.build_tax_schedule()
-
+	
 	check_dates = [dt.datetime(2015,01,01), dt.datetime(2017,04,15), dt.datetime(2018,04,15), dt.datetime(2019,10,31), dt.datetime(2020,11,22), dt.datetime(2024,12,31)]
 	taxes = [10000.0/365.0, 10000.0/365.0, 10000.0/365.0, 10000.0/365.0, 10000.0/366.0, 10000.0/366.0]
 

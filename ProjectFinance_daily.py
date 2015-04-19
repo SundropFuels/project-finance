@@ -2482,7 +2482,47 @@ class GraduatedFixedTax(GraduatedFractionalTax):
 
 	#group and aggregate by year -- this is the default behavior of 
         self.schedule_agg = self.aggregate(self.schedule)
-	
+	#we actually need to do carryover up here
+	#walk through the taxable income sheet and apply carryover/carryback as appropriate
+	carryover = deque(maxlen = self.carryover_years)
+	for i in self.schedule_agg.index:
+	   
+	    if self.schedule_agg.loc[i,'taxable_income'] < 0.0:
+		amt = -1 * self.schedule_agg.loc[i, 'taxable_income']
+	        #carryback first
+		for j in range(0,self.carryback_years):
+		    try:
+			inc = self.schedule_agg.loc[i - (self.carryback_years -j),'taxable_income']
+		        if inc > 0.0:
+			    if amt <= inc:
+                                self.schedule_agg.loc[i- (self.carryback_years -j),'taxable_income'] -= amt
+				amt = 0.0
+			    else:
+				amt -= inc
+				self.schedule_agg.loc[i - (self.carryback_years -j), 'taxable_income'] = 0.0
+		    except KeyError:
+                        pass #This is here for the case where there are fewer years to look at in the project than allowed in carryback
+
+		#carryforward now
+		carryover.append(amt)		#this works, because deque just discards objects to the left when it is full
+		#set the taxable income in this year to zero, now that we are done with it, so that we don't have negative taxes
+		self.schedule_agg.loc[i, 'taxable_income'] = 0.0
+
+
+            else:
+		while carryover and self.schedule_agg.loc[i,'taxable_income'] > 0.0:
+		    amt = carryover.popleft()
+		    if amt <= self.schedule_agg.loc[i,'taxable_income']:
+			self.schedule_agg.loc[i,'taxable_income'] -= amt
+		    else:
+		        amt -= self.schedule_agg.loc[i,'taxable_income']
+			self.schedule_agg.loc[i,'taxable_income'] = 0.0
+			carryover.appendleft(amt)			#stick the remainder back in the deque
+		if carryover:
+		    carryover.append(0.0)				#this was a profitable year, so need to move the deque along a yea	
+
+
+
 	self.schedule_agg['tax'] = np.zeros(len(self.schedule_agg.index))
 	sorted_brackets = sorted(self.rate)
 	sorted_brackets.append(np.inf)
@@ -2503,12 +2543,12 @@ class GraduatedFixedTax(GraduatedFractionalTax):
 
 	self.schedule['tax'] = np.zeros(len(self.schedule.index))
 	for year in self.schedule_agg.index:
-	    if self.schedule_agg.loc[year, 'tax'] == 0:
-		self.schedule['tax'][self.schedule.index.year == year] = 0.0
+	    if year % 4 == 0:			#leap year
+		self.schedule['tax'][self.schedule.index.year == year] = self.schedule_agg.loc[year,'tax']/366.0
 	    else:
-	        self.schedule['tax'][self.schedule.index.year == year] = self.schedule_agg.loc[year, 'tax'] * self.schedule['taxable_income']/self.schedule_agg.loc[year,'taxable_income']
-	#This assumes that the credits ARE IN THE APPROPRIATE PRIORITY ORDER!!!
+		self.schedule['tax'][self.schedule.index.year == year] = self.schedule_agg.loc[year,'tax']/365.0
 
+    
 
 class FixedTax(GraduatedFixedTax):
     """Fixed tax with a single flat amount"""

@@ -455,11 +455,13 @@ class TaxTests(unittest.TestCase):
 	a = range(0,len(dates))
 	a1 = np.array([100*1.0001**i for i in a])
 	b = df.DataFrame({'income':a1}, index = dates)
-	b['income'][np.logical_and(b.index < dt.datetime(2017,01,01), b.index > dt.datetime(2016,01,01))] = 15000.0
+	b['income'][np.logical_and(b.index < dt.datetime(2017,01,01), b.index >= dt.datetime(2016,01,01))] = 25000.0/366.0
 	b['income'][b.index > dt.datetime(2024,01,01)] = 0.0
 	a2 = a1*.05
 	a3 = a1*.03
 	d = df.DataFrame({'depreciation':a2,'interest':a3}, index = dates)
+	d['depreciation'][np.logical_and(b.index < dt.datetime(2017,01,01), b.index >= dt.datetime(2016,01,01))] = 0.0
+	d['interest'][np.logical_and(b.index < dt.datetime(2017,01,01), b.index >= dt.datetime(2016,01,01))] = 0.0
 	r = {0:10.0, 25000.0:100.0, 35000.0:200.0}
 
 
@@ -472,8 +474,9 @@ class TaxTests(unittest.TestCase):
 	t = pf.GraduatedFixedTax(**kwargs)
 	t.build_tax_schedule()
 
+
 	check_dates = [dt.datetime(2015,01,01), dt.datetime(2016,05,05), dt.datetime(2017,06,30), dt.datetime(2024,04,05)]
-	taxes = [200.0/365.0, 100.0/366.0, 200.0/365.0, 10.0/366.0]
+	taxes = [100.0/365.0, 100.0/366.0, 200.0/365.0, 10.0/366.0]
 
 	for date, tax in zip(check_dates, taxes):
 	    self.assertAlmostEqual(t.schedule.loc[date,'tax'], tax, 3)

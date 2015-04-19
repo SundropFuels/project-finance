@@ -14,7 +14,7 @@ import pandas.tseries.offsets as offs
 from pandas.tseries.offsets import DateOffset
 from pf_errors import *
 import dataFrame_pd as df
-from Queue import *
+from collections import deque
 
 
 class ProjAnalyzer:
@@ -2368,17 +2368,14 @@ class GraduatedFractionalTax(Tax):
 	    self.schedule['taxable_income'] -= self.schedule[col]
 
 	#group and aggregate by year -- this is the default behavior of 
-     
-	#key = lambda x: x.year
-	#self.schedule['year'] = key(self.schedule.index)
-	#self.schedule_agg = (self.schedule.groupby('year')).aggregate(np.sum)		#This is the aggregated dataframe
+     	
 	self.schedule_agg = self.aggregate(self.schedule)
         self.schedule_agg['tax'] = np.zeros(len(self.schedule_agg.index))
 
 
 	#we actually need to do carryover up here
 	#walk through the taxable income sheet and apply carryover/carryback as appropriate
-	carryover = Queue(maxsize = self.carryover_years)
+	carryover = deque(maxlen = self.carryover_years)
 	for i in self.schedule_agg.index:
 	   
 	    if self.schedule_agg.loc[i,'taxable_income'] < 0.0:
@@ -2398,31 +2395,39 @@ class GraduatedFractionalTax(Tax):
                         pass #This is here for the case where there are fewer years to look at in the project than allowed in carryback
 
 		#carryforward now
-		if not carryover.full():
-		    carryover.put(amt)
-		else:
-		    carryover.get()
-		    carryover.put(amt)
+		carryover.append(amt)		#this works, because deque just discards objects to the left when it is full
+		#set the taxable income in this year to zero, now that we are done with it, so that we don't have negative taxes
+		self.schedule_agg.loc[i, 'taxable_income'] = 0.0
+
+
             else:
-		if not carryover.empty():
-		    self.schedule_agg.loc[i,'taxable_income'] -= carryover.get()
+		while carryover and self.schedule_agg.loc[i,'taxable_income'] > 0.0:
+		    amt = carryover.popleft()
+		    if amt <= self.schedule_agg.loc[i,'taxable_income']:
+			self.schedule_agg.loc[i,'taxable_income'] -= amt
+		    else:
+		        amt -= self.schedule_agg.loc[i,'taxable_income']
+			self.schedule_agg.loc[i,'taxable_income'] = 0.0
+			carryover.appendleft(amt)			#stick the remainder back in the deque
+		if carryover:
+		    carryover.append(0.0)				#this was a profitable year, so need to move the deque along a year -- enough profitable years will push the carryover over the end
 	
 	sorted_brackets = sorted(self.rate)
 	sorted_brackets.append(np.inf)
 
 	found_bracket_mask = df.DataFrame({'mask':np.array([True]*len(self.schedule_agg.index))}, index = self.schedule_agg.index)
 	#comparisons must be made on slices, of course
+
 	for n in range(1,len(sorted_brackets)):
 	    self.schedule_agg['tax'][self.schedule_agg['taxable_income']>=sorted_brackets[n]] += (sorted_brackets[n]-sorted_brackets[n-1])*self.rate[sorted_brackets[n-1]]
 	    self.schedule_agg['tax'][np.logical_and(self.schedule_agg['taxable_income']<sorted_brackets[n],found_bracket_mask['mask'])] += (self.schedule_agg['taxable_income']-sorted_brackets[n-1])*self.rate[sorted_brackets[n-1]]
             
 	    found_bracket_mask['mask'][self.schedule_agg['taxable_income']<sorted_brackets[n]] = False	#When you find the right tax bracket, stop adding to these columns
 	#THIS ASSUMES THAT CREDITS ARE IN THE PRIORITY ORDER!!!
-	
+
 	for credit in self.credits:
 	    credit.build_credit_schedule()
 	    agg_credit_schedule = self.aggregate(credit.schedule)
-	    print agg_credit_schedule
 	    if credit.refundable:
 		self.schedule_agg['tax'] -= agg_credit_schedule['credits']
 	    else:
@@ -2436,7 +2441,7 @@ class GraduatedFractionalTax(Tax):
 	    if self.schedule_agg.loc[year, 'tax'] == 0:
 		self.schedule['tax'][self.schedule.index.year == year] = 0.0
 	    else:
-	        self.schedule['tax'][self.schedule.index.year == year] = self.schedule_agg.loc[year, 'tax'] * self.schedule['taxable_income']/self.schedule_agg.loc[year,'taxable_income']
+	        self.schedule['tax'][self.schedule.index.year == year] = self.schedule_agg.loc[year, 'tax'] * self.schedule['income']/self.schedule_agg.loc[year,'income']
 	
 
 	
@@ -2475,10 +2480,8 @@ class GraduatedFixedTax(GraduatedFractionalTax):
 	    self.schedule['taxable_income'] -= self.schedule[col]
 
 	#group and aggregate by year -- this is the default behavior of 
-     
-	key = lambda x: x.year
-	self.schedule['year'] = key(self.schedule.index)
-	self.schedule_agg = (self.schedule.groupby('year')).aggregate(np.sum)		#This is the aggregated dataframe
+        self.schedule_agg = self.aggregate(self.schedule)
+	
 	self.schedule_agg['tax'] = np.zeros(len(self.schedule_agg.index))
 	sorted_brackets = sorted(self.rate)
 	sorted_brackets.append(np.inf)
@@ -2487,6 +2490,16 @@ class GraduatedFixedTax(GraduatedFractionalTax):
 	    self.schedule_agg['tax'][np.logical_and(self.schedule_agg['taxable_income']>=sorted_brackets[n],self.schedule_agg['taxable_income']<sorted_brackets[n+1])] = self.rate[sorted_brackets[n]]
             n += 1
 	#now we need to build the schedule by apportioning the tax according to the income
+	
+	for credit in self.credits:
+	    credit.build_credit_schedule()
+	    agg_credit_schedule = self.aggregate(credit.schedule)
+	    if credit.refundable:
+		self.schedule_agg['tax'] -= agg_credit_schedule['credits']
+	    else:
+                self.schedule_agg['tax'][self.schedule_agg['tax']>agg_credit_schedule['credits']] -= agg_credit_schedule['credits']
+	        self.schedule_agg['tax'][np.logical_and(self.schedule_agg['tax']<=agg_credit_schedule['credits'], self.schedule_agg['tax']>0.0)] = 0.0
+
 	self.schedule['tax'] = np.zeros(len(self.schedule.index))
 	for year in self.schedule_agg.index:
 	    if self.schedule_agg.loc[year, 'tax'] == 0:
@@ -2495,12 +2508,6 @@ class GraduatedFixedTax(GraduatedFractionalTax):
 	        self.schedule['tax'][self.schedule.index.year == year] = self.schedule_agg.loc[year, 'tax'] * self.schedule['taxable_income']/self.schedule_agg.loc[year,'taxable_income']
 	#This assumes that the credits ARE IN THE APPROPRIATE PRIORITY ORDER!!!
 
-
-        for credit in self.credits:
-            credit.build_credit_schedule()
-	    self.schedule['tax'] -= credit.schedule['credits']
-	    if not credit.refundable:
-		self.schedule[self.schedule['tax']<0.0]['tax'] = 0.0
 
 class FixedTax(GraduatedFixedTax):
     """Fixed tax with a single flat amount"""

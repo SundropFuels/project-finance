@@ -322,8 +322,8 @@ class TaxTests(unittest.TestCase):
 	a = range(0,len(dates))
 	a1 = np.array([100*1.0001**i for i in a])
 	b = df.DataFrame({'income':a1}, index = dates)
-	b['income'][np.logical_and(b.index > dt.datetime(2016,01,01), b.index < dt.datetime(2017,01,01))] = b['income'] - 250.0
-	b['income'][np.logical_and(b.index > dt.datetime(2017,01,01), b.index < dt.datetime(2018,01,01))] = b['income'] - 140.0
+	b['income'][np.logical_and(b.index >= dt.datetime(2016,01,01), b.index < dt.datetime(2017,01,01))] = b['income'] - 250.0
+	b['income'][np.logical_and(b.index >= dt.datetime(2017,01,01), b.index < dt.datetime(2018,01,01))] = b['income'] - 140.0
 	a2 = a1*.05
 	a3 = a1*.03
 	d = df.DataFrame({'depreciation':a2,'interest':a3}, index = dates)
@@ -339,15 +339,10 @@ class TaxTests(unittest.TestCase):
 	t.build_tax_schedule()
 	
 	check_dates = [dt.datetime(2015,01,01), dt.datetime(2017,04,15), dt.datetime(2018,04,15), dt.datetime(2019,10,31), dt.datetime(2020,11,22), dt.datetime(2024,12,31)]
-	taxes = [32.20, 0.00, 0.00, 24.56258,39.93110896,46.39298181]
+	taxes = [0.00, 0.00, 2.01619, 38.41152839,39.93110896,46.39298181]
 
-
-	#key = lambda x: x.year
-	#taxable['year'] = key(taxable.index)
-	#taxable.agg = (taxable.groupby('year')).aggregate(np.sum)		#This is the aggregated dataframe
-	#actually, the hazard here is that I am just repeating the data method, not testing whether it is correct
 	for date, tax in zip(check_dates, taxes):
-	    self.assertEqual(t.schedule.loc[date,'tax'],tax)
+	    self.assertAlmostEqual(t.schedule.loc[date,'tax'],tax,3)
 
     def testBuildTaxScheduleUnderdefined(self):
 	"""A call to build_tax_schedule() should raise appropriate errors on underdefined input"""
@@ -423,7 +418,7 @@ class TaxTests(unittest.TestCase):
 	taxes = [10000.0/365.0, 10000.0/365.0, 10000.0/365.0, 10000.0/365.0, 10000.0/366.0, 10000.0/366.0]
 
 	for date,tax in zip(check_dates,taxes):
-	    self.assertEqual(t.schedule.loc[date,'tax'], tax)
+	    self.assertAlmostEqual(t.schedule.loc[date,'tax'], tax, 3)
 
     def testBuildTaxScheduleGraduatedFractional(self):
 	"""GraduatedFractionalTax should correctly build its schedule"""
@@ -480,7 +475,7 @@ class TaxTests(unittest.TestCase):
 	taxes = [200.0/365.0, 100.0/366.0, 200.0/365.0, 10.0/366.0]
 
 	for date, tax in zip(check_dates, taxes):
-	    self.assertEqual(t.schedule.loc[date,'tax'], tax)
+	    self.assertAlmostEqual(t.schedule.loc[date,'tax'], tax, 3)
 
 
 class TaxCreditTests(unittest.TestCase):

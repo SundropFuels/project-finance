@@ -544,13 +544,7 @@ class TaxCreditTests(unittest.TestCase):
 
 
 class TaxManagerTests(unittest.TestCase):
-    def testCreateTaxManager(self):
-	"""TaxManager objects should be correctly initialized"""
-	manager = pf.TaxManager()
-
-
-        self.assertTrue(False)
-
+   
     def testAddRevenueStream(self):
 	"""TaxManager should correctly add a revenue stream"""
 	manager = pf.TaxManager()
@@ -566,7 +560,7 @@ class TaxManagerTests(unittest.TestCase):
 	self.assertTrue((b['income'] == manager.revenue['b_income']).all())
 	manager.add_revenue(b, name = 'c')
 	self.assertTrue((b['income'] == manager.revenue['c_income']).all())
-	self.assertTrue((b['foreign_income'] == manager.revenue['c_foreign_income'].all())
+	self.assertTrue((b['foreign_income'] == manager.revenue['c_foreign_income']).all())
 
     def testAddDeductionStream(self):
 	"""TaxManager should correctly add a depreciation stream"""

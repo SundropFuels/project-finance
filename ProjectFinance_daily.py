@@ -2616,6 +2616,249 @@ class TaxCredit(object):
 
 	self.schedule = df.DataFrame({'credits':self.credit.schedule['tax']})
 
+class TaxManager(object):
+    """General aggregator for taxes"""
+
+    def __init__(self, revenue = None, deductions = None, credits = None, taxes = None):
+	#Main containers
+	self.revenue = df.DataFrame()
+	self.deductions = df.DataFrame()        
+	self.taxes = {}
+	self.credits = {}
+
+	#correspondence dictionaries
+	self.revenue_dict = {}
+	self.deductions_dict = {}
+	self.credits_dict = {}
+	self.deductible_taxes = {}
+
+	self.add_revenue(revenue)
+	self.add_deductions(deductions)
+	self.add_credits(credits)
+	self.add_taxes(taxes)
+	
+    def add_revenue(self, revenue, name = "", columns = None):
+        """Adds revenue streams from a dataframe"""
+
+	if revenue is None:
+	    pass
+
+        elif not isinstance(revenue, df.DataFrame):
+            raise TaxManagerError, "revenue must be an instance of DataFrame, got %s" % type(revenue)
+
+        else:
+	    rn_revenue = revenue.rename(columns = lambda x: "%s_%s" (name,x))
+
+            if columns is None:
+                columns = rn_revenue.columns
+	    elif isinstance(columns, basestring):
+		columns = [columns]
+	    elif not isinstance(columns, list):
+		raise TaxManagerError, "columns must be a string or a list, got %s" % type(columns)
+            for col in columns:
+                if not col in rn_revenue.columns:
+		    raise TaxManagerError, "%s is not a column in the given revenue dataframe" % col
+	        if col in self.revenue.columns:
+		    raise TaxManagerError, "%s already exists in the revenue dataframe" % col
+	    self.revenue = self.revenue.join(rn_revenue[columns],how='outer').fillna(0.0)
+
+    def add_deductions(self, deductions, name = "", columns = None):
+        """Adds deduction streams from a dataframe"""
+	if deductions is None:
+	    pass
+
+        elif not isinstance(deductions, df.DataFrame):
+	    raise TaxManagerError, "deductions must be an instance of DataFrame, got %s" % type(deductions)
+
+	else:
+	    rn_deductions = deductions.rename(columns = lambda x: "%s_%s" (name,x))
+	    
+	    if columns is None:
+		columns = rn_deductions.columns
+
+	    elif isinstance(columns, basestring):
+		columns = [columns]
+	    elif not isinstance(columns, list):
+		raise TaxManagerError, "columns must be a string or a list, got %s" % type(columns)
+
+
+	    for col in columns:
+		if not col in rn_deductions.columns:
+		    raise TaxManagerError, "%s is not a column in the given deduction dataframe" % col
+		if col in self.deductions.columns:
+		    raise TaxManagerError, "%s already exists in the deductions dataframe" % col
+		self.deductions = self.deductions.join(rn_deductions[columns], how='outer').fillna(0.0)
+
+    
+    def add_taxes(self, taxes=None, revenue_associations=None, deduction_associations=None, credit_associations = None):
+	"""Adds a set of taxes to the TaxManager"""
+	if taxes is None:
+	    pass
+
+	elif isinstance(taxes, Tax):
+	    taxes = [taxes]
+	elif not isinstance(taxes, list):
+	    raise TaxManagerError, "taxes must be either a Tax object or a list of tax objects, got %s" % type(col)
+	for tax in taxes:
+	    if not isinstance(tax, Tax):
+		raise TaxManagerError, "taxes must only contain Tax objects, got %s" % type(col)
+
+
+	for tax in taxes:
+	    if tax.name in self.taxes or tax.name in self.credits:
+		raise TaxManagerError, "This tax (%s) has a name conflict" % tax.name
+	    self.taxes[tax.name] = tax
+
+	    if tax.basis is not None:
+		self.add_revenue(tax.basis)
+		assc_cols = ["%s_%s" % (tax.name, col) for col in tax.basis.columns] 
+		self.associate_revenue(tax.name, assc_cols)
+            if tax.deductions is not None:
+		self.add_deductions(tax.deductions)
+		assc_cols = ["%s_%s" % (tax.name, col) for col in tax.basis.columns]
+		self.associate_deductions(tax.name, assc_cols)
+
+	    if tax.credits is not None:
+		self.add_credits(tax.credits)
+		assc_credits = [c.name for c in tax.credits]
+		self.associate_credits(tax.name, assc_credits)
+
+	    self.associate_revenue(tax.name, revenue_associations)
+	    self.associate_deductions(tax.name, deductions_associations)
+	    self.associate_credits(tax.name, credit_associations)
+
+    def add_credits(self, credits = None, revenue_associations = None):
+	if credits is None:
+	    pass
+
+        elif isinstance(credits, TaxCredit):
+	    credits = [credits]
+	elif not isinstance(credits, list):
+	    raise TaxManagerError, "credits must be either a TaxCredit object for a list of TaxCredit objects"
+	for credit in credits:
+	    if not isinstance(credit, TaxCredit):
+		raise TaxManagerError, "not a TaxCredit object, got %s" % type(credit)
+        for credit in credits:
+	    if credit.name in self.credits or credit.name in self.taxes:
+	        raise TaxManagerError, "This credit (%s) has a name conflict" % credit.name
+	    self.credits[credit.name] = credit
+
+            if credit.basis is not None:
+	        self.add_revenue(credit.basis)
+	        assc_cols = ["%s_%s" % (credit.name, col) for col in credit.basis.columns]
+	        self.associate_revenue(credit.name, assc_cols)
+	    self.associate_revenue(credit.name, revenue_associations)
+
+
+    def associate_revenue(self, name, revenue_associations):
+	self._associate('revenue_dict', name, revenue_associations, ['taxes','credits'], 'revenue')
+
+    def associate_deductions(self, name, deduction_associations):
+	self._associate('deductions_dict', name, deduction_associations, ['taxes'],'deductions')
+
+    def associate_credits(self, name, credit_associations):
+	self._associate('credits_dict', name, credit_associations, ['taxes'],'credits')
+
+    def associate_deductible_taxes(self, name, tax_associations):
+	self._associate('deductible_taxes', name, tax_associations, ['taxes'], 'taxes')
+
+    def _associate(self, index, name, assc, containers, df):
+	m = False
+	for c in containers:
+	    if name not in getattr(self,c):
+		m = True
+	if m:
+	    raise TaxManagerError, "%s does not exist in either the tax or credit dictionaries" % name 
+	
+	if not name in getattr(self, index):
+	        getattr(self,index)[name] = []
+
+	if isinstance(assc, basestring):
+	        
+	    assc = [assc]	    
+	
+	elif isinstance(assc, dict):
+	    if not name in assc:
+		raise TaxManagerError, "%s does not exist in the association dictionary" % name
+	    elif not isinstance(assc[name], list):
+	        raise TaxManagerError, "If assc is a dictionary, the values must be lists of associations"
+	    assc = assc[name]
+
+	elif not isinstance(assc, list):
+	    raise TaxManagerError, "assc must be either a string, a dictionary, or a list"
+
+	d = getattr(self, df)
+
+        for n in assc:
+            if isinstance(d, pd.DataFrame):
+	        if n not in d.columns:
+		    raise TaxManagerError, "%s does not exist in the relevant dataframe" % n
+	    elif isinstance(d, dict):
+		if n not in d:
+		    raise TaxManagerError, "%s does not exist in the relevant dataframe" % n
+	d[name].extend(assc)
+
+
+    def create_tax(self, kind, revenue = None, deductions = None, credits = None, **kwargs):
+	try:
+	    new_tax = globals()['%sTax' % kind](**kwargs)
+	except KeyError:
+	    raise TaxManagerError, "%s is not a valid type of Tax" % kind
+
+	self.add_tax(new_tax, revenue_asociations = revenue, deduction_associations = deductions, credit_associations = credits)
+	
+
+    def create_tax_credit(self, kind, revenue = None, **kwargs):
+	try:
+	    new_credit = globals()['%sTaxCredit' % kind](**kwargs)
+	except KeyError:
+	    raise TaxManagerError, "%s is not a valid type of TaxCredit" % kind
+        self.add_tax_credit(new_credit, revenue_associations = revenue)
+
+    def build_tax_schedule(self):
+	"""Builds the aggregated tax schedule"""
+	#Create the overall schedule
+	#For each of the taxes, reset the basis, deductions, and credits
+	#loop on a convergence criterion
+	master = self.revenue.join(self.deductions, how = 'outer').fillna(0.0)
+
+	self.schedule = df.DataFrame(index = master.index)
+	self.schedule['tax'] = np.zeros(len(self.schedule.index))
+
+	#set the bases, deductions, and credits for each of the taxes
+	last = df.DataFrame(index = self.schedule.index)	
+	for tax in self.taxes:
+	    try:
+	        tax.basis = master[self.revenue_dict[tax.name]]
+	        tax.deductions = master[self.deductions_dict[tax.name]]
+	    except KeyError:
+                raise TaxManagerError, "%s is underdefined.  Need to link a basis and a deduction" % tax.name
+	    tax.credits = None
+	    if tax.name in self.credits_dict:
+	        for credit in self.credits_dict[tax.name]:
+		    tax.credits.append(self.credits(credit))
+	    if tax.name in self.deductible_taxes:
+		for d_tax in self.deductible_taxes[tax.name]:
+		    tax.deductions[d_tax] = np.zeros(len(tax.deductions.index))
+	    last[tax.name] = np.zeros(len(self.schedule.index))
+	converged = False
+	while not converged:
+	    for tax in self.taxes:
+		tax.build_tax_schedule()
+	        #determine convergence
+	        self.schedule['%s_tax'%tax.name] = tax.schedule['tax']
+	        self.schedule.fillna(0.0)
+		converged = ((self.schedule['%s_tax']%tax.name - last[tax.name])<0.01).all()	#using absolute convergence here
+	    for tax in self.taxes:
+		if tax.name in self.deductible_taxes:
+		   for d_tax in self.deductible_taxes[tax.name]:
+			tax.deductions[d_tax] = self.taxes[d_tax].schedule['tax']
+		   tax.deductions.fillna(0.0) 	#deal with mismatches
+
+	self.schedule['tax'] = np.zeros(len(self.schedule.index))
+	for tax in self.taxes:
+	    self.schedule['tax'] += self.schedule['%s_tax' % tax.name]
+
 
 class PF_FileLoader:
     """Reads the XML save file for a given project"""

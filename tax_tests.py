@@ -546,25 +546,278 @@ class TaxCreditTests(unittest.TestCase):
 class TaxManagerTests(unittest.TestCase):
     def testCreateTaxManager(self):
 	"""TaxManager objects should be correctly initialized"""
+	manager = pf.TaxManager()
+
+
         self.assertTrue(False)
 
     def testAddRevenueStream(self):
-	"""TaxManager should correctly add a revenue stream and associate a tax with it"""
-	self.assertTrue(False)
+	"""TaxManager should correctly add a revenue stream"""
+	manager = pf.TaxManager()
+	
+	dates = pd.date_range(dt.datetime(2015,01,01), dt.datetime(2025,01,01), freq = 'D')
+
+	a = range(0,len(dates))
+	a1 = np.array([100*1.01**i for i in a])
+	a2 = a1**2
+	b = df.DataFrame({'income':a1, 'foreign_income':a2}, index = dates)
+
+	manager.add_revenue(b, name = 'b', columns = ['income'])
+	self.assertTrue((b['income'] == manager.revenue['b_income']).all())
+	manager.add_revenue(b, name = 'c')
+	self.assertTrue((b['income'] == manager.revenue['c_income']).all())
+	self.assertTrue((b['foreign_income'] == manager.revenue['c_foreign_income'].all())
+
+    def testAddDeductionStream(self):
+	"""TaxManager should correctly add a depreciation stream"""
+	manager = pf.TaxManager()
+	dates = pd.date_range(dt.datetime(2015,01,01), dt.datetime(2025,01,01), freq = 'D')
+
+	a = range(0,len(dates))
+	a1 = np.array([100*1.01**i for i in a])
+	a2 = a1**2
+	b = df.DataFrame({'depreciation':a1, 'expenses':a2}, index = dates)
+	manager.add_deduction(b, name = 'b', columns = ['depreciation','expenses'])
+	self.assertTrue((b['depreciation'] == manager.deductions['b_depreciation']).all())
+	self.assertTrue((b['expenses'] == manager.expenses['b_expenses']).all())
+	manager.add_deduction(b, name = 'c')
+	self.assertTrue((b['depreciation'] == manager.deductions['c_depreciation']).all())
+	self.assertTrue((b['expenses'] == manager.deductions['c_expenses']).all())
 
     def testAddTax(self):
-	"""TaxManager should correctly add a tax"""
-	self.assertTrue(False)
+	"""TaxManager should correctly add a tax
+	-Need to test adding an empty tax with the tax parameters, but no associated revenue, deductions, or credits
+	-TaxManager has a factory feature that creates the appropriate tax object
 
-    def testAggregateTaxes(self):
+        """
+	dates = pd.date_range(dt.datetime(2015,01,01), dt.datetime(2025,01,01), freq = 'D')
+	a = range(0,len(dates))
+	a1 = np.array([100*1.0001**i for i in a])
+	b = df.DataFrame({'income':a1}, index = dates)
+	a2 = a1*.05
+	a3 = a1*.03
+	d = df.DataFrame({'depreciation':a2,'interest':a3}, index = dates)
+	r = 0.35
+	kw2 = {'basis':b}
+	cr = pf.TaxCredit(name = 'ITC', refundable = False, kind = 'Fractional', rate = 0.15, **kw2)
+	c = [cr]
+
+	kwargs = {}
+	kwargs['name'] = 'fed1'
+	kwargs['rate'] = r
+	t = pf.FractionalTax(**kwargs)
+	manager = TaxManager()
+	manager.create_tax(kind = 'Fractional', **kwargs)
+
+	self.assertEqual(t, manager.taxes['fed1'])
+
+	manager=TaxManager()
+	manager.create_tax(kind= 'Fractional', **kwargs)
+	manager.add_revenue(b, name = 'US')
+	manager.add_deductions(d, name = 'US')	
+
+	manager.associate_revenue('fed1', ['US_income'])
+	manager.associate_deductions('fed1', ['US_depreciation','US_interest'])
+
+	kwargs2['name'] = 'fed1'
+	kwargs2['rate'] = r
+	kwargs2['basis'] = b
+	kwargs2['deductions'] = d
+	
+	t = pf.FractionalTax(**kwargs)
+	manager.build_taxes()	#This is an internal function that would not normally be externally called, but is here for test purposes
+	self.assertEqual(t, manager.taxes['fed1'])
+
+	#Test that fractional tax is created correctly
+	
+
+	#Test that tax is created correctly with associated income, depreciation columns
+
+
+    def testAddTaxCredit(self):
+	"""TaxManager should successfully add a TaxCredit object to its list of tax credits"""
+	dates = pd.date_range(dt.datetime(2015,01,01), dt.datetime(2025,01,01), freq = 'D')
+	a = range(0,len(dates))
+	a1 = np.array([100*1.0001**i for i in a])
+	b = df.DataFrame({'income':a1}, index = dates)
+	a2 = a1*.05
+	a3 = a1*.03
+	d = df.DataFrame({'depreciation':a2,'interest':a3}, index = dates)
+	r = 0.35
+	kw2 = {'basis':b}
+	cr = pf.TaxCredit(name = 'ITC', refundable = True, kind = 'Fixed', rate = 10000.0, **kw2)
+	c = [cr]
+	kwargs['name'] = 'ITC'
+	kwargs['rate'] = 10000.00
+	kwargs['refundable'] = True
+
+	manager.create_tax_credit(kind = 'Fixed', **kwargs)
+	manager.add_revenue(b, name = 'US')
+	manager.associate_revenue('ITC', ['US_income'])
+	
+	manager.build_taxes()
+	self.assertEqual(cr, manager.credits['ITC'])
+
+    def testBadInputs(self):
+	manager = TaxManager()
+
+	#TaxCredit with the same name as a tax
+	kwargs = {}
+	kwargs['name'] = 'fed1'
+	kwargs['rate'] = 0.35
+	manager.create_tax(kind = 'Fractional', **kwargs)
+	kwargs['kind'] = 'Fractional'
+	self.assertRaises(pf.TaxManagerError, manager.create_tax_credit, **kwargs)
+	#Tax with the same name as a tax
+	self.assertRasies(pf.TaxManagerError, manager.create_tax, **kwargs)
+	kwargs['name'] = 'ITC'
+	manager.create_tax_credit(**kwargs)
+	self.assertRaises(pf.TaxManagerError, manager.create_tax, **kwargs)
+
+	#Kind of tax/tax credit that doesn't exist
+	kwargs['kind'] = 'RegressiveFlatTax'
+	self.assertRaises(pf.TaxManagerError, manager.create_tax, **kwargs)
+	self.assertRaises(pf.TaxManagerError, manager.create_tax_credit, **kwargs)
+	#Revenue stream not in the list
+	kwargs = {}
+	kwargs['tax'] = 'fed1'
+	kwargs['revenue'] = ['poop']
+	self.assertRaises(pf.TaxManagerError, manager.associate_revenue, **kwargs)
+	kwargs = {}
+	kwargs['tax'] = 'fed1'
+	kwargs['deductions'] = ['kangaroo']
+
+
+	#Deductions not in the list
+	self.assertRaises(pf.TaxManagerError, manager.associate_deductions, **kwargs)
+
+	#Credits not in the list
+	kwargs = {}
+	kwargs['tax'] = 'fed1'
+	kwargs['credits'] = 'juicy'
+	self.assertRaises(pf.TaxManagerError, manager.associate_credits, **kwargs)
+
+	#Tax for deductions not in the list
+	kwargs = {}
+	kwargs['tax'] = 'fed1'
+	kwargs['deductible_taxes'] = ['fed2']
+	self.assertRaises(pf.TaxManagerError, manager.associate_deductible_taxes, **kwargs)
+
+    def testAggregateTaxesNoCrossDeduction(self):
+	"""TaxManager should correctly aggregate the taxes and return a tax column"""
+
+
+	#First case is not cross deductable
+	dates = pd.date_range(dt.datetime(2015,01,01), dt.datetime(2025,01,01), freq = 'D')
+	a = range(0,len(dates))
+	a1 = np.array([100*1.0001**i for i in a])
+	b = df.DataFrame({'income':a1}, index = dates)
+	a2 = a1*.05
+	a3 = a1*.03
+	d = df.DataFrame({'depreciation':a2,'interest':a3}, index = dates)
+	r = 0.35
+	kw2 = {'basis':b}
+	r2 = {0.0:0.1, 25000.0:0.25, 35000.0:0.35}
+
+	kwargs = {}
+	kwargs['name'] = 'fed'
+	kwargs['rate'] = r
+
+	manager = TaxManager(revenue = b, deductions = d)
+	manager.create_tax(kind = 'Fractional', revenue = 'income', deductions = ['depreciation','interest'], **kwargs)	
+	kwargs['rate'] = r2
+	kwargs['name'] = 'fed2'
+	manager.create_tax(kind = 'GraduatedFractional', revenue = 'income', deductions = ['depreciation','interest'],**kwargs)
+	manager.build_tax_schedule()
+	
+	test_dates = [dt.datetime(2015,01,01), dt.datetime(2017,04,15), dt.datetime(2019,10,31), dt.datetime(2024,12,31)]
+	fed1_test_vals = [17.2, 18.6977876448,20.5179592665,26.220554]
+	fed2_test_vals = [12.911837, 15.296399, 18.30583,24.7813443226]
+	agg_test_vals = [30.1118731645, 33.99418678,38.8237891985,51.0018986985]
+	for td, f1tv, f2tv, atv in zip(test_dates, fed1_test_vals, fed2_test_vals, agg_test_vals):
+		
+		self.assertAlmostEqual(manager.schedule.loc[td,'fed1_tax'], f1tv,4)
+		self.assertAlmostEqual(manager.schedule.loc[td,'fed2_tax'], f2tv,4)
+		self.assertAlmostEqual(manager.schedule.loc[td,'tax'],atv,4)
+
+    def testAggregateTaxesOneDDeduction(self):
+	"""TaxManager should correctly aggregate the taxes and return a tax column"""
+
+	#Second case is one-direction deductable
+	dates = pd.date_range(dt.datetime(2015,01,01), dt.datetime(2025,01,01), freq = 'D')
+	a = range(0,len(dates))
+	a1 = np.array([100*1.0001**i for i in a])
+	b = df.DataFrame({'income':a1}, index = dates)
+	a2 = a1*.05
+	a3 = a1*.03
+	d = df.DataFrame({'depreciation':a2,'interest':a3}, index = dates)
+	r = 0.35
+	kw2 = {'basis':b}
+	r2 = {0.0:0.1, 25000.0:0.25, 35000.0:0.35}
+
+	kwargs = {}
+	kwargs['name'] = 'fed'
+	kwargs['rate'] = r
+
+	manager = TaxManager(revenue = b, deductions = d)
+	manager.create_tax(kind = 'Fractional', revenue = 'income', deductions = ['depreciation','interest'], **kwargs)	
+	kwargs['rate'] = r2
+	kwargs['name'] = 'fed2'
+	manager.create_tax(kind = 'GraduatedFractional', revenue = 'income', deductions = ['depreciation','interest'],**kwargs)
+	manager.associate_deductible_taxes('fed2', 'fed1')
+	manager.build_tax_schedule()
+
+
+	
+	test_dates = [dt.datetime(2015,01,01), dt.datetime(2017,04,15), dt.datetime(2019,10,31), dt.datetime(2024,12,31)]
+	fed1_test_vals = [17.2, 18.6977876448,20.5179592665,26.220554]
+	fed2_test_vals = [8.611873165,10.13482314,11.90730403,17.42708386]
+	agg_test_vals = [25.81187316,28.83261079,32.42526329,42.32842819]
+	for td, f1tv, f2tv, atv in zip(test_dates, fed1_test_vals, fed2_test_vals, agg_test_vals):
+		
+		self.assertAlmostEqual(manager.schedule.loc[td,'fed1_tax'], f1tv,4)
+		self.assertAlmostEqual(manager.schedule.loc[td,'fed2_tax'], f2tv,4)
+		self.assertAlmostEqual(manager.schedule.loc[td,'tax'],atv,4)	
+
+    def testAggregateTaxesCrossDeduction(self):
 	"""TaxManager should correctly aggregate the taxes and return a tax column"""
 	self.assertTrue(False)
 
-    def testAggregateTaxesDetailed(self):
-	"""TaxManager should correctly aggregate the taxes and return a detailed tax dataframe"""
-	self.assertTrue(False)
+	#Third case is reciprocally cross deductable
+	dates = pd.date_range(dt.datetime(2015,01,01), dt.datetime(2025,01,01), freq = 'D')
+	a = range(0,len(dates))
+	a1 = np.array([100*1.0001**i for i in a])
+	b = df.DataFrame({'income':a1}, index = dates)
+	a2 = a1*.05
+	a3 = a1*.03
+	d = df.DataFrame({'depreciation':a2,'interest':a3}, index = dates)
+	r = 0.35
+	kw2 = {'basis':b}
+	r2 = {0.0:0.1, 25000.0:0.25, 35000.0:0.35}
 
-    """Want cases for foreign taxes with cross credits, N-sum tax carryover, etc."""
+	kwargs = {}
+	kwargs['name'] = 'fed'
+	kwargs['rate'] = r
+
+	manager = TaxManager(revenue = b, deductions = d)
+	manager.create_tax(kind = 'Fractional', revenue = 'income', deductions = ['depreciation','interest'], **kwargs)	
+	kwargs['rate'] = r2
+	kwargs['name'] = 'fed2'
+	manager.create_tax(kind = 'GraduatedFractional', revenue = 'income', deductions = ['depreciation','interest'],**kwargs)
+	manager.associate_deductible_taxes('fed1',['fed2'])
+	manager.associate_deductible_taxes('fed2',['fed1'])
+	manager.build_tax_schedule()
+	
+	test_dates = []
+	fed1_test_vals = []
+	fed2_test_vals = []
+	agg_test_vals = []
+	for td, f1tv, f2tv, atv in zip(test_dates, fed1_test_vals, fed2_test_vals, agg_test_vals):
+		
+		self.assertEqual(manager.schedule.loc[td,'fed1_tax'], f1tv)
+		self.assertEqual(manager.schedule.loc[td,'fed2_tax'], f2tv)
+		self.assertEqual(manager.schedule.loc[td,'tax'],atv)
+
 
 
 

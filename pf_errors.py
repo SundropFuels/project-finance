@@ -103,3 +103,6 @@ class BadTaxCreditInput(ProjFinError):
 
 class TaxUnderdefinedError(ProjFinError):
     pass
+
+class TaxManagerError(ProjFinError):
+    pass

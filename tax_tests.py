@@ -537,11 +537,6 @@ class TaxCreditTests(unittest.TestCase):
 	kwargs['kind'] = 'bleh'
 	self.assertRaises(pf.BadTaxCreditInput, pf.FractionalTaxCredit, **kwargs)
 
-    def testBuildScheduleCorrectly(self):
-	"""TaxCredit should correctly build its own schedule"""
-
-	self.assertTrue(False)
-
 
 class TaxManagerTests(unittest.TestCase):
    
@@ -571,10 +566,10 @@ class TaxManagerTests(unittest.TestCase):
 	a1 = np.array([100*1.01**i for i in a])
 	a2 = a1**2
 	b = df.DataFrame({'depreciation':a1, 'expenses':a2}, index = dates)
-	manager.add_deduction(b, name = 'b', columns = ['depreciation','expenses'])
+	manager.add_deductions(b, name = 'b', columns = ['depreciation','expenses'])
 	self.assertTrue((b['depreciation'] == manager.deductions['b_depreciation']).all())
-	self.assertTrue((b['expenses'] == manager.expenses['b_expenses']).all())
-	manager.add_deduction(b, name = 'c')
+	self.assertTrue((b['expenses'] == manager.deductions['b_expenses']).all())
+	manager.add_deductions(b, name = 'c')
 	self.assertTrue((b['depreciation'] == manager.deductions['c_depreciation']).all())
 	self.assertTrue((b['expenses'] == manager.deductions['c_expenses']).all())
 
@@ -600,12 +595,12 @@ class TaxManagerTests(unittest.TestCase):
 	kwargs['name'] = 'fed1'
 	kwargs['rate'] = r
 	t = pf.FractionalTax(**kwargs)
-	manager = TaxManager()
+	manager = pf.TaxManager()
 	manager.create_tax(kind = 'Fractional', **kwargs)
 
 	self.assertEqual(t, manager.taxes['fed1'])
 
-	manager=TaxManager()
+	manager= pf.TaxManager()
 	manager.create_tax(kind= 'Fractional', **kwargs)
 	manager.add_revenue(b, name = 'US')
 	manager.add_deductions(d, name = 'US')	
@@ -653,7 +648,7 @@ class TaxManagerTests(unittest.TestCase):
 	self.assertEqual(cr, manager.credits['ITC'])
 
     def testBadInputs(self):
-	manager = TaxManager()
+	manager = pf.TaxManager()
 
 	#TaxCredit with the same name as a tax
 	kwargs = {}
@@ -717,7 +712,7 @@ class TaxManagerTests(unittest.TestCase):
 	kwargs['name'] = 'fed'
 	kwargs['rate'] = r
 
-	manager = TaxManager(revenue = b, deductions = d)
+	manager = pf.TaxManager(revenue = b, deductions = d)
 	manager.create_tax(kind = 'Fractional', revenue = 'income', deductions = ['depreciation','interest'], **kwargs)	
 	kwargs['rate'] = r2
 	kwargs['name'] = 'fed2'
@@ -753,7 +748,7 @@ class TaxManagerTests(unittest.TestCase):
 	kwargs['name'] = 'fed'
 	kwargs['rate'] = r
 
-	manager = TaxManager(revenue = b, deductions = d)
+	manager = pf.TaxManager(revenue = b, deductions = d)
 	manager.create_tax(kind = 'Fractional', revenue = 'income', deductions = ['depreciation','interest'], **kwargs)	
 	kwargs['rate'] = r2
 	kwargs['name'] = 'fed2'
@@ -793,7 +788,7 @@ class TaxManagerTests(unittest.TestCase):
 	kwargs['name'] = 'fed'
 	kwargs['rate'] = r
 
-	manager = TaxManager(revenue = b, deductions = d)
+	manager = pf.TaxManager(revenue = b, deductions = d)
 	manager.create_tax(kind = 'Fractional', revenue = 'income', deductions = ['depreciation','interest'], **kwargs)	
 	kwargs['rate'] = r2
 	kwargs['name'] = 'fed2'

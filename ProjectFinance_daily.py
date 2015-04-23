@@ -2641,19 +2641,21 @@ class TaxManager(object):
         """Adds revenue streams from a dataframe"""
 
 	if revenue is None:
-	    pass
+	    return
 
         elif not isinstance(revenue, df.DataFrame):
             raise TaxManagerError, "revenue must be an instance of DataFrame, got %s" % type(revenue)
 
         else:
-	    rn_revenue = revenue.rename(columns = lambda x: "%s_%s" (name,x))
+	    rn_revenue = revenue.rename(columns = lambda x: "%s_%s" % (name,x))
 
             if columns is None:
                 columns = rn_revenue.columns
 	    elif isinstance(columns, basestring):
-		columns = [columns]
-	    elif not isinstance(columns, list):
+		columns = ["%s_%s" % (name, columns)]
+	    elif isinstance(columns, list):
+		columns = ["%s_%s" % (name, c) for c in columns]
+	    else:
 		raise TaxManagerError, "columns must be a string or a list, got %s" % type(columns)
             for col in columns:
                 if not col in rn_revenue.columns:
@@ -2665,20 +2667,22 @@ class TaxManager(object):
     def add_deductions(self, deductions, name = "", columns = None):
         """Adds deduction streams from a dataframe"""
 	if deductions is None:
-	    pass
+	    return
 
         elif not isinstance(deductions, df.DataFrame):
 	    raise TaxManagerError, "deductions must be an instance of DataFrame, got %s" % type(deductions)
 
 	else:
-	    rn_deductions = deductions.rename(columns = lambda x: "%s_%s" (name,x))
+	    rn_deductions = deductions.rename(columns = lambda x: "%s_%s" % (name,x))
 	    
 	    if columns is None:
 		columns = rn_deductions.columns
 
 	    elif isinstance(columns, basestring):
-		columns = [columns]
-	    elif not isinstance(columns, list):
+		columns = ["%s_%s" % (name, columns)]
+	    elif isinstance(columns, list):
+		columns = ["%s_%s" % (name, c) for c in columns]
+	    else:
 		raise TaxManagerError, "columns must be a string or a list, got %s" % type(columns)
 
 
@@ -2687,13 +2691,13 @@ class TaxManager(object):
 		    raise TaxManagerError, "%s is not a column in the given deduction dataframe" % col
 		if col in self.deductions.columns:
 		    raise TaxManagerError, "%s already exists in the deductions dataframe" % col
-		self.deductions = self.deductions.join(rn_deductions[columns], how='outer').fillna(0.0)
+            self.deductions = self.deductions.join(rn_deductions[columns], how='outer').fillna(0.0)
 
     
     def add_taxes(self, taxes=None, revenue_associations=None, deduction_associations=None, credit_associations = None):
 	"""Adds a set of taxes to the TaxManager"""
 	if taxes is None:
-	    pass
+	    return
 
 	elif isinstance(taxes, Tax):
 	    taxes = [taxes]
@@ -2729,7 +2733,7 @@ class TaxManager(object):
 
     def add_credits(self, credits = None, revenue_associations = None):
 	if credits is None:
-	    pass
+	    return
 
         elif isinstance(credits, TaxCredit):
 	    credits = [credits]
@@ -2805,7 +2809,7 @@ class TaxManager(object):
 	except KeyError:
 	    raise TaxManagerError, "%s is not a valid type of Tax" % kind
 
-	self.add_tax(new_tax, revenue_asociations = revenue, deduction_associations = deductions, credit_associations = credits)
+	self.add_taxes(new_tax, revenue_associations = revenue, deduction_associations = deductions, credit_associations = credits)
 	
 
     def create_tax_credit(self, kind, revenue = None, **kwargs):
@@ -2813,7 +2817,7 @@ class TaxManager(object):
 	    new_credit = globals()['%sTaxCredit' % kind](**kwargs)
 	except KeyError:
 	    raise TaxManagerError, "%s is not a valid type of TaxCredit" % kind
-        self.add_tax_credit(new_credit, revenue_associations = revenue)
+        self.add_credits(new_credit, revenue_associations = revenue)
 
     def build_tax_schedule(self):
 	"""Builds the aggregated tax schedule"""

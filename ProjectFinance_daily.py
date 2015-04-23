@@ -2586,6 +2586,7 @@ class TaxCredit(object):
     def __init__(self, refundable = False, kind = 'Fixed', **kwargs):
 	self.refundable = refundable
 	self.kind = kind
+	self.name = kwargs['name']
 	try:
 	    self.credit = globals()['%sTax' % self.kind](**kwargs)
 	except NameError:
@@ -2610,6 +2611,15 @@ class TaxCredit(object):
         if not isinstance(v, basestring):
             raise BadTaxCreditInput, "kind must be a string"
         self._kind = v
+
+    @property
+    def basis(self):
+	return self.credit.basis
+
+    @basis.setter
+    def basis(self, v):
+        self.credit.basis = v
+
 
     def build_credit_schedule(self):
         self.credit.build_tax_schedule()
@@ -2728,7 +2738,7 @@ class TaxManager(object):
 		self.associate_credits(tax.name, assc_credits)
 
 	    self.associate_revenue(tax.name, revenue_associations)
-	    self.associate_deductions(tax.name, deductions_associations)
+	    self.associate_deductions(tax.name, deduction_associations)
 	    self.associate_credits(tax.name, credit_associations)
 
     def add_credits(self, credits = None, revenue_associations = None):
@@ -2767,10 +2777,15 @@ class TaxManager(object):
 	self._associate('deductible_taxes', name, tax_associations, ['taxes'], 'taxes')
 
     def _associate(self, index, name, assc, containers, df):
-	m = False
+
+	if assc is None:
+ 	    return
+
+	m = True
 	for c in containers:
-	    if name not in getattr(self,c):
-		m = True
+	    if name in getattr(self,c):
+		m = False
+	        break
 	if m:
 	    raise TaxManagerError, "%s does not exist in either the tax or credit dictionaries" % name 
 	
@@ -2800,7 +2815,7 @@ class TaxManager(object):
 	    elif isinstance(d, dict):
 		if n not in d:
 		    raise TaxManagerError, "%s does not exist in the relevant dataframe" % n
-	d[name].extend(assc)
+	getattr(self,index)[name].extend(assc)
 
 
     def create_tax(self, kind, revenue = None, deductions = None, credits = None, **kwargs):
@@ -2814,7 +2829,8 @@ class TaxManager(object):
 
     def create_tax_credit(self, kind, revenue = None, **kwargs):
 	try:
-	    new_credit = globals()['%sTaxCredit' % kind](**kwargs)
+	    kwargs['kind'] = kind
+	    new_credit = globals()['TaxCredit'](**kwargs)
 	except KeyError:
 	    raise TaxManagerError, "%s is not a valid type of TaxCredit" % kind
         self.add_credits(new_credit, revenue_associations = revenue)

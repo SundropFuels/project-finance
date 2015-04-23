@@ -636,10 +636,11 @@ class TaxManagerTests(unittest.TestCase):
 	kw2 = {'basis':b}
 	cr = pf.TaxCredit(name = 'ITC', refundable = True, kind = 'Fixed', rate = 10000.0, **kw2)
 	c = [cr]
+	kwargs = {}
 	kwargs['name'] = 'ITC'
 	kwargs['rate'] = 10000.00
 	kwargs['refundable'] = True
-
+	manager = pf.TaxManager()
 	manager.create_tax_credit(kind = 'Fixed', **kwargs)
 	manager.add_revenue(b, name = 'US')
 	manager.associate_revenue('ITC', ['US_income'])
@@ -658,7 +659,7 @@ class TaxManagerTests(unittest.TestCase):
 	kwargs['kind'] = 'Fractional'
 	self.assertRaises(pf.TaxManagerError, manager.create_tax_credit, **kwargs)
 	#Tax with the same name as a tax
-	self.assertRasies(pf.TaxManagerError, manager.create_tax, **kwargs)
+	self.assertRaises(pf.TaxManagerError, manager.create_tax, **kwargs)
 	kwargs['name'] = 'ITC'
 	manager.create_tax_credit(**kwargs)
 	self.assertRaises(pf.TaxManagerError, manager.create_tax, **kwargs)
@@ -669,12 +670,12 @@ class TaxManagerTests(unittest.TestCase):
 	self.assertRaises(pf.TaxManagerError, manager.create_tax_credit, **kwargs)
 	#Revenue stream not in the list
 	kwargs = {}
-	kwargs['tax'] = 'fed1'
-	kwargs['revenue'] = ['poop']
+	kwargs['name'] = 'fed1'
+	kwargs['revenue_associations'] = ['poop']
 	self.assertRaises(pf.TaxManagerError, manager.associate_revenue, **kwargs)
 	kwargs = {}
-	kwargs['tax'] = 'fed1'
-	kwargs['deductions'] = ['kangaroo']
+	kwargs['name'] = 'fed1'
+	kwargs['deduction_associations'] = ['kangaroo']
 
 
 	#Deductions not in the list
@@ -682,14 +683,14 @@ class TaxManagerTests(unittest.TestCase):
 
 	#Credits not in the list
 	kwargs = {}
-	kwargs['tax'] = 'fed1'
-	kwargs['credits'] = 'juicy'
+	kwargs['name'] = 'fed1'
+	kwargs['credit_associations'] = 'juicy'
 	self.assertRaises(pf.TaxManagerError, manager.associate_credits, **kwargs)
 
 	#Tax for deductions not in the list
 	kwargs = {}
-	kwargs['tax'] = 'fed1'
-	kwargs['deductible_taxes'] = ['fed2']
+	kwargs['name'] = 'fed1'
+	kwargs['tax_associations'] = ['fed2']
 	self.assertRaises(pf.TaxManagerError, manager.associate_deductible_taxes, **kwargs)
 
     def testAggregateTaxesNoCrossDeduction(self):

@@ -734,8 +734,7 @@ class TaxManagerTests(unittest.TestCase):
 	
 
 	test_dates = [dt.datetime(2015,01,01), dt.datetime(2017,04,15), dt.datetime(2019,10,31), dt.datetime(2024,12,31)]
-	for date in test_dates:
-	    print manager.schedule.loc[date,:]
+	
 	fed1_test_vals = [17.2, 18.6977876448,20.5179592665,24.7813443226]
 	fed2_test_vals = [12.911837, 15.296399, 18.30784,26.220554]
 	agg_test_vals = [30.1118731645, 33.99418678,38.8257995673,51.0018986985]

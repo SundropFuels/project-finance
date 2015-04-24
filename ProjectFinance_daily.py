@@ -2882,6 +2882,7 @@ class TaxManager(object):
 	        self.schedule['%s_tax'%tax] = self.taxes[tax].schedule['tax']
 	        self.schedule.fillna(0.0)
 		converged = ((self.schedule['%s_tax' % tax] - last[tax])<0.01).all()	#using absolute convergence here
+	        last[tax] = self.schedule['%s_tax' % tax]
 	    for tax in self.taxes:
 		if tax in self.deductible_taxes:
 		   for d_tax in self.deductible_taxes[tax]:

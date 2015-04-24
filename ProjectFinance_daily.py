@@ -2327,7 +2327,6 @@ class Tax(object):
 	if len(self.basis.index) == 0:
 	    raise TaxUnderdefinedError, "The basis must be set for a tax to be calculated"
 
-
 class GraduatedFractionalTax(Tax):
     """Proportional tax on a rate schedule"""
 
@@ -2883,11 +2882,12 @@ class TaxManager(object):
 	        self.schedule.fillna(0.0)
 		converged = ((self.schedule['%s_tax' % tax] - last[tax])<0.01).all()	#using absolute convergence here
 	        last[tax] = self.schedule['%s_tax' % tax]
+		print self.schedule['%s_tax' % tax] - last[tax]
 	    for tax in self.taxes:
 		if tax in self.deductible_taxes:
 		   for d_tax in self.deductible_taxes[tax]:
 			self.taxes[tax].deductions[d_tax] = self.taxes[d_tax].schedule['tax']
-		   tax.deductions.fillna(0.0) 	#deal with mismatches
+		   self.taxes[tax].deductions.fillna(0.0) 	#deal with mismatches
 
 	    N += 1
 

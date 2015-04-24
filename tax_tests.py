@@ -598,7 +598,9 @@ class TaxManagerTests(unittest.TestCase):
 	manager = pf.TaxManager()
 	manager.create_tax(kind = 'Fractional', **kwargs)
 
-	self.assertEqual(t, manager.taxes['fed1'])
+	self.assertTrue(t.rate == manager.taxes['fed1'].rate)
+	self.assertTrue(t.name == manager.taxes['fed1'].name)
+
 
 	manager= pf.TaxManager()
 	manager.create_tax(kind= 'Fractional', **kwargs)
@@ -607,15 +609,18 @@ class TaxManagerTests(unittest.TestCase):
 
 	manager.associate_revenue('fed1', ['US_income'])
 	manager.associate_deductions('fed1', ['US_depreciation','US_interest'])
-
+	kwargs2 = {}
 	kwargs2['name'] = 'fed1'
 	kwargs2['rate'] = r
 	kwargs2['basis'] = b
 	kwargs2['deductions'] = d
 	
-	t = pf.FractionalTax(**kwargs)
-	manager.build_taxes()	#This is an internal function that would not normally be externally called, but is here for test purposes
-	self.assertEqual(t, manager.taxes['fed1'])
+	t = pf.FractionalTax(**kwargs2)
+
+	self.assertTrue((t.basis == manager.taxes['fed1'].basis).all())
+	self.assertTrue((t.deductions == manager.taxes['fed1'].deductions).all())
+	self.assertTrue(t.rate == manager.taxes['fed1'].rate)
+	self.assertTrue(t.name == manager.taxes['fed1'].name)
 
 	#Test that fractional tax is created correctly
 	
@@ -645,7 +650,7 @@ class TaxManagerTests(unittest.TestCase):
 	manager.add_revenue(b, name = 'US')
 	manager.associate_revenue('ITC', ['US_income'])
 	
-	manager.build_taxes()
+	manager.build_tax_schedule()
 	self.assertEqual(cr, manager.credits['ITC'])
 
     def testBadInputs(self):
@@ -764,13 +769,13 @@ class TaxManagerTests(unittest.TestCase):
 	kwargs['rate'] = r
 
 	manager = pf.TaxManager(revenue = b, deductions = d)
-	manager.create_tax(kind = 'Fractional', revenue = 'income', deductions = ['depreciation','interest'], **kwargs)	
+	manager.create_tax(kind = 'Fractional', revenue = '_income', deductions = ['_depreciation','_interest'], **kwargs)	
 	kwargs['rate'] = r2
 	kwargs['name'] = 'fed2'
-	manager.create_tax(kind = 'GraduatedFractional', revenue = 'income', deductions = ['depreciation','interest'],**kwargs)
-	manager.associate_deductible_taxes('fed2', 'fed1')
+	manager.create_tax(kind = 'GraduatedFractional', revenue = '_income', deductions = ['_depreciation','_interest'],**kwargs)
+	manager.associate_deductible_taxes('fed2', 'fed')
 	manager.build_tax_schedule()
-
+	print manager.schedule
 
 	
 	test_dates = [dt.datetime(2015,01,01), dt.datetime(2017,04,15), dt.datetime(2019,10,31), dt.datetime(2024,12,31)]
@@ -779,7 +784,7 @@ class TaxManagerTests(unittest.TestCase):
 	agg_test_vals = [25.81187316,28.83261079,32.42526329,42.32842819]
 	for td, f1tv, f2tv, atv in zip(test_dates, fed1_test_vals, fed2_test_vals, agg_test_vals):
 		
-		self.assertAlmostEqual(manager.schedule.loc[td,'fed1_tax'], f1tv,4)
+		self.assertAlmostEqual(manager.schedule.loc[td,'fed_tax'], f1tv,4)
 		self.assertAlmostEqual(manager.schedule.loc[td,'fed2_tax'], f2tv,4)
 		self.assertAlmostEqual(manager.schedule.loc[td,'tax'],atv,4)	
 

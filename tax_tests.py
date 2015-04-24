@@ -708,25 +708,40 @@ class TaxManagerTests(unittest.TestCase):
 	r = 0.35
 	kw2 = {'basis':b}
 	r2 = {0.0:0.1, 25000.0:0.25, 35000.0:0.35}
+	
+	cr = pf.TaxCredit(name = 'ITC', refundable = False, kind = 'Fractional', rate = 0.15, **kw2)
+	c = [cr]
 
 	kwargs = {}
 	kwargs['name'] = 'fed'
 	kwargs['rate'] = r
 
 	manager = pf.TaxManager(revenue = b, deductions = d)
-	manager.create_tax(kind = 'Fractional', revenue = 'income', deductions = ['depreciation','interest'], **kwargs)	
+	manager.create_tax(kind = 'Fractional', revenue = '_income', deductions = ['_depreciation','_interest'], **kwargs)
+	kwargs = {}	
 	kwargs['rate'] = r2
 	kwargs['name'] = 'fed2'
-	manager.create_tax(kind = 'GraduatedFractional', revenue = 'income', deductions = ['depreciation','interest'],**kwargs)
+	manager.create_tax(kind = 'GraduatedFractional', revenue = '_income', deductions = ['_depreciation','_interest'],**kwargs)
+	kwargs['name'] = 'ITC'
+	kwargs['refundable'] = False
+	kwargs['rate'] = 0.15
+	manager.create_tax_credit(kind = 'Fractional', revenue = ['_income'], **kwargs)
+	manager.associate_credits('fed', ['ITC'])
+
+	manager.add_credits
+
 	manager.build_tax_schedule()
 	
+
 	test_dates = [dt.datetime(2015,01,01), dt.datetime(2017,04,15), dt.datetime(2019,10,31), dt.datetime(2024,12,31)]
-	fed1_test_vals = [17.2, 18.6977876448,20.5179592665,26.220554]
-	fed2_test_vals = [12.911837, 15.296399, 18.30583,24.7813443226]
-	agg_test_vals = [30.1118731645, 33.99418678,38.8237891985,51.0018986985]
+	for date in test_dates:
+	    print manager.schedule.loc[date,:]
+	fed1_test_vals = [17.2, 18.6977876448,20.5179592665,24.7813443226]
+	fed2_test_vals = [12.911837, 15.296399, 18.30784,26.220554]
+	agg_test_vals = [30.1118731645, 33.99418678,38.8257995673,51.0018986985]
 	for td, f1tv, f2tv, atv in zip(test_dates, fed1_test_vals, fed2_test_vals, agg_test_vals):
 		
-		self.assertAlmostEqual(manager.schedule.loc[td,'fed1_tax'], f1tv,4)
+		self.assertAlmostEqual(manager.schedule.loc[td,'fed_tax'], f1tv,4)
 		self.assertAlmostEqual(manager.schedule.loc[td,'fed2_tax'], f2tv,4)
 		self.assertAlmostEqual(manager.schedule.loc[td,'tax'],atv,4)
 

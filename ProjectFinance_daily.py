@@ -2365,8 +2365,10 @@ class GraduatedFractionalTax(Tax):
 
         self.schedule = self.basis.join(self.deductions, how = "outer").fillna(0.0)
 	self.schedule['taxable_income'] = np.zeros(len(self.schedule.index))
+	self.schedule['gross_income'] = np.zeros(len(self.schedule.index))	
 	for col in self.basis:
 	    self.schedule['taxable_income'] += self.schedule[col]
+	    self.schedule['gross_income'] += self.schedule[col]
 	for col in self.deductions:
 	    self.schedule['taxable_income'] -= self.schedule[col]
 
@@ -2374,6 +2376,8 @@ class GraduatedFractionalTax(Tax):
      	
 	self.schedule_agg = self.aggregate(self.schedule)
         self.schedule_agg['tax'] = np.zeros(len(self.schedule_agg.index))
+
+	
 
 
 	#we actually need to do carryover up here
@@ -2445,7 +2449,7 @@ class GraduatedFractionalTax(Tax):
 	    if self.schedule_agg.loc[year, 'tax'] == 0:
 		self.schedule['tax'][self.schedule.index.year == year] = 0.0
 	    else:
-	        self.schedule['tax'][self.schedule.index.year == year] = self.schedule_agg.loc[year, 'tax'] * self.schedule['income']/self.schedule_agg.loc[year,'income']
+	        self.schedule['tax'][self.schedule.index.year == year] = self.schedule_agg.loc[year, 'tax'] * self.schedule['gross_income']/self.schedule_agg.loc[year,'gross_income']
 	
 
 	
@@ -2846,38 +2850,49 @@ class TaxManager(object):
 	self.schedule['tax'] = np.zeros(len(self.schedule.index))
 
 	#set the bases, deductions, and credits for each of the taxes
-	last = df.DataFrame(index = self.schedule.index)	
+	last = df.DataFrame(index = self.schedule.index)
+
+	for credit in self.credits:
+	    try:
+		self.credits[credit].basis = master[self.revenue_dict[credit]]
+	    except KeyError:
+		raise TaxManagerError, "%s is underdefined.  Need to link a basis to this credit" % credit
+	
 	for tax in self.taxes:
 	    try:
-	        tax.basis = master[self.revenue_dict[tax.name]]
-	        tax.deductions = master[self.deductions_dict[tax.name]]
+	        self.taxes[tax].basis = master[self.revenue_dict[tax]]
+	        self.taxes[tax].deductions = master[self.deductions_dict[tax]]
 	    except KeyError:
-                raise TaxManagerError, "%s is underdefined.  Need to link a basis and a deduction" % tax.name
-	    tax.credits = None
-	    if tax.name in self.credits_dict:
-	        for credit in self.credits_dict[tax.name]:
-		    tax.credits.append(self.credits(credit))
-	    if tax.name in self.deductible_taxes:
-		for d_tax in self.deductible_taxes[tax.name]:
-		    tax.deductions[d_tax] = np.zeros(len(tax.deductions.index))
-	    last[tax.name] = np.zeros(len(self.schedule.index))
+                raise TaxManagerError, "%s is underdefined.  Need to link a basis and a deduction" % tax
+	    self.taxes[tax].credits = None
+	    if tax in self.credits_dict:
+	        for credit in self.credits_dict[tax]:
+		    self.taxes[tax].credits.append(self.credits[credit])
+	    if tax in self.deductible_taxes:
+		for d_tax in self.deductible_taxes[tax]:
+		    self.taxes[tax].deductions[d_tax] = np.zeros(len(self.taxes[tax].deductions.index))
+	    last[tax] = np.zeros(len(self.schedule.index))
 	converged = False
-	while not converged:
+	N = 0
+
+	while not converged and N < 5:
 	    for tax in self.taxes:
-		tax.build_tax_schedule()
+		self.taxes[tax].build_tax_schedule()
 	        #determine convergence
-	        self.schedule['%s_tax'%tax.name] = tax.schedule['tax']
+	        self.schedule['%s_tax'%tax] = self.taxes[tax].schedule['tax']
 	        self.schedule.fillna(0.0)
-		converged = ((self.schedule['%s_tax']%tax.name - last[tax.name])<0.01).all()	#using absolute convergence here
+		converged = ((self.schedule['%s_tax' % tax] - last[tax])<0.01).all()	#using absolute convergence here
 	    for tax in self.taxes:
-		if tax.name in self.deductible_taxes:
-		   for d_tax in self.deductible_taxes[tax.name]:
-			tax.deductions[d_tax] = self.taxes[d_tax].schedule['tax']
+		if tax in self.deductible_taxes:
+		   for d_tax in self.deductible_taxes[tax]:
+			self.taxes[tax].deductions[d_tax] = self.taxes[d_tax].schedule['tax']
 		   tax.deductions.fillna(0.0) 	#deal with mismatches
+
+	    N += 1
 
 	self.schedule['tax'] = np.zeros(len(self.schedule.index))
 	for tax in self.taxes:
-	    self.schedule['tax'] += self.schedule['%s_tax' % tax.name]
+	    self.schedule['tax'] += self.schedule['%s_tax' % tax]
 
 
 class PF_FileLoader:

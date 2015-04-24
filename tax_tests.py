@@ -597,7 +597,7 @@ class TaxManagerTests(unittest.TestCase):
 	t = pf.FractionalTax(**kwargs)
 	manager = pf.TaxManager()
 	manager.create_tax(kind = 'Fractional', **kwargs)
-
+	
 	self.assertTrue(t.rate == manager.taxes['fed1'].rate)
 	self.assertTrue(t.name == manager.taxes['fed1'].name)
 
@@ -616,9 +616,11 @@ class TaxManagerTests(unittest.TestCase):
 	kwargs2['deductions'] = d
 	
 	t = pf.FractionalTax(**kwargs2)
-
-	self.assertTrue((t.basis == manager.taxes['fed1'].basis).all())
-	self.assertTrue((t.deductions == manager.taxes['fed1'].deductions).all())
+	t.basis.rename(columns = lambda x: "US_%s" % x, inplace = True)
+	t.deductions.rename(columns = lambda x: "US_%s" % x, inplace = True)
+	manager.build_tax_schedule()
+	self.assertTrue((t.basis == manager.taxes['fed1'].basis).all().all())
+	self.assertTrue((t.deductions == manager.taxes['fed1'].deductions).all().all())
 	self.assertTrue(t.rate == manager.taxes['fed1'].rate)
 	self.assertTrue(t.name == manager.taxes['fed1'].name)
 
@@ -627,31 +629,6 @@ class TaxManagerTests(unittest.TestCase):
 
 	#Test that tax is created correctly with associated income, depreciation columns
 
-
-    def testAddTaxCredit(self):
-	"""TaxManager should successfully add a TaxCredit object to its list of tax credits"""
-	dates = pd.date_range(dt.datetime(2015,01,01), dt.datetime(2025,01,01), freq = 'D')
-	a = range(0,len(dates))
-	a1 = np.array([100*1.0001**i for i in a])
-	b = df.DataFrame({'income':a1}, index = dates)
-	a2 = a1*.05
-	a3 = a1*.03
-	d = df.DataFrame({'depreciation':a2,'interest':a3}, index = dates)
-	r = 0.35
-	kw2 = {'basis':b}
-	cr = pf.TaxCredit(name = 'ITC', refundable = True, kind = 'Fixed', rate = 10000.0, **kw2)
-	c = [cr]
-	kwargs = {}
-	kwargs['name'] = 'ITC'
-	kwargs['rate'] = 10000.00
-	kwargs['refundable'] = True
-	manager = pf.TaxManager()
-	manager.create_tax_credit(kind = 'Fixed', **kwargs)
-	manager.add_revenue(b, name = 'US')
-	manager.associate_revenue('ITC', ['US_income'])
-	
-	manager.build_tax_schedule()
-	self.assertEqual(cr, manager.credits['ITC'])
 
     def testBadInputs(self):
 	manager = pf.TaxManager()

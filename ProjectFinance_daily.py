@@ -2889,8 +2889,7 @@ class TaxManager(object):
 		   for d_tax in self.deductible_taxes[tax]:
 			self.taxes[tax].deductions[d_tax] = self.taxes[d_tax].schedule['tax']
 		   self.taxes[tax].deductions.fillna(0.0) 	#deal with mismatches
-	    print N
-	    N += 1
+	    
 
 	self.schedule['tax'] = np.zeros(len(self.schedule.index))
 	for tax in self.taxes:

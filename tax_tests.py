@@ -774,14 +774,23 @@ class TaxManagerTests(unittest.TestCase):
 	kwargs['name'] = 'fed2'
 	manager.create_tax(kind = 'GraduatedFractional', revenue = '_income', deductions = ['_depreciation','_interest'],**kwargs)
 	manager.associate_deductible_taxes('fed2', 'fed')
+
+	kwargs['name'] = 'ITC'
+	kwargs['refundable'] = False
+	kwargs['rate'] = 0.15
+	manager.create_tax_credit(kind = 'Fractional', revenue = ['_income'], **kwargs)
+	manager.associate_credits('fed', ['ITC'])
+
+
 	manager.build_tax_schedule()
-	print manager.schedule
+
 
 	
-	test_dates = [dt.datetime(2015,01,01), dt.datetime(2017,04,15), dt.datetime(2019,10,31), dt.datetime(2024,12,31)]
-	fed1_test_vals = [17.2, 18.6977876448,20.5179592665,26.220554]
-	fed2_test_vals = [8.611873165,10.13482314,11.90730403,17.42708386]
-	agg_test_vals = [25.81187316,28.83261079,32.42526329,42.32842819]
+	test_dates = [dt.datetime(2015,01,01), dt.datetime(2017,04,15), dt.datetime(2020,02,12), dt.datetime(2024,12,31)]
+	
+	fed1_test_vals = [17.2, 18.6977876448,20.732448736,24.781344]
+	fed2_test_vals = [8.611873165,10.13482314,12.43811455,17.54708]
+	agg_test_vals = [25.81187316,28.83261079,33.17056328,42.32842819]
 	for td, f1tv, f2tv, atv in zip(test_dates, fed1_test_vals, fed2_test_vals, agg_test_vals):
 		
 		self.assertAlmostEqual(manager.schedule.loc[td,'fed_tax'], f1tv,4)

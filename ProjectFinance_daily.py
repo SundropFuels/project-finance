@@ -2881,15 +2881,18 @@ class TaxManager(object):
 	        #determine convergence
 	        self.schedule['%s_tax'%tax] = self.taxes[tax].schedule['tax']
 	        self.schedule.fillna(0.0)
-		converged = converged and ((self.schedule['%s_tax' % tax] - last[tax])<0.01).all()	#using absolute convergence here
-	        last[tax] = self.schedule['%s_tax' % tax]
+		converged = converged and (np.absolute((self.schedule['%s_tax' % tax] - last[tax]))<0.01).all()	#using absolute convergence here
+		last[tax] = self.schedule['%s_tax' % tax]
+		
+
 
 	    for tax in self.taxes:
 		if tax in self.deductible_taxes:
 		   for d_tax in self.deductible_taxes[tax]:
 			self.taxes[tax].deductions[d_tax] = self.taxes[d_tax].schedule['tax']
 		   self.taxes[tax].deductions.fillna(0.0) 	#deal with mismatches
-	    
+
+   
 
 	self.schedule['tax'] = np.zeros(len(self.schedule.index))
 	for tax in self.taxes:

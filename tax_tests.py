@@ -776,42 +776,33 @@ class TaxManagerTests(unittest.TestCase):
 
     def testAggregateTaxesCrossDeduction(self):
 	"""TaxManager should correctly aggregate the taxes and return a tax column"""
-	self.assertTrue(False)
 
 	#Third case is reciprocally cross deductable
-	dates = pd.date_range(dt.datetime(2015,01,01), dt.datetime(2025,01,01), freq = 'D')
+	dates = pd.date_range(dt.datetime(2015,01,01), dt.datetime(2015,01,01), freq = 'D')
 	a = range(0,len(dates))
-	a1 = np.array([100*1.0001**i for i in a])
+	a1 = np.array([50000.0])
 	b = df.DataFrame({'income':a1}, index = dates)
-	a2 = a1*.05
-	a3 = a1*.03
-	d = df.DataFrame({'depreciation':a2,'interest':a3}, index = dates)
-	r = 0.35
-	kw2 = {'basis':b}
-	r2 = {0.0:0.1, 25000.0:0.25, 35000.0:0.35}
+	
+	r1 = 0.10
+
+	r2 = 0.05
 
 	kwargs = {}
-	kwargs['name'] = 'fed'
-	kwargs['rate'] = r
+	kwargs['name'] = 'fed1'
+	kwargs['rate'] = r1
 
-	manager = pf.TaxManager(revenue = b, deductions = d)
-	manager.create_tax(kind = 'Fractional', revenue = 'income', deductions = ['depreciation','interest'], **kwargs)	
+	manager = pf.TaxManager(revenue = b)
+	manager.create_tax(kind = 'Fractional', revenue = '_income', **kwargs)	
 	kwargs['rate'] = r2
 	kwargs['name'] = 'fed2'
-	manager.create_tax(kind = 'GraduatedFractional', revenue = 'income', deductions = ['depreciation','interest'],**kwargs)
+	manager.create_tax(kind = 'Fractional', revenue = '_income', **kwargs)
 	manager.associate_deductible_taxes('fed1',['fed2'])
 	manager.associate_deductible_taxes('fed2',['fed1'])
 	manager.build_tax_schedule()
-	
-	test_dates = []
-	fed1_test_vals = []
-	fed2_test_vals = []
-	agg_test_vals = []
-	for td, f1tv, f2tv, atv in zip(test_dates, fed1_test_vals, fed2_test_vals, agg_test_vals):
-		
-		self.assertEqual(manager.schedule.loc[td,'fed1_tax'], f1tv)
-		self.assertEqual(manager.schedule.loc[td,'fed2_tax'], f2tv)
-		self.assertEqual(manager.schedule.loc[td,'tax'],atv)
+
+	self.assertAlmostEqual(manager.schedule.loc[dt.datetime(2015,01,01),'fed1_tax'], 4773.869,2)
+	self.assertAlmostEqual(manager.schedule.loc[dt.datetime(2015,01,01),'fed2_tax'], 2261.307,2)
+	self.assertAlmostEqual(manager.schedule.loc[dt.datetime(2015,01,01),'tax'],4773.869+2261.307,2)
 
 
 
